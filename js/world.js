@@ -595,7 +595,30 @@ function spawnCop() {
     { start: { x: vx[1] + 60, y: M + 10 }, path: [B, C, D, A] },
     { start: { x: vx[0] + 60, y: H - M - 10 }, path: [D, C, B, A] },
   ];
-  const v = variants[G.cops % variants.length];
+  let v = variants[G.cops % variants.length];
+  // cul-de-sac and custom maps aren't a street grid: tour the main road and drive up and back
+  // down each side street that meets it (never cutting across yards)
+  if (world.cul && world.roads && world.roads.length) {
+    const roads = world.roads.filter(r => Math.max(r.w, r.h) > 1.5 * Math.min(r.w, r.h));   // skip the round turnarounds
+    const main = roads.slice().sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h))[0];
+    if (main) {
+      const horiz = main.w >= main.h, mc = horiz ? main.y + main.h / 2 : main.x + main.w / 2;
+      const along = p => horiz ? { x: p, y: mc } : { x: mc, y: p };
+      const lo = horiz ? main.x + 40 : main.y + 40, hi = horiz ? main.x + main.w - 40 : main.y + main.h - 40;
+      const sides = roads.filter(r => r !== main && (horiz ? r.h > r.w : r.w > r.h)).map(r => {
+        const c = horiz ? r.x + r.w / 2 : r.y + r.h / 2;
+        const a = horiz ? r.y + 40 : r.x + 40, b = horiz ? r.y + r.h - 40 : r.x + r.w - 40;
+        const far = Math.abs(a - mc) > Math.abs(b - mc) ? a : b;
+        return { c, far };
+      }).filter(q => q.c > lo && q.c < hi).sort((p, q) => p.c - q.c);
+      const pts = [along(lo)];
+      for (const q of sides) { pts.push(along(q.c)); pts.push(horiz ? { x: q.c, y: q.far } : { x: q.far, y: q.c }); pts.push(along(q.c)); }
+      pts.push(along(hi));
+      for (let i = sides.length - 1; i >= 0; i--) pts.push(along(sides[i].c));
+      const path = G.cops % 2 ? pts.slice().reverse() : pts;
+      v = { start: path[0], path };
+    }
+  }
   const cop = makeWatcher('cop', v.path, {
     start: v.start, speed: 175, fov: 1.0, range: 330, pause: 0.6, rate: 0, stopDist: 70,
     label: G.cops === 0 ? NAMES.cop : 'Deputy #' + (G.cops + 1),

@@ -617,6 +617,8 @@ function culSpec() {
     for (let k = -1; k <= 1; k++) spec.houses.push({ x: cx + k * (HW + 40) - HW / 2, y: farY + (k ? (c.north ? 70 : -70) : 0), top: !c.north });
     for (let k = 0; k < 2; k++) {
       const yy = c.north ? cy + BR + 40 + k * (HH + 60) : cy - BR - 40 - HH - k * (HH + 60);
+      // a short court only fits one row: never put a house on Pruitt Parkway itself
+      if (c.north ? yy + HH > hy0 - 30 : yy < hy0 + ROAD + 30) continue;
       spec.houses.push({ x: c.x - 50 - HW, y: yy, top: !c.north }, { x: c.x + ROAD + 50, y: yy, top: !c.north });
     }
     spec.signs.push({ x: c.x + ROAD + 70, y: hy0 + (c.north ? -24 : ROAD + 24), text: c.name + ' (DEAD END)' });
