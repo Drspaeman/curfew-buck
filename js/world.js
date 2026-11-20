@@ -324,6 +324,8 @@ function remapKeyEvent(e) {
   if (e._hs) return;
   if (state === 'keys' && e.type === 'keydown') {
     e.preventDefault(); e.stopImmediatePropagation();
+    const step = !keyWait && { ArrowDown: 60, ArrowUp: -60, PageDown: VH * 0.8, PageUp: -VH * 0.8 }[e.code];
+    if (step) { scrollMenu(step); return; }
     if (keyWait) { if (e.code !== 'Escape') bindKey(keyWait, e.code); keyWait = null; sfx.grab(); }
     else if (e.code === 'Escape') state = 'settings';
     return;

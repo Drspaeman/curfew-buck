@@ -54,6 +54,7 @@ function netLocalBackend() {
     join: code => { room = String(code).trim(); peer = null; return Promise.resolve({ ok: true }); },
     invite: () => {},
     leave: () => { if (room) bc.postMessage({ room, from: me, bye: true }); room = null; peer = null; },
+    unpair: () => { peer = null; },
     send: str => { if (room) bc.postMessage({ room, from: me, msg: str }); },
   };
 }
@@ -144,7 +145,7 @@ function netOnMessage(str) {
     if (m.t === 'hello') {
       if (NET.live) return;
       NET.peer = m.name || 'Player 2';
-      if (m.v && m.v !== VERSION) { netSend({ t: 'refuse', why: `Version mismatch: host has v${VERSION}, you have v${m.v}.` }); return; }
+      if (m.v && m.v !== VERSION) { netSend({ t: 'refuse', why: `Version mismatch: host has v${VERSION}, you have v${m.v}.` }); if (NET.backend.unpair) NET.backend.unpair(); return; }
       netResetSession(); NET.live = true;
       NET.status = NET.peer + ' joined!';
       startTwoPlayer(NET.kind);     // the startNight wrapper below sends 'start'
@@ -247,7 +248,7 @@ function netHostFrame(dt) {
   if (state === 'title' || !twoP()) { netLeave(true); return; }
   const quiet = performance.now() - (NET.inAt || 0);
   if (quiet > 1500) NET.p2 = Object.assign({}, NET.p2, { u: 0, d: 0, l: 0, r: 0, sh: 0 });   // stale keys: let go
-  if (quiet > 12000 && NET.backend && NET.backend.name === 'Local') { netOnEvent({ type: 'peer-left' }); return; }
+  if (quiet > 12000 && NET.backend && NET.backend.name === 'Local') { if (NET.backend.unpair) NET.backend.unpair(); netOnEvent({ type: 'peer-left' }); return; }
   NET.sendT -= dt;
   if (NET.sendT > 0) return;
   NET.sendT = 1 / NET.rate;
@@ -401,7 +402,7 @@ function drawOnline(now) {
     y = buttonGrid([{ label: '✖ Leave lobby', fn: () => { netLeave(true); state = 'online'; } }], y + 6, 200, 36);
   }
   if (NET.err) { ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 14px system-ui, sans-serif'; wrapText(NET.err, cx, y + 18, maxW, 19); }
-  buttonGrid([{ label: '◀ Back', fn: () => { netLeave(true); state = 'title'; } }], VH - 56, 160, 36);
+  buttonGrid([{ label: '◀ Back', fn: () => { netLeave(true); state = 'title'; } }], Math.max(VH - 56, y + 40), 160, 36);
 }
 // Shown on the client while the host is somewhere P2 can't see (cutscene, Steve's van, Earl's shop, court).
 function drawNetWait(now) {
@@ -413,7 +414,15 @@ function drawNetWait(now) {
 }
 // A small status strip during online matches.
 function netDrawOverlay(now) {
+  NET.leaveBtn = null;
   if (!NET.live) return;
+  if (NET.role === 'client' && touchMode) {
+    const b = NET.leaveBtn = { x: VW - 92, y: 10, w: 80, h: 30 };
+    ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = 'rgba(120,30,30,0.85)'; roundRect(ctx, b.x, b.y, b.w, b.h, 8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✖ Leave', b.x + b.w / 2, b.y + 20);
+    ctx.restore();
+  }
   ctx.save();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   const late = NET.role === 'client' && now - NET.lastSnapAt > 1500;

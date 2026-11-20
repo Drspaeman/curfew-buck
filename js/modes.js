@@ -183,7 +183,7 @@ function courtPlea(i) {
   }
 }
 function finishCourt() {
-  if (G.court.ok) { pickSpecial(); state = 'shop'; return; }
+  if (G.court.ok) { pickSpecial(); state = 'shop'; saveNext(); return; }
   recordScore();
   clearSave();
   state = 'over';
@@ -228,7 +228,7 @@ function drawSettings() {
     { label: `Text size: ${settings.bigText ? 'Large' : 'Normal'}`, fn: () => { settings.bigText = !settings.bigText; saveSettings(); } },
     ...(gothBinderDone() ? [{ label: `Vest: ${settings.gothVest ? 'Raven\'s black 🦇' : 'Blaze orange'}`, fn: () => { settings.gothVest = !settings.gothVest; saveSettings(); } }] : []),
     { label: '⌨ Controls…', fn: () => { state = 'keys'; keyWait = null; } },
-    { label: `Tutorial: ${store.get('hs_tut_done', false) ? 'Done (reset)' : 'Ready'}`, fn: () => { try { localStorage.removeItem('hs_tut_done'); } catch (e) {} } },
+    { label: `Tutorial: ${store.get('hs_tut_done', false) ? 'Done (reset)' : 'Ready'}`, fn: () => store.del('hs_tut_done') },
     { label: 'Fullscreen', fn: () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) { /* not allowed */ } } },
   ], Math.max(110, VH * 0.18 + 40), 200, 42);
   buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; }, hi: true }], y + 20, 200, 42);
@@ -914,11 +914,11 @@ function drawShop(now) {
   }
   if ((campaign.racks || []).length) {
     const val = campaign.racks.reduce((a, p) => a + p * 8, 0);
-    y = buttonGrid([{ label: `Sell ${campaign.racks.length} antler rack${campaign.racks.length > 1 ? 's' : ''} to Earl ($${val})`, fn: () => { campaign.cash += val; campaign.racks = []; sfx.buy(); unlock('racks'); } }], y, 340, 34) + 2;
+    y = buttonGrid([{ label: `Sell ${campaign.racks.length} antler rack${campaign.racks.length > 1 ? 's' : ''} to Earl ($${val})`, fn: () => { campaign.cash += val; campaign.racks = []; sfx.buy(); unlock('racks'); saveNext(); } }], y, 340, 34) + 2;
   }
   // Earl buys leftover freezer meat (cheap)
   if (campaign.freezer > 0) {
-    y = buttonGrid([{ label: `Sell ${campaign.freezer} freezer packs to Earl ($12 each)`, fn: () => { campaign.cash += campaign.freezer * 12; campaign.freezer = 0; sfx.buy(); } }], y, 340, 34) + 2;
+    y = buttonGrid([{ label: `Sell ${campaign.freezer} freezer packs to Earl ($12 each)`, fn: () => { campaign.cash += campaign.freezer * 12; campaign.freezer = 0; sfx.buy(); saveNext(); } }], y, 340, 34) + 2;
   } else y += 8;
   const cols = VW >= 1100 ? 2 : 1;
   const bw = cols === 2 ? Math.min(520, (VW - 60) / 2) : Math.min(620, VW - 24);
@@ -934,7 +934,8 @@ function drawShop(now) {
     const afford = ownedW || campaign.cash >= priceOf(item);
     const selected = pad.connected && shopSel === i;
     const x = x0 + (i % cols) * (bw + 12), rowY = y + Math.floor(i / cols) * (rowH + 4);
-    const hover = selected || (mouse.x >= x && mouse.x <= x + bw && mouse.y >= rowY && mouse.y <= rowY + rowH);
+    const my = mouse.y + drawScroll;   // menus scroll: compare in content coordinates
+    const hover = selected || (mouse.x >= x && mouse.x <= x + bw && my >= rowY && my <= rowY + rowH);
     panel(x, rowY, bw, rowH);
     if (hover && !owned && afford) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; roundRect(ctx, x, rowY, bw, rowH, 10); ctx.stroke(); }
     ctx.textAlign = 'left';
@@ -947,7 +948,7 @@ function drawShop(now) {
     ctx.fillStyle = owned ? '#9be564' : afford ? '#ffd166' : '#777';
     const tag = isWeapon ? (equipped ? 'EQUIPPED' : ownedW ? 'EQUIP' : `$${priceOf(item)}`) : owned ? (item.consumable ? 'MAXED' : 'OWNED') : `$${priceOf(item)}`;
     ctx.fillText(tag, x + bw - 12, rowY + rowH / 2 + 5);
-    if (!owned && afford) uiButtons.push({ x, y: rowY, w: bw, h: rowH, fn: () => buy(item) });
+    if (!owned && afford) uiButtons.push({ x, y: rowY - drawScroll, w: bw, h: rowH, fn: () => buy(item) });
   });
   y += rows * (rowH + 4) + 8;
   button(cx - 130, y, 260, 42, `Start Night ${night + 1}  ▶`, () => { night++; startNight(); }, true, true);

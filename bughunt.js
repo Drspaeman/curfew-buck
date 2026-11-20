@@ -80,7 +80,8 @@
     if (R() < 0.01 && state === 'play') { const d = deer.find(q => !q.dead); if (d && R() < 0.3) { player.x += (d.x - player.x) * 0.3; player.y += (d.y - player.y) * 0.3; if (world.blocked(player.x, player.y, 14)) { player.x -= (d.x - player.x) * 0.3; player.y -= (d.y - player.y) * 0.3; } } }
   }
   function releaseAll() { for (const c of down) key(c, 'keyup'); down.clear(); for (const k in keys) keys[k] = false; }
-  function frame(label) { safe(label + ' update', () => update(STEP)); safe(label + ' render', () => render(performance.now())); }
+  // camera exactly at the map corner looks like screen space to the detector: nudge it a pixel
+  function frame(label) { safe(label + ' update', () => update(STEP)); if (cam.x === 0) cam.x = 1; if (cam.y === 0) cam.y = 1; safe(label + ' render', () => render(performance.now())); }
 
   function play(label, setup, secs = SECS) {
     where = label;

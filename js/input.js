@@ -8,11 +8,11 @@ window.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') { muted = !muted; store.set('hs_muted', muted); }
-  if (netOnlineKey(e) || netClientKey(e)) return;
-  if (!['play', 'keys', 'steve'].includes(state) && menuMax > 0) {
+  if (state !== 'play' && menuMax > 0 && !netClient()) {
     const step = { ArrowDown: 60, ArrowUp: -60, PageDown: VH * 0.8, PageUp: -VH * 0.8, End: 1e6, Home: -1e6 }[e.code];
     if (step) { scrollMenu(step); e.preventDefault(); return; }
   }
+  if (netOnlineKey(e) || netClientKey(e)) return;
   if (e.repeat) return;
   if (state === 'story') { if (e.code === 'Escape') advanceStory(true); else if (['Enter', 'Space', 'KeyE'].includes(e.code)) advanceStory(); return; }
   if (state === 'steve') {
@@ -169,6 +169,8 @@ function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
 cv.addEventListener('touchstart', e => {
   e.preventDefault();
   touchMode = true;
+  const lb = NET.leaveBtn, t0 = e.changedTouches[0];
+  if (netClient() && lb && t0 && t0.clientX >= lb.x && t0.clientX <= lb.x + lb.w && t0.clientY >= lb.y && t0.clientY <= lb.y + lb.h) { netLeave(); return; }
   for (const t of e.changedTouches) {
     if (state !== 'play') {
       // menus: a tap clicks (on release), a drag scrolls
@@ -289,7 +291,7 @@ function steveSell() {
   if (packs >= 10) unlock('fullcooler');
   player.cooler = 0; player.bag = 0;
   sfx.buy();
-  G.steveLine = `Steve: "${packs} packs at $${G.price}... that's $${cash}. Pleasure doin' crimes with you."`;
+  G.steveLine = packs >= 10 ? `Steve: "${packs} packs?! $${cash}. Next time bring a receipt that says BAKE SALE."` : `Steve: "${packs} packs at $${G.price}... that's $${cash}. Pleasure doin' crimes with you."`;
   objectiveEvent('sell', packs);
   unlock('dealer');
 }

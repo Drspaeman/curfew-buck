@@ -90,7 +90,7 @@ function persist() { try { localStorage.setItem('hs_editor_draft', JSON.stringif
 function normalize(s) {
   const out = Object.assign(blankSpec(), s && typeof s === 'object' && !Array.isArray(s) ? s : {});
   const base = blankSpec();
-  for (const k in base) if (Array.isArray(base[k]) && !Array.isArray(out[k])) out[k] = [];
+  for (const k in base) if (Array.isArray(base[k])) out[k] = (Array.isArray(out[k]) ? out[k] : []).filter(o => o && typeof o === 'object' && isFinite(o.x) && isFinite(o.y));
   for (const k of ['shed', 'van', 'clubhouse']) if (out[k] && (typeof out[k] !== 'object' || !isFinite(out[k].x) || !isFinite(out[k].y))) out[k] = null;
   for (const k of ['name', 'author', 'intro']) out[k] = String(out[k] == null ? '' : out[k]);
   return out;
@@ -121,6 +121,7 @@ function click(p) {
 function finishDrag() {
   const r = dragRect();
   if (tool === 'bulb') { const rr = Math.round(Math.hypot(drag.cur.x - drag.a.x, drag.cur.y - drag.a.y)); if (rr > 60) { save(); spec.bulbs.push({ x: drag.a.x, y: drag.a.y, r: Math.min(400, rr) }); } }
+  else if (tool === 'road' && (r.vert ? r.h : r.w) < 200) { /* too short to be a road */ }
   else if (Math.max(r.w, r.h) > 20 && Math.min(r.w, r.h) >= 10) {
     save();
     const k = { road: 'roads', pond: 'ponds', pool: 'pools', hedge: 'hedges', woods: 'woods' }[tool];

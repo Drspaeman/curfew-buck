@@ -23,8 +23,8 @@ function update(dt) {
   if (G.ghost) { G.ghost.t -= dt; if (G.ghost.t <= 0) G.ghost = null; }
   G.radioCD -= dt;
   musicTick(dt);
-  if (!G.warn60 && G.time < 60 && G.time > 1) { G.warn60 = true; banner('☀ Sunrise in 60 seconds!', '#ffb347'); tone(660, 0.15, 'triangle', 0.08); tone(660, 0.15, 'triangle', 0.08, null, 0.25); }
-  if (!G.warn20 && G.time < 20 && G.time > 1) { G.warn20 = true; banner('☀ 20 SECONDS TO SUNRISE. Get home!', '#ff9f6b'); tone(880, 0.2, 'triangle', 0.09); }
+  if (!G.warn60 && G.time < 60 && G.time > 1) { G.warn60 = true; banner(G.delivered >= G.quota ? '☀ Sunrise in 60 seconds! Quota met: you\'re safe either way.' : `☀ Sunrise in 60 seconds! ${G.quota - G.delivered} deer to go.`, '#ffb347'); tone(660, 0.15, 'triangle', 0.08); tone(660, 0.15, 'triangle', 0.08, null, 0.25); }
+  if (!G.warn20 && G.time < 20 && G.time > 1) { G.warn20 = true; banner(G.delivered >= G.quota ? '☀ 20 SECONDS TO SUNRISE. Quota met. Nice work.' : `☀ 20 SECONDS TO SUNRISE. ${G.quota - G.delivered} deer short!`, '#ff9f6b'); tone(880, 0.2, 'triangle', 0.09); }
   if (G.time <= 0) { G.time = 0; endNight(G.delivered >= G.quota ? 'win' : 'sunrise'); return; }
 
   // Tutorial hints (first season only shows each once)
@@ -612,12 +612,15 @@ function updatePlayer(dt) {
   // Sprint (hold X / R3): fast, loud, drains stamina
   const wantSprint = (keys.KeyX || pad.sprint) && !player.crouch && !player.carry && !player.cooler && !player.drawing && (mx || my);
   if (player.stamina === undefined) player.stamina = 100;
-  player.sprinting = !!wantSprint && player.stamina > 0;
+  if (player.stamina <= 0) player.winded = true; else if (player.stamina > 25) player.winded = false;
+  player.sprinting = !!wantSprint && player.stamina > 0 && !player.winded;
   if (player.sprinting) { spd *= 1.45; player.stamina = Math.max(0, player.stamina - 28 * dt); hint('sprint', 'Sprinting is fast but LOUD: bigger footstep noise, and deer spook from farther. Watch your stamina bar.'); }
   else player.stamina = Math.min(100, player.stamina + 14 * dt);
   if (player.drawing) {
     spd *= 0.45;
+    const was = player.draw;
     player.draw = Math.min(1, player.draw + dt / weapon().draw);
+    if (was < 1 && player.draw >= 1) tone(1400, 0.04, 'square', 0.04);   // full draw
     player.holdT = player.draw >= 1 ? (player.holdT || 0) + dt : 0;
   }
   const len = Math.hypot(mx, my);
@@ -725,7 +728,7 @@ function deliver() {
   if (G.streak >= 2) { const bonus = 50 * (G.streak - 1); G.nightScore += bonus; popup(player.x, player.y - 74, `👻 Ghost streak ×${G.streak} (+${bonus})`, '#b8e0ff', 2); }
   if (G.streak >= 4) unlock('streak');
   if (d.legend) { unlock('legend'); G.legendDone = true; banner('LEGEND BAGGED: OLD HOSTA', '#ffd166'); }
-  if (G.delivered === G.quota) banner('QUOTA MET! Press Q at your shed to call it a night — or keep hunting', '#9be564');
+  if (G.delivered === G.quota) { banner('QUOTA MET! Press Q at your shed to call it a night — or keep hunting', '#9be564'); tone(523, 0.18, 'triangle', 0.08); tone(659, 0.18, 'triangle', 0.08, null, 0.12); tone(784, 0.35, 'triangle', 0.09, null, 0.24); rumble(200, 0.4); }
 }
 
 function updateFloods(dt) {
@@ -828,7 +831,7 @@ function updateArrows(dt) {
           G.hits++;
           sfx.hit();
           rumble(160, 0.7);
-          if (noiseMult() < 0.5) unlock('leafblower');
+          if (noiseMult() < 0.5) unlock(gothNoiseMult() < 1 ? 'openingact' : 'leafblower');
           (G.kills = G.kills || []).push({ x: d.x, y: d.y, buck: d.buck });
           cam.shake = d.legend ? 8 : 4;
           if (d.buck) G.slowmo = d.legend ? 1.2 : 0.7;
@@ -1052,7 +1055,7 @@ function updateK9(w, dt) {
   w.barkT -= dt;
   if (Math.random() < dt * 8) particles.push({ x: w.x + Math.cos(w.ang) * 16, y: w.y + Math.sin(w.ang) * 16, vx: rnd(-20, 20), vy: rnd(-20, 20), t: 0.4, c: '#ddd' });
   if (w.barkT <= 0) { w.barkT = rnd(2, 3.5); sfx.bark(); popup(w.x, w.y - 22, pick(['ARF! ARF!', 'AWOOOO!', '*sniff sniff* WOOF!']), '#9ecbff', 1); }
-  if (dist(w.x, w.y, player.x, player.y) < 22) G.arrest = 2; // caught (stays >= 1 after this frame's decay)
+  if (dist(w.x, w.y, player.x, player.y) < 22 && los(w.x, w.y, player.x, player.y)) G.arrest = 2; // caught (stays >= 1 after this frame's decay)
 }
 
 function spawnK9() {
@@ -1190,7 +1193,7 @@ function detection(dt) {
       if (!G.police) callPolice(w);
       investigate(w, player.x, player.y);
       G.arrest += dt / 1.4;
-      if (d < 34) G.arrest = 1;
+      if (d < 34) G.arrest += dt * 3;   // very close: about a third of a second to react
     } else if (!G.police) {
       const close = 1 + (1 - d / coneRange(w));
       let rate = w.rate;

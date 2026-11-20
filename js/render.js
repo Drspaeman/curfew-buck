@@ -301,9 +301,11 @@ function drawVignette() {
 }
 
 function drawToasts() {
-  let y = 220;
+  // phones: only the two newest, lower down, so they don't cover the suspicion bar
+  const narrow = VW < 760;
+  let y = narrow ? 300 : 220;
   ctx.textAlign = 'left';
-  for (const t of toasts) {
+  for (const t of narrow ? toasts.slice(-2) : toasts) {
     const w = 280, x = VW - w - 16;
     ctx.globalAlpha = clamp(t.t, 0, 1);
     panel(x, y, w, 52);
@@ -786,6 +788,7 @@ function drawLighting(now) {
   }
   if (player) glow(lctx, player.x, player.y, 120, 0.55);
   if (tyler) glow(lctx, tyler.x, tyler.y, netClient() ? 120 : 80, netClient() ? 0.55 : 0.35);   // P2 can see around Tyler too
+  if (G && G.goth) { const R = G.goth; if (R.raven) glow(lctx, R.raven.x, R.raven.y, 70, 0.45); if (R.concert) glow(lctx, R.concert.x, R.concert.y, 170, 0.6); }   // Raven's candle, the band's stage light
   for (const w of watchers) {
     if (!w.poly || !inView(w.x, w.y, 500)) continue;
     const R = coneRange(w);
@@ -1061,7 +1064,7 @@ function drawHUD(now) {
   if (campaign.items.beer) extras.push(`🍺×${campaign.items.beer} (V)`);
   if (player.cans) extras.push(`🥫×${player.cans}`);
   if (has('corn')) extras.push(`Corn ${G.cornLeft}`);
-  if (G.tags) extras.push(`Tags B${G.tags.buck} D${G.tags.doe}`);
+  if (G.tags) extras.push(`Tags B${G.tags.buck}${G.tags.buck ? '' : ' (NONE!)'} D${G.tags.doe}${G.tags.doe ? '' : ' (NONE!)'}`);
   if (campaign.versus) { const pw = watchers.find(q => q.p2); if (pw) extras.push(pw.spotCD > 0 ? `P2 spot ${Math.ceil(pw.spotCD)}s` : 'P2 spot ready'); }
   if (tyler) extras.push(tyler.carry ? 'Tyler: hauling' : 'Tyler: ready');
   ctx.font = '12px system-ui, sans-serif';
@@ -1126,7 +1129,11 @@ function drawHUD(now) {
   ctx.textAlign = 'center';
   if (!G.police) {
     ctx.fillStyle = '#ddd'; ctx.font = 'bold 12px system-ui, sans-serif';
-    ctx.fillText('NEIGHBORHOOD SUSPICION', bcx, by + 12);
+    const seers = watchers.filter(w => w.seeing);
+    const head = seers.length ? `👁 SEEN BY ${String(seers[0].label || NAMES[seers[0].type] || seers[0].type).toUpperCase()}${seers.length > 1 ? ' +' + (seers.length - 1) : ''}`
+      : G.sus > 0.5 ? (G.unseen < 1.5 ? 'OUT OF SIGHT…' : 'COOLING OFF ↓') : 'NEIGHBORHOOD SUSPICION';
+    if (seers.length) ctx.fillStyle = '#ff9f6b'; else if (G.sus > 0.5) ctx.fillStyle = G.unseen < 1.5 ? '#ffd166' : '#9be564';
+    ctx.fillText(fitText(head, bw), bcx, by + 12);
     ctx.fillStyle = 'rgba(255,255,255,0.1)'; roundRect(ctx, bx, by + 20, bw, 14, 7); ctx.fill();
     const s = G.sus / 100;
     ctx.fillStyle = s < 0.5 ? '#9be564' : s < 0.8 ? '#ffd166' : '#ff5a5a';
@@ -1156,11 +1163,13 @@ function drawHUD(now) {
     ctx.globalAlpha = 1;
   }
   // pointers: shed when dragging/police/quota met, Steve's van when carrying a cooler, objective spot
-  if (player.cooler) drawTruckPointer(world.van, 'STEVE', '#b5e86a');
+  if (player.cooler && !G.police) drawTruckPointer(world.van, 'STEVE', '#b5e86a');
   else if (player.carry || player.bag > 3 || G.police || G.delivered >= G.quota) drawTruckPointer(world.shed, 'SHED', '#ffd166');
+  if (player.cooler && G.police) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   const op = objectivePlace();
   if (op && !player.carry && !player.cooler && !G.police) drawTruckPointer({ x: op.x, y: op.y, w: 0, h: 0 }, 'GOAL', '#7cf');
   drawGothPointer();
+  drawRavenSpeech(now);
   // tutorial hint
   if (G.hint) {
     ctx.globalAlpha = clamp(G.hint.t, 0, 1);
@@ -1199,7 +1208,7 @@ function drawTruckPointer(t = world.shed, label = 'SHED', color = '#ffd166') {
   const a = Math.atan2(ty - VH / 2, tx - VW / 2);
   // ride an ellipse near the screen edge, kept clear of the top HUD
   const px = clamp(VW / 2 + Math.cos(a) * (VW / 2 - 50), 40, VW - 40);
-  const py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), 100, VH - 60);
+  const py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), VW < 760 ? 240 : 100, VH - 60);   // stay below the HUD panel (it's taller on phones)
   ctx.save(); ctx.translate(px, py); ctx.rotate(a);
   ctx.fillStyle = color;
   ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
@@ -1314,7 +1323,9 @@ function drawScreens(now) {
   ctx.fillText = function (t, x, y, m) { if (y > menuBottom) menuBottom = y; return realFill.call(this, t, x, y, m); };
   ctx.save(); ctx.translate(0, -menuScroll);
   try { drawScreenBody(now); } finally { ctx.restore(); delete ctx.fillText; drawScroll = 0; }
-  menuMax = Math.max(0, Math.ceil(menuBottom + 28 - VH));
+  const tNow = performance.now();
+  if (menuBottom >= (drawScreens.hold || 0) || tNow - (drawScreens.holdAt || 0) > 1500 || drawScreens.holdState !== state) { drawScreens.hold = menuBottom; drawScreens.holdAt = tNow; drawScreens.holdState = state; }
+  menuMax = Math.max(0, Math.ceil(Math.max(menuBottom, drawScreens.hold) + 28 - VH));
   if (menuMax > 0) {
     // scroll bar + hint
     const trackH = VH - 24, barH = Math.max(40, trackH * VH / (VH + menuMax)), barY = 12 + (trackH - barH) * (menuScroll / menuMax);
@@ -1789,7 +1800,7 @@ function drawTrophies() {
   ctx.fillText('LIFETIME', cx, y); y += 20;
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
   const acc = life.arrows ? Math.round((life.hits || 0) / life.arrows * 100) : 0;
-  y = wrapText(`Nights played ${life.nights || 0} · Deer ${life.deer || 0} (${life.bucks || 0} bucks) · Old Hosta ${life.hosta || 0} · Accuracy ${acc}% · Packs sold ${life.sold || 0} · Squirrels ${life.squirrels || 0} · Rabbits ${life.rabbits || 0} · Fish ${life.fish || 0} · Times busted ${life.busted || 0} · Cash earned $${life.cash || 0} · Gossip notes ${store.get('hs_gossip', []).length}/${GOSSIP.length} · Raven\'s cards ${gothCards().length}/${CARDS.length} · Posters ${gothPosters().length}/${POSTERS.length}`, cx, y, Math.min(700, VW - 30), 18) + 26;
+  y = wrapText(`Nights played ${life.nights || 0} · Deer ${life.deer || 0} (${life.bucks || 0} bucks) · Old Hosta ${life.hosta || 0} · Accuracy ${acc}% · Packs sold ${life.sold || 0} · Squirrels ${life.squirrels || 0} · Rabbits ${life.rabbits || 0} · Fish ${life.fish || 0} · Times busted ${life.busted || 0} · Cash earned $${life.cash || 0} · Gossip notes ${store.get('hs_gossip', []).length}/${GOSSIP.length} · Raven\'s cards ${CARDS.filter((_, i) => gothCards().includes(i)).length}/${CARDS.length}${gothHasSecret() ? ' + #13' : ''} · Posters ${gothPosters().length}/${POSTERS.length}`, cx, y, Math.min(700, VW - 30), 18) + 26;
   const scores = store.get('hs_scores', []);
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 14px system-ui, sans-serif'; ctx.fillText('BEST SEASONS', cx, y); y += 20;
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
