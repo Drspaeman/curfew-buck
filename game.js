@@ -596,10 +596,37 @@ function buildWorld() {
   world = { roads, blocks, houses, fences, truck, shed: truck, van, ponds, clubhouse, garage, cars, hedges, sprinklers, ice, puddles, creekGaps, clearing, phase2, pools, grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked };
 }
 
+// Spatial grid: solids and trees bucketed into 240px cells, so collision, line-of-sight and
+// vision-cone checks only look at nearby objects. Rebuilt whenever the solids list changes.
+const GRID = 240;
+let gridStamp = 1;
+function buildGrid() {
+  const cols = Math.ceil(W / GRID), rows = Math.ceil(H / GRID);
+  const cells = Array.from({ length: cols * rows }, () => ({ s: [], t: [] }));
+  const add = (x0, y0, x1, y1, k, o) => {
+    const c0 = clamp(Math.floor(x0 / GRID), 0, cols - 1), c1 = clamp(Math.floor(x1 / GRID), 0, cols - 1);
+    const r0 = clamp(Math.floor(y0 / GRID), 0, rows - 1), r1 = clamp(Math.floor(y1 / GRID), 0, rows - 1);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) cells[r * cols + c][k].push(o);
+  };
+  for (const o of world.solids) add(o.x, o.y, o.x + o.w, o.y + o.h, 's', o);
+  for (const t of world.trees) { const e = Math.max(t.trunk, t.block || 0); add(t.x - e, t.y - e, t.x + e, t.y + e, 't', t); }
+  world._grid = { cells, cols, rows, n: world.solids.length, nt: world.trees.length };
+  return world._grid;
+}
+function gridQuery(x0, y0, x1, y1, k) {
+  let g = world._grid;
+  if (!g || g.n !== world.solids.length || g.nt !== world.trees.length) g = buildGrid();
+  const c0 = clamp(Math.floor(x0 / GRID), 0, g.cols - 1), c1 = clamp(Math.floor(x1 / GRID), 0, g.cols - 1);
+  const r0 = clamp(Math.floor(y0 / GRID), 0, g.rows - 1), r1 = clamp(Math.floor(y1 / GRID), 0, g.rows - 1);
+  if (c0 === c1 && r0 === r1) return g.cells[r0 * g.cols + c0][k];
+  const stamp = ++gridStamp, out = [];
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) for (const o of g.cells[r * g.cols + c][k]) if (o._gq !== stamp) { o._gq = stamp; out.push(o); }
+  return out;
+}
 function moveCircle(o, dx, dy, r) {
   o.x = clamp(o.x + dx, r, W - r);
   o.y = clamp(o.y + dy, r, H - r);
-  for (const s of world.solids) {
+  for (const s of gridQuery(o.x - r - 2, o.y - r - 2, o.x + r + 2, o.y + r + 2, 's')) {
     if (o.x < s.x - r || o.x > s.x + s.w + r || o.y < s.y - r || o.y > s.y + s.h + r) continue;
     const cx = clamp(o.x, s.x, s.x + s.w), cy = clamp(o.y, s.y, s.y + s.h);
     const ddx = o.x - cx, ddy = o.y - cy, d2 = ddx * ddx + ddy * ddy;
@@ -610,7 +637,7 @@ function moveCircle(o, dx, dy, r) {
       if (m === l) o.x = s.x - r; else if (m === rr) o.x = s.x + s.w + r; else if (m === t) o.y = s.y - r; else o.y = s.y + s.h + r;
     }
   }
-  for (const t of world.trees) {
+  for (const t of gridQuery(o.x - r - 30, o.y - r - 30, o.x + r + 30, o.y + r + 30, 't')) {
     const ddx = o.x - t.x, ddy = o.y - t.y, rr = r + t.trunk, d2 = ddx * ddx + ddy * ddy;
     if (d2 < rr * rr && d2 > 1e-4) { const d = Math.sqrt(d2); o.x = t.x + ddx / d * rr; o.y = t.y + ddy / d * rr; }
   }
@@ -619,12 +646,12 @@ function moveCircle(o, dx, dy, r) {
 // Line of sight blocked by houses, fences, the truck and tree trunks/canopy cores.
 function los(x1, y1, x2, y2) {
   const minx = Math.min(x1, x2), maxx = Math.max(x1, x2), miny = Math.min(y1, y2), maxy = Math.max(y1, y2);
-  for (const s of world.solids) {
+  for (const s of gridQuery(minx, miny, maxx, maxy, 's')) {
     if (s.noLos || s.x > maxx || s.x + s.w < minx || s.y > maxy || s.y + s.h < miny) continue;
     const t = segRect(x1, y1, x2, y2, s);
     if (t >= 0 && t < 1) return false;
   }
-  for (const t of world.trees) {
+  for (const t of gridQuery(minx - 40, miny - 40, maxx + 40, maxy + 40, 't')) {
     if (t.x + t.block < minx || t.x - t.block > maxx || t.y + t.block < miny || t.y - t.block > maxy) continue;
     if (segCircle(x1, y1, x2, y2, t.x, t.y, t.block) >= 0) return false;
   }
@@ -2710,11 +2737,11 @@ function coneRange(w) { return w.range * dayFactor() * weatherVis() * (G ? moonF
 function computeCone(w) {
   const R = coneRange(w);
   const rects = [], circles = [];
-  for (const s of world.solids) {
+  for (const s of gridQuery(w.x - R, w.y - R, w.x + R, w.y + R, 's')) {
     if (s.noLos || s.x > w.x + R || s.x + s.w < w.x - R || s.y > w.y + R || s.y + s.h < w.y - R) continue;
     rects.push(s);
   }
-  for (const t of world.trees) if (Math.abs(t.x - w.x) < R + 20 && Math.abs(t.y - w.y) < R + 20) circles.push(t);
+  for (const t of gridQuery(w.x - R - 20, w.y - R - 20, w.x + R + 20, w.y + R + 20, 't')) if (Math.abs(t.x - w.x) < R + 20 && Math.abs(t.y - w.y) < R + 20) circles.push(t);
   const N = 26, pts = [];
   for (let i = 0; i <= N; i++) {
     const a = w.ang - w.fov / 2 + w.fov * i / N;
@@ -3605,8 +3632,9 @@ function drawPlayer(now, ghost) {
   drawLegs(player.step, player.moving, '#3b3b2a');
   // body (blaze-orange vest, or ghillie suit once bought)
   const ghillie = has('ghillie');
-  ctx.fillStyle = ghillie ? '#4a5a2c' : '#ff7a1a';
-  ctx.beginPath(); ctx.ellipse(0, 0, 11, 14, 0, 0, TAU); ctx.fill();
+  drawArms(player.step, player.moving, ghillie ? '#3a4a22' : '#4d5a33');
+  inkBlob(0, 0, 11, 14, ghillie ? '#4a5a2c' : '#ff7a1a', 4);
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.ellipse(-3, -5, 4, 6, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = ghillie ? '#2f3d1c' : '#4d5a33';
   ctx.beginPath(); ctx.ellipse(-2, 0, 5, 9, 0, 0, TAU); ctx.fill();
   if (ghillie) {
@@ -3614,8 +3642,7 @@ function drawPlayer(now, ghost) {
     for (let i = 0; i < 6; i++) ctx.fillRect(Math.cos(i * 1.1) * 9 - 2, Math.sin(i * 1.1) * 11 - 1, 4, 3);
   }
   // head with camo cap
-  ctx.fillStyle = '#e0b48c';
-  ctx.beginPath(); ctx.arc(3, 0, 7, 0, TAU); ctx.fill();
+  inkBlob(3, 0, 7, 7, '#e0b48c', 9);
   ctx.fillStyle = '#56603a';
   ctx.beginPath(); ctx.arc(2, 0, 6, Math.PI * 0.5, Math.PI * 1.5); ctx.fill();
   ctx.fillRect(4, -3, 7, 6);
@@ -3829,20 +3856,39 @@ function drawCones() {
 function drawLegs(phase, moving, color) {
   if (!moving) return;
   const s = Math.sin(phase) * 6;
-  ctx.fillStyle = color || '#2a2a2a';
-  ctx.beginPath(); ctx.ellipse(s, -5, 5, 3, 0, 0, TAU); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-s, 5, 5, 3, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = color || '#2a2a2a'; ctx.strokeStyle = INK; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.ellipse(s, -5, 5, 3, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(-s, 5, 5, 3, 0, 0, TAU); ctx.fill(); ctx.stroke();
 }
 
 function drawShadow(rx, ry) { ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(3, 4, rx, ry, 0, 0, TAU); ctx.fill(); }
 
+// Hand-drawn look: a slightly wobbly blob with a dark ink outline.
+const INK = 'rgba(22,16,12,0.85)';
+function inkBlob(x, y, rx, ry, fill, seed) {
+  const n = 14, k = seed || 1;
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const a = i / n * TAU, wob = 1 + Math.sin(i * 2.7 + k * 1.9) * 0.05;
+    const px = x + Math.cos(a) * rx * wob, py = y + Math.sin(a) * ry * wob;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.stroke();
+}
+function drawArms(phase, moving, color) {
+  const sw = moving ? Math.sin(phase) * 3.5 : 0;
+  inkBlob(2 + sw, -11, 4, 3, color, 3);
+  inkBlob(2 - sw, 11, 4, 3, color, 5);
+}
 function drawPerson(body, accent, phase, moving) {
   drawShadow(12, 9);
   drawLegs(phase, moving);
-  ctx.fillStyle = body;
-  ctx.beginPath(); ctx.ellipse(0, 0, 10, 13, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#e8c09a';
-  ctx.beginPath(); ctx.arc(3, 0, 6.5, 0, TAU); ctx.fill();
+  drawArms(phase, moving, shade(body, -22));
+  inkBlob(0, 0, 10, 13, body, 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.13)'; ctx.beginPath(); ctx.ellipse(-3, -4, 4, 6, 0, 0, TAU); ctx.fill();
+  inkBlob(3, 0, 6.5, 6.5, '#e8c09a', 7);
   if (accent) accent();
 }
 
