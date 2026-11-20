@@ -59,10 +59,11 @@ function render(now) {
   if (G && G.nvgOn) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(60,255,110,0.12)'; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (G && G.flash > 0 && settings.flashes) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(230,235,255,${clamp(G.flash * 1.6, 0, 0.55)})`; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (G && G.sirenCap > 0 && state === 'play') { G.sirenCap -= 1 / 60; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(60,10,10,0.85)'; roundRect(ctx, 14, VH - 92, 190, 24, 8); ctx.fill(); ctx.fillStyle = '#ffd0d0'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🚨 Siren: a cruiser is close', 24, VH - 75); }
-  if (G && G.flash > 0 && !settings.flashes && state === 'play') { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(20,24,40,0.85)'; roundRect(ctx, VW / 2 - 130, VH - 92, 260, 24, 8); ctx.fill(); ctx.fillStyle = '#e6ebff'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚡ Lightning: you\'re easier to see', VW / 2, VH - 75); }
+  if (G && G.flash > 0 && !settings.flashes && state === 'play') { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(20,24,40,0.85)'; const ly = G.sirenCap > 0 ? VH - 122 : VH - 92; roundRect(ctx, VW / 2 - 130, ly, 260, 24, 8); ctx.fill(); ctx.fillStyle = '#e6ebff'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚡ Lightning: you\'re easier to see', VW / 2, ly + 17); }
   ctx.setTransform(DPR, 0, 0, DPR, (-cam.x + sx) * DPR, (-cam.y + sy) * DPR);
   if (G) drawAmbient(now);
   if (G) { drawCones(); drawGhost(); drawWatchers(now); }
+  drawPlayerOverlay();   // the [E] prompt and stamina bar sit above bushes and the night darkness
   drawPopups();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   if (G && (G.weather === 'rain' || G.weather === 'snow')) drawRain();
@@ -666,11 +667,6 @@ function drawPlayer(now, ghost) {
     }
   }
   ctx.restore();
-  if (!ghost && state === 'play' && G) drawContextPrompt();
-  if (!ghost && state === 'play' && player.stamina < 99) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(player.x - 16, player.y + 20, 32, 4);
-    ctx.fillStyle = player.stamina > 30 ? '#9ecbff' : '#ff9f6b'; ctx.fillRect(player.x - 16, player.y + 20, 32 * player.stamina / 100, 4);
-  }
   if (!ghost && G && G.stink > 0) { ctx.strokeStyle = 'rgba(168,216,107,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(player.x, player.y, 22 + Math.sin(now / 200) * 3, 0, TAU); ctx.stroke(); }
   if (!ghost && state === 'play' && !player.carry) {
     // aim line grows with the draw
@@ -970,7 +966,7 @@ function drawWatchers(now) {
       ctx.fillStyle = w.seeing ? '#ff3030' : (settings.flashes && Math.floor(now / 600) % 2 ? '#3f3' : '#161'); ctx.fillRect(-3, -2, 2, 2);
     } else if (w.type === 'chad') {
       drawPerson('#e05a2a', () => { ctx.fillStyle = '#d23'; ctx.fillRect(8, 2, 16, 5); ctx.fillStyle = '#333'; ctx.fillRect(4, -2, 6, 8); }, ph, moving);
-      if (Math.random() < 0.5) particles.push({ x: w.x + Math.cos(w.ang) * 26, y: w.y + Math.sin(w.ang) * 26, vx: Math.cos(w.ang + rnd(-0.4, 0.4)) * 160, vy: Math.sin(w.ang + rnd(-0.4, 0.4)) * 160, t: 0.6, c: pick(['#a0522d', '#c8741a', '#8a6a2a']) });
+      if (state === 'play' && Math.random() < 0.5) particles.push({ x: w.x + Math.cos(w.ang) * 26, y: w.y + Math.sin(w.ang) * 26, vx: Math.cos(w.ang + rnd(-0.4, 0.4)) * 160, vy: Math.sin(w.ang + rnd(-0.4, 0.4)) * 160, t: 0.6, c: pick(['#a0522d', '#c8741a', '#8a6a2a']) });
     } else if (w.type === 'jogger') {
       drawPerson('#ff4fa3', () => { ctx.fillStyle = '#7cf'; ctx.fillRect(1, -8, 3, 16); }, ph, moving);
     } else if (w.type === 'paper') {
@@ -1163,7 +1159,7 @@ function drawHUD(now) {
     for (const wd of words) { const t = line ? line + ' ' + wd : wd; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t; }
     lines.push(line);
     const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 30, lh = compact ? 20 : 24;
-    const top = VH * (compact ? 0.36 : 0.22) - 24;
+    const top = compact ? Math.max(VH * 0.36 - 24, 352) : VH * 0.22 - 24;
     panel(VW / 2 - w / 2, top, w, 14 + lines.length * lh);
     ctx.fillStyle = G.banner.color;
     lines.forEach((l, i) => ctx.fillText(l, VW / 2, top + 24 + i * lh));
@@ -1576,7 +1572,8 @@ function drawScreenBody(now) {
     } else if (state === 'over' && night > 5) {
       ctx.fillText(`Endless run ended on night ${night}. Best: ${store.get('hs_endless_best', 0) > 5 ? 'cleared night ' + store.get('hs_endless_best', 0) : 'no night cleared yet'}`, cx, y + 30);
       if (Math.floor(now / 600) % 2 === 0) { ctx.font = 'bold 17px system-ui, sans-serif'; ctx.fillText('Click to start a new season', cx, y + 62); }
-    } else if (Math.floor(now / 600) % 2 === 0) ctx.fillText(`${touchMode ? 'Tap' : 'Click'} ${state === 'nightdone' ? 'to visit the bait shop' : 'to start a new season'}`, cx, y + 40);
+    } else if (netClient()) ctx.fillText('Waiting for the host to continue…', cx, y + 40);
+    else if (Math.floor(now / 600) % 2 === 0) ctx.fillText(`${touchMode ? 'Tap' : 'Click'} ${state === 'nightdone' ? 'to visit the bait shop' : 'to start a new season'}`, cx, y + 40);
   }
 }
 
@@ -1677,6 +1674,14 @@ function contextLabel() {
   if (pondNear()) return '[E] fish';
   if (nearTruck() && G.delivered >= G.quota) return '[Q] end the night';
   return '';
+}
+function drawPlayerOverlay() {
+  if (!G || !player || state !== 'play') return;
+  drawContextPrompt();
+  if (player.stamina < 99) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(player.x - 16, player.y + 20, 32, 4);
+    ctx.fillStyle = player.stamina > 30 ? '#9ecbff' : '#ff9f6b'; ctx.fillRect(player.x - 16, player.y + 20, 32 * player.stamina / 100, 4);
+  }
 }
 function drawContextPrompt() {
   const t = (contextLabel() || '').replace('[E]', `[${ctl('use')}]`).replace('[Q]', `[${ctl('leave')}]`);

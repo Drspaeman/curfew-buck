@@ -525,7 +525,7 @@ function spawnDeer(woodsOnly, legend) {
     if (dist(x, y, 130, world.hy[0] + 60) < (legend ? 1400 : 500)) continue;
     const buck = legend || Math.random() < 0.22;
     const points = legend ? 14 : buck ? pick([6, 8, 8, 10, 10, 12]) : 0;
-    deer.push({ x, y, ang: rnd(0, TAU), state: 'graze', t: rnd(1, 4), dead: false, buck, legend: !!legend, hp: legend ? 2 : 1, carried: false, bob: rnd(0, TAU), points,
+    deer.push({ id: (spawnDeer.next = (spawnDeer.next || 0) + 1), x, y, ang: rnd(0, TAU), state: 'graze', t: rnd(1, 4), dead: false, buck, legend: !!legend, hp: legend ? 2 : 1, carried: false, bob: rnd(0, TAU), points,
       fawn: !buck && Math.random() < 0.3 ? { x: x - 20, y: y + 10, gone: 0 } : null,
       coat: pick(['#9a6a3a', '#8a5e33', '#a67644', '#7f5a37', '#9c7046']), size: rnd(0.9, 1.1), albino: !legend && Math.random() < 0.03 });
     const nd = deer[deer.length - 1]; if (nd.albino) { nd.coat = '#f1ece2'; nd.fawn = null; }

@@ -55,6 +55,7 @@ function netLocalBackend() {
     invite: () => {},
     leave: () => { if (room) bc.postMessage({ room, from: me, bye: true }); room = null; peer = null; },
     unpair: () => { peer = null; },
+    dispose: () => { try { bc.close(); } catch (e) { /* already closed */ } },
     send: str => { if (room) bc.postMessage({ room, from: me, msg: str }); },
   };
 }
@@ -77,7 +78,7 @@ function openOnline() {
 }
 function netUse(which) {
   if (NET.backend && NET.backend.name === which) return NET.backend;
-  if (NET.backend) netLeave(true);
+  if (NET.backend) { netLeave(true); if (NET.backend.dispose) NET.backend.dispose(); }
   NET.backend = which === 'Steam' ? netSteamBackend() : netLocalBackend();
   return NET.backend;
 }
@@ -279,7 +280,8 @@ function netApply(s) {
   ents.deer.forEach(d => netRevive(d, ents, 1));
   ents.watchers.forEach(w => netRevive(w, ents, 1));
   // keep motion smooth between snapshots
-  ents.deer.forEach((d, i) => netSmooth(deer[i], d));
+  const oldById = new Map(deer.map(d => [d.id, d]));
+  ents.deer.forEach((d, i) => netSmooth(d.id !== undefined ? oldById.get(d.id) : deer[i], d));
   ents.watchers.forEach((w, i) => netSmooth(watchers[i], w));
   netSmooth(player, ents.player); netSmooth(tyler, ents.tyler);
   deer = ents.deer; watchers = ents.watchers;
@@ -293,6 +295,7 @@ function netApply(s) {
   night = s.night;
   // the host's menus (results, pause) show up here too, but only the host can click through them
   NET.hostState = s.st;
+  if (['nightdone', 'over'].includes(s.st)) { if (!NET.resultAt) NET.resultAt = performance.now(); if (G) G.resultAt = NET.resultAt; } else NET.resultAt = 0;
   state = ['play', 'pause', 'intro', 'nightdone', 'over'].includes(s.st) ? s.st : 'netwait';
   for (const e of s.sfx || []) { const [k, ...args] = Array.isArray(e) ? e : [e]; if (sfx[k]) try { sfx[k](...args); } catch (x) { /* sounds are best-effort */ } }
   NET.snaps++; NET.lastSnapAt = performance.now();

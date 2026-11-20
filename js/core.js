@@ -117,8 +117,19 @@ const store = {
 let AC = null;
 let muted = store.get('hs_muted', false);
 let toneChannel = 'sfx';
+let masterBus = null;
+const liveTones = new Set();   // scheduled gameplay sounds, so pause/quit can stop them
+function audioBus() {
+  if (masterBus) return masterBus;
+  const comp = AC.createDynamicsCompressor();
+  comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
+  comp.connect(AC.destination);
+  return (masterBus = comp);
+}
+function stopGameplaySounds() { for (const o of liveTones) { try { o.stop(); } catch (e) { /* already stopped */ } } liveTones.clear(); }
 function tone(freq, dur, type = 'sine', vol = 0.15, slideTo = null, delay = 0) {
   if (muted) return;
+  if (toneChannel === 'music' && !settings.music) return;
   vol *= toneChannel === 'music' ? (settings.musicVol ?? 1) : (settings.sfxVol ?? 1);
   if (vol <= 0.00011) return;
   try {
@@ -130,15 +141,16 @@ function tone(freq, dur, type = 'sine', vol = 0.15, slideTo = null, delay = 0) {
     if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
     g.gain.setValueAtTime(vol, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(AC.destination);
+    o.connect(g).connect(audioBus());
     o.start(t0); o.stop(t0 + dur + 0.02);
+    if (typeof state !== 'undefined' && state === 'play') { liveTones.add(o); o.onended = () => liveTones.delete(o); }
   } catch (e) { /* audio unavailable */ }
 }
 const sfx = {
   shoot() { tone(520, 0.12, 'triangle', 0.12, 140); },
   hit() { tone(110, 0.2, 'sawtooth', 0.12, 60); },
   thunk() { tone(180, 0.06, 'square', 0.06, 90); },
-  alert() { tone(880, 0.08, 'square', 0.08); tone(1175, 0.1, 'square', 0.08, null, 0.09); },
+  alert() { const t = performance.now(); if (t - (sfx.alertAt || 0) < 150) return; sfx.alertAt = t; tone(880, 0.08, 'square', 0.08); tone(1175, 0.1, 'square', 0.08, null, 0.09); },
   huh() { tone(500, 0.12, 'sine', 0.07, 700); },
   deliver() { tone(523, 0.1, 'triangle', 0.12); tone(659, 0.1, 'triangle', 0.12, null, 0.1); tone(784, 0.16, 'triangle', 0.12, null, 0.2); },
   pickup() { tone(300, 0.08, 'triangle', 0.08, 420); },

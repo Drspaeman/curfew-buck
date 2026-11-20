@@ -81,7 +81,7 @@
   }
   function releaseAll() { for (const c of down) key(c, 'keyup'); down.clear(); for (const k in keys) keys[k] = false; }
   // camera exactly at the map corner looks like screen space to the detector: nudge it a pixel
-  function frame(label) { safe(label + ' update', () => update(STEP)); if (cam.x === 0) cam.x = 1; if (cam.y === 0) cam.y = 1; safe(label + ' render', () => render(performance.now())); }
+  function frame(label) { safe(label + ' update', () => update(STEP)); if (Math.abs(cam.x) < 1) cam.x = cam.x < 0 ? -1 : 1; if (Math.abs(cam.y) < 1) cam.y = cam.y < 0 ? -1 : 1; safe(label + ' render', () => render(performance.now())); }
 
   function play(label, setup, secs = SECS) {
     where = label;

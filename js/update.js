@@ -1061,6 +1061,7 @@ function updateK9(w, dt) {
   w.poly = null;
   if (w.eating > 0) { w.eating -= dt; return; }
   // Follow Dale's scent trail exactly, breadcrumb by breadcrumb.
+  if (w.ti > 60) { G.trail.splice(0, w.ti); w.ti = 0; }
   let tgt = G.trail[w.ti];
   if (!tgt || dist(w.x, w.y, player.x, player.y) < 140 && los(w.x, w.y, player.x, player.y)) tgt = player;
   const d = dist(w.x, w.y, tgt.x, tgt.y);
