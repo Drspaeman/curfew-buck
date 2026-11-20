@@ -43,6 +43,11 @@ previewMode = true;   // the trailer plays real nights but never saves
   shot(5, ['Country clubs.'], () => playNight(2, 'golf'), () => walkTo(world.vx[1], world.hy[0] - 200, true));
   shot(5, ['Build your own neighborhood.'], () => { playNight(3); G.mapOpen = true; }, () => clearKeys());
   shot(6, ['Bring a friend.', 'Co-op and versus, one keyboard.'], () => { restoreRandom(); startTwoPlayer('versus'); story = null; state = 'play'; G.banner = null; }, t => { clearKeys(); keys.ArrowRight = t < 3; keys.ArrowUp = t >= 3; });
+  shot(5, ['Meet Raven.', 'She doesn\'t snitch. She draws trading cards of you.'], () => {
+    playNight(3);
+    const r = G.goth && G.goth.raven;
+    if (r) { G.goth.concert = { x: r.x, y: r.y + 60, t: 0, chordT: 0, beat: 0 }; player.x = r.x - 110; player.y = r.y + 40; G.goth.met = true; ravenSay('Relax. I don\'t snitch. Snitching is for people with hope.', 5); }
+  }, () => { const r = G.goth && G.goth.raven; if (r) walkTo(r.x - 40, r.y + 40, true); });
   shot(5, ['HUNTER SUB', 'Free to play in your browser'], () => { clearKeys(); restoreRandom(); campaign = freshCampaign(); state = 'title'; });
 
   let cur = -1, t = 0, playing = false, onDone = null;

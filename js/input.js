@@ -58,7 +58,7 @@ window.addEventListener('keyup', e => {
   if (e.code === 'Space' && state === 'play') releaseDraw();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touch.mx = touch.my = 0; if (netClient()) { NET.lastIn = ''; NET.inT = 0; } if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
 cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 cv.addEventListener('mousedown', e => {
   mouse.x = e.clientX; mouse.y = e.clientY;

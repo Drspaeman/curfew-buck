@@ -174,7 +174,10 @@ document.getElementById('play').onclick = () => {
   try { localStorage.setItem('hs_custom_map', JSON.stringify(spec)); } catch (e) { alert('This browser blocked saving the map.'); return; }
   location.href = 'index.html?custom=1';
 };
-window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); document.getElementById('undo').click(); } });
+window.addEventListener('keydown', e => {
+  const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+  if (!typing && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); document.getElementById('undo').click(); }
+});
 window.addEventListener('resize', resize);
 try { const d = localStorage.getItem('hs_editor_draft'); if (d) spec = normalize(JSON.parse(d)); } catch (e) { spec = blankSpec(); }
 buildTools(); validate(); resize();

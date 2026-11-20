@@ -391,6 +391,10 @@ function unlock(id) {
   sfx.achieve();
 }
 
+function setHints(on) {
+  settings.hints = on; saveSettings();
+  if (!on && G) { G.hint = null; G.hintQ = []; }
+}
 function hint(id, text) {
   if (!G || campaign.hints[id] || settings.hints === false) return;
   if (G.hint && G.hint.id !== id) {
@@ -403,6 +407,7 @@ function hint(id, text) {
 }
 // next queued hint, if any (called when the current one fades out)
 function nextHint() {
+  if (settings.hints === false) { if (G) G.hintQ = []; return; }
   const q = G && G.hintQ;
   while (q && q.length) { const h = q.shift(); if (!campaign.hints[h.id]) { campaign.hints[h.id] = true; G.hint = { id: h.id, text: h.text, t: 6 }; return; } }
 }

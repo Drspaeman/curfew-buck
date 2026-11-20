@@ -8,8 +8,9 @@ function inView(x, y, m) { return x > cam.x - m && x < cam.x + VW + m && y > cam
 
 function render(now) {
   const wob = G && G.buzz > 0 && settings.shake ? Math.min(1, G.buzz / 5) * 5 : 0; // beer wobble
-  const sx = (cam.shake ? rnd(-cam.shake, cam.shake) : 0) + Math.sin(now / 420) * wob;
-  const sy = (cam.shake ? rnd(-cam.shake, cam.shake) : 0) + Math.cos(now / 530) * wob * 0.6;
+  const shake = settings.shake ? cam.shake : 0;
+  const sx = (shake ? rnd(-shake, shake) : 0) + Math.sin(now / 420) * wob;
+  const sy = (shake ? rnd(-shake, shake) : 0) + Math.cos(now / 530) * wob * 0.6;
   camOff.x = sx; camOff.y = sy;
   ctx.setTransform(DPR, 0, 0, DPR, (-cam.x + sx) * DPR, (-cam.y + sy) * DPR);
   ctx.fillStyle = '#1b2f1d';
@@ -57,6 +58,8 @@ function render(now) {
   if (G) drawLighting(now);
   if (G && G.nvgOn) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(60,255,110,0.12)'; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (G && G.flash > 0 && settings.flashes) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(230,235,255,${clamp(G.flash * 1.6, 0, 0.55)})`; ctx.fillRect(0, 0, cv.width, cv.height); }
+  if (G && G.sirenCap > 0 && state === 'play') { G.sirenCap -= 1 / 60; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(60,10,10,0.85)'; roundRect(ctx, 14, VH - 92, 190, 24, 8); ctx.fill(); ctx.fillStyle = '#ffd0d0'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🚨 Siren: a cruiser is close', 24, VH - 75); }
+  if (G && G.flash > 0 && !settings.flashes && state === 'play') { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(20,24,40,0.85)'; roundRect(ctx, VW / 2 - 130, VH - 92, 260, 24, 8); ctx.fill(); ctx.fillStyle = '#e6ebff'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚡ Lightning: you\'re easier to see', VW / 2, VH - 75); }
   ctx.setTransform(DPR, 0, 0, DPR, (-cam.x + sx) * DPR, (-cam.y + sy) * DPR);
   if (G) drawAmbient(now);
   if (G) { drawCones(); drawGhost(); drawWatchers(now); }
@@ -842,10 +845,12 @@ function drawCones() {
       : (w.seeing ? '255,80,80' : w.state === 'investigate' ? '255,190,80' : '255,235,140');
     ctx.fillStyle = `rgba(${col},${w.seeing ? 0.16 : 0.07})`;
     ctx.strokeStyle = `rgba(${col},${w.seeing ? 0.7 : 0.35})`;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = settings.cbCones && w.seeing ? 3 : 1.5;
+    if (settings.cbCones && w.state === 'investigate' && !w.seeing) ctx.setLineDash([8, 6]);
     ctx.beginPath(); ctx.moveTo(w.x, w.y);
     for (const pt of w.poly) ctx.lineTo(pt.x, pt.y);
     ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.setLineDash([]);
   }
 }
 
@@ -918,7 +923,7 @@ function drawWatchers(now) {
       ctx.strokeStyle = '#ddd'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(10, 10); ctx.moveTo(10, -10); ctx.lineTo(-10, 10); ctx.stroke();
       ctx.fillStyle = '#333'; ctx.fillRect(-5, -5, 10, 10);
-      ctx.fillStyle = w.down > 0 ? '#555' : (Math.floor(now / 200) % 2 ? '#ff3030' : '#30ff60');
+      ctx.fillStyle = w.down > 0 ? '#555' : (settings.flashes && Math.floor(now / 200) % 2 ? '#ff3030' : '#30ff60');
       ctx.fillRect(-2, -2, 4, 4);
       const spin = now / 30;
       ctx.strokeStyle = 'rgba(220,220,220,0.6)'; ctx.lineWidth = 1;
@@ -962,7 +967,7 @@ function drawWatchers(now) {
     ctx.rotate(w.ang);
     if (w.type === 'cam') {
       ctx.fillStyle = '#222'; ctx.fillRect(-5, -4, 10, 8); ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(4, 0, 3, 0, TAU); ctx.fill();
-      ctx.fillStyle = w.seeing ? '#ff3030' : (Math.floor(now / 600) % 2 ? '#3f3' : '#161'); ctx.fillRect(-3, -2, 2, 2);
+      ctx.fillStyle = w.seeing ? '#ff3030' : (settings.flashes && Math.floor(now / 600) % 2 ? '#3f3' : '#161'); ctx.fillRect(-3, -2, 2, 2);
     } else if (w.type === 'chad') {
       drawPerson('#e05a2a', () => { ctx.fillStyle = '#d23'; ctx.fillRect(8, 2, 16, 5); ctx.fillStyle = '#333'; ctx.fillRect(4, -2, 6, 8); }, ph, moving);
       if (Math.random() < 0.5) particles.push({ x: w.x + Math.cos(w.ang) * 26, y: w.y + Math.sin(w.ang) * 26, vx: Math.cos(w.ang + rnd(-0.4, 0.4)) * 160, vy: Math.sin(w.ang + rnd(-0.4, 0.4)) * 160, t: 0.6, c: pick(['#a0522d', '#c8741a', '#8a6a2a']) });
@@ -1141,7 +1146,7 @@ function drawHUD(now) {
     ctx.fillStyle = s < 0.5 ? '#9be564' : s < 0.8 ? '#ffd166' : '#ff5a5a';
     if (s > 0) { roundRect(ctx, bx, by + 20, Math.max(14, bw * s), 14, 7); ctx.fill(); }
   } else {
-    const flash = Math.floor(now / 300) % 2 === 0;
+    const flash = settings.flashes ? Math.floor(now / 300) % 2 === 0 : true;
     ctx.fillStyle = flash ? '#ff5a5a' : '#6f9bff'; ctx.font = `bold ${compact ? 12 : 14}px system-ui, sans-serif`;
     ctx.fillText(G.policeT > 0 ? `🚨 911 CALLED — COPS IN ${Math.ceil(G.policeT)}s` : '🚨 POLICE ON SCENE — GET TO YOUR SHED', bcx, by + 14);
     ctx.fillStyle = '#ddd'; ctx.font = 'bold 11px system-ui, sans-serif';
@@ -1447,7 +1452,7 @@ function drawScreenBody(now) {
       { label: 'Restart night (R)', fn: () => startNight() },
       { label: `Sound: ${pct(settings.sfxVol)}`, fn: () => { settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
       { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
-      { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => { settings.hints = !settings.hints; saveSettings(); } },
+      { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => setHints(!settings.hints) },
       { label: 'Quit to title', fn: () => { state = 'title'; } },
       ...(G.tut ? [{ label: pad.connected ? 'Skip tutorial (Y)' : 'Skip tutorial', fn: () => { skipTutorial(); state = 'play'; } }] : []),
     ], VH * 0.4 + 64, 180, 40);

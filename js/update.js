@@ -1064,7 +1064,7 @@ function updateK9(w, dt) {
   w.barkT -= dt;
   if (Math.random() < dt * 8) particles.push({ x: w.x + Math.cos(w.ang) * 16, y: w.y + Math.sin(w.ang) * 16, vx: rnd(-20, 20), vy: rnd(-20, 20), t: 0.4, c: '#ddd' });
   if (w.barkT <= 0) { w.barkT = rnd(2, 3.5); sfx.bark(); popup(w.x, w.y - 22, pick(['ARF! ARF!', 'AWOOOO!', '*sniff sniff* WOOF!']), '#9ecbff', 1); }
-  if (dist(w.x, w.y, player.x, player.y) < 22 && los(w.x, w.y, player.x, player.y)) G.arrest = 2; // caught (stays >= 1 after this frame's decay)
+  if (dist(w.x, w.y, player.x, player.y) < 22 && los(w.x, w.y, player.x, player.y)) { G.arrest = 2; G.captor = w; } // caught (stays >= 1 after this frame's decay)
 }
 
 function spawnK9() {
@@ -1201,7 +1201,7 @@ function detection(dt) {
       copSees = true;
       if (!G.police) callPolice(w);
       investigate(w, player.x, player.y);
-      G.arrest += dt / 1.4;
+      G.arrest += dt / 1.4; G.captor = w;
       if (d < 34) G.arrest += dt * 3;   // very close: about a third of a second to react
     } else if (!G.police) {
       const close = 1 + (1 - d / coneRange(w));
@@ -1232,8 +1232,10 @@ function detection(dt) {
     // The breakfast burrito defense.
     campaign.items.burrito--;
     G.arrest = 0;
-    let cop = null, cd = 1e9;
-    for (const c of watchers) if (c.type === 'cop' || c.type === 'k9') { const dd = dist(c.x, c.y, player.x, player.y); if (dd < cd) { cd = dd; cop = c; } }
+    // the burrito goes to whoever actually caught you (else the nearest officer)
+    let cop = G.captor && watchers.includes(G.captor) ? G.captor : null, cd = 1e9;
+    if (!cop) for (const c of watchers) if (c.type === 'cop' || c.type === 'k9') { const dd = dist(c.x, c.y, player.x, player.y); if (dd < cd) { cd = dd; cop = c; } }
+    G.captor = null;
     if (cop) {
       cop.eating = 15; cop.seeing = false; if (cop.type === 'cop') cop.state = 'return';
       popup(cop.x, cop.y - 40, cop.type === 'k9' ? 'Sarge ate the burrito. Good boy. ...Sarge? SARGE!' : 'Is that... a breakfast burrito? ...Get outta here, Dale.', '#9ecbff', 3.5);
@@ -1277,6 +1279,7 @@ function updatePolice(dt) {
     for (const c of watchers) if (c.type === 'cop') nd = Math.min(nd, dist(c.x, c.y, player.x, player.y));
     const vol = clamp(1 - nd / 1400, 0, 1) * 0.05;
     if (vol > 0.003) sfx.siren(vol);
+    if (nd < 700) G.sirenCap = 1.2;
   }
 }
 

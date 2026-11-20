@@ -225,7 +225,7 @@ function drawSettings() {
     { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
     { label: `Sight cones: ${settings.cbCones ? 'Colorblind' : 'Standard'}`, fn: () => { settings.cbCones = !settings.cbCones; saveSettings(); } },
     { label: `Flashing: ${settings.flashes ? 'On' : 'Reduced'}`, fn: () => { settings.flashes = !settings.flashes; saveSettings(); } },
-    { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => { settings.hints = !settings.hints; saveSettings(); } },
+    { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => setHints(!settings.hints) },
     { label: `Text size: ${settings.bigText ? 'Large' : 'Normal'}`, fn: () => { settings.bigText = !settings.bigText; saveSettings(); } },
     ...(gothBinderDone() ? [{ label: `Vest: ${settings.gothVest ? 'Raven\'s black 🦇' : 'Blaze orange'}`, fn: () => { settings.gothVest = !settings.gothVest; saveSettings(); } }] : []),
     { label: '⌨ Controls…', fn: () => { state = 'keys'; keyWait = null; } },
@@ -786,12 +786,12 @@ function startCustomMap(spec) {
 }
 function pickMapFile() {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-  inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const spec = JSON.parse(rd.result); store.set('hs_custom_map', spec); startCustomMap(spec); } catch (e) { alert('Not a valid map file: ' + e.message); } }; rd.readAsText(f); };
+  inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const spec = JSON.parse(rd.result); if (startCustomMap(spec)) store.set('hs_custom_map', spec); } catch (e) { alert('Not a valid map file: ' + e.message); } }; rd.readAsText(f); };
   inp.click();
 }
 function customMapMenu() {
   const saved = store.get('hs_custom_map', null);
-  if (saved) startCustomMap(saved); else pickMapFile();
+  if (!saved || !startCustomMap(saved)) pickMapFile();
 }
 (function loadMapFromUrl() {
   try {

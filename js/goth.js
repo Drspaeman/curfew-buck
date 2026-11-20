@@ -187,10 +187,12 @@ function updateGoth(dt) {
     const d = dist(C.x, C.y, player.x, player.y);
     if (C.chordT <= 0 && d < 900) {
       C.chordT = 0.5; C.beat++;
+      const ch = toneChannel; toneChannel = 'music';
       const v = 0.05 * clamp(1 - d / 900, 0, 1);
       const root = [110, 110, 87.3, 98][Math.floor(C.beat / 4) % 4];   // Am, Am, F, G
       tone(55, 0.12, 'sine', v * 1.6, 40);                              // kick
       if (C.beat % 2 === 0) { tone(root, 0.45, 'sawtooth', v * 0.6); tone(root * 1.5, 0.45, 'sawtooth', v * 0.4); }
+      toneChannel = ch;
     }
   }
   if (R.hintT > 0) { R.hintT -= dt; if (R.hintT <= 0 || (R.hint && R.hint.got)) R.hint = null; }
@@ -252,7 +254,7 @@ function drawGoth(now) {
     // hidden in the bush: you only see it up close (or with the goggles), plus a rare purple glint
     const d = dist(c.x, c.y, player.x, player.y);
     if (R.hint === c) { const k = 0.5 + 0.5 * Math.sin(now / 180); ctx.strokeStyle = `rgba(180,140,255,${0.5 + 0.5 * k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(c.x, c.y, 22 + 8 * k, 0, TAU); ctx.stroke(); ctx.fillStyle = RAVEN_COLOR; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('CARD', c.x, c.y - 34); }
-    const glint = Math.sin(now / 260 + c.x) > 0.93;
+    const glint = settings.flashes && Math.sin(now / 260 + c.x) > 0.93;
     if (d > 150 && !G.nvgOn && !glint && R.hint !== c) continue;
     if (d > 150) { ctx.fillStyle = RAVEN_COLOR; ctx.fillRect(c.x - 1, c.y - 9, 2, 6); ctx.fillRect(c.x - 4, c.y - 7, 8, 2); continue; }
     ctx.save(); ctx.translate(c.x, c.y + Math.sin(now / 300 + c.y) * 1.5); ctx.rotate(-0.25);
@@ -316,7 +318,7 @@ function drawRaven(x, y, now) {
   g.addColorStop(0, 'rgba(180,140,255,0.28)'); g.addColorStop(1, 'rgba(180,140,255,0)');
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 46, 0, TAU); ctx.fill();
   ctx.fillStyle = '#eee'; ctx.fillRect(x + 14, y + 2, 3, 7);
-  ctx.fillStyle = Math.sin(now / 90) > 0 ? '#ffd166' : '#ffb347'; ctx.beginPath(); ctx.ellipse(x + 15.5, y, 1.8, 3, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = settings.flashes && Math.sin(now / 90) > 0 ? '#ffd166' : '#ffb347'; ctx.beginPath(); ctx.ellipse(x + 15.5, y, 1.8, 3, 0, 0, TAU); ctx.fill();
   // Raven, sitting cross-legged: black dress, pale face, long black hair, purple lips
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(x + 2, y + 6, 12, 7, 0, 0, TAU); ctx.fill();
   inkBlob(x, y + 2, 11, 9, '#1b1320', 3);
