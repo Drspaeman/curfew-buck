@@ -803,7 +803,7 @@ function updateArrows(dt) {
       if (t >= 0 && t < bestT) { bestT = t; hit = { k: 'wall', mailbox: true }; }
     }
     a.x += dx * bestT; a.y += dy * bestT;
-    if (hit && hit.mailbox) { popup(a.x, a.y - 20, 'Return to sender.', '#ffe9a8', 1.6); sfx.thunk(); unlock('mail'); }
+    if (hit && hit.mailbox) { popup(a.x, a.y - 20, 'Return to sender.', '#ffe9a8', 1.6); unlock('mail'); }
     if (hit) {
       a.flying = false;
       if (hit.k === 'critter') {
@@ -1081,7 +1081,7 @@ function updateK9(w, dt) {
   w.barkT -= dt;
   if (Math.random() < dt * 8) particles.push({ x: w.x + Math.cos(w.ang) * 16, y: w.y + Math.sin(w.ang) * 16, vx: rnd(-20, 20), vy: rnd(-20, 20), t: 0.4, c: '#ddd' });
   if (w.barkT <= 0) { w.barkT = rnd(2, 3.5); sfx.bark(); popup(w.x, w.y - 22, pick(['ARF! ARF!', 'AWOOOO!', '*sniff sniff* WOOF!']), '#9ecbff', 1); }
-  if (dist(w.x, w.y, player.x, player.y) < 22 && los(w.x, w.y, player.x, player.y)) { G.arrest = 2; G.captor = w; } // caught (stays >= 1 after this frame's decay)
+  if (dist(w.x, w.y, player.x, player.y) < 22 && los(w.x, w.y, player.x, player.y)) { if (G.arrest < 1) G.captor = w; G.arrest = 2; } // caught (stays >= 1 after this frame's decay)
 }
 
 function spawnK9() {
@@ -1221,8 +1221,8 @@ function detection(dt) {
       copSees = true;
       if (!G.police) callPolice(w);
       investigate(w, player.x, player.y);
-      G.arrest += dt / 1.4; G.captor = w;
-      if (d < 34) G.arrest += dt * 3;   // very close: about a third of a second to react
+      { const before = G.arrest; G.arrest += dt / 1.4; if (before < 1 && G.arrest >= 1) G.captor = w; }
+      if (d < 34) { const before = G.arrest; G.arrest += dt * 3; if (before < 1 && G.arrest >= 1) G.captor = w; }   // very close: about a third of a second to react
     } else if (!G.police) {
       const close = 1 + (1 - d / coneRange(w));
       let rate = w.rate;
@@ -1317,6 +1317,7 @@ function endNight(reason) {
   G.stars = reason === 'win' ? 1 + (G.police ? 0 : 1) + (G.timesSpotted === 0 ? 1 : 0) : 0;
   G.earned += G.stars * 25;
   campaign.cash += G.earned;
+  if (G.goth && G.goth.boughtRack && (campaign.racks || []).length) campaign.racks.shift();   // the rack Raven bought tonight
   campaign.earnedTotal = (campaign.earnedTotal || 0) + G.earned;
   // What's in the freezer stays in the freezer. A cooler or bag you were carrying comes home too (unless you got arrested).
   if (reason !== 'arrested') G.freezer += (player.cooler || 0) + (player.bag || 0);
@@ -1343,7 +1344,7 @@ function endNight(reason) {
   if (reason === 'win' && night === 5 && !G.tracked) unlock('snowghost');
   if (reason === 'win' && night >= 7) unlock('nightowl');
   if (reason === 'win' && campaign.halloween) unlock('halloween');
-  if (reason === 'win' && settings.gothVest && gothBinderDone()) unlock('gothdad');
+  if (reason === 'win' && settings.gothVest && gothBinderDone() && !has('ghillie')) unlock('gothdad');
   G.resultAt = performance.now();
   G.news = buildNews(reason);
   G.voicemail = reason === 'win' && !G.exSaw && G.packedCooler && Math.random() < 0.5 ? 'Dale, if my ice packs are in your cooler, I need them back by lunch. I\'m making potato salad.' : pick(G.exSaw ? VOICEMAILS.saw : VOICEMAILS.clean);

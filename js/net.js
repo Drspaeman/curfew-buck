@@ -193,6 +193,7 @@ function netCampaign() {
   return c;
 }
 function netClientStart(m) {
+  NET.lastSnapAt = performance.now(); NET.resultAt = 0;
   const keepDiff = settings.difficulty;
   settings.difficulty = m.diff || 'normal';
   campaign = Object.assign(freshCampaign(), m.campaign);

@@ -1023,16 +1023,17 @@ function drawPopups() {
   for (const p of popups) {
     if (!inView(p.x, p.y, 300)) { p.dy = 0; continue; }
     const w = Math.min(ctx.measureText(p.text).width + 16, VW - 24);
+    const px = clamp(p.x, cam.x + w / 2 + 6, cam.x + VW - w / 2 - 6);
     let y = p.y;
     for (let k = 0; k < 6; k++) {
-      const hit = boxes.find(b => Math.abs(b.x - p.x) < (b.w + w) / 2 && Math.abs(b.y - y) < 30);
+      const hit = boxes.find(b => Math.abs(b.x - px) < (b.w + w) / 2 && Math.abs(b.y - y) < 30);
       if (!hit) break;
       y = hit.y - 31;
     }
-    boxes.push({ x: p.x, y, w, p });
+    boxes.push({ x: px, y, w, p });
   }
   for (const b of boxes) {
-    const w = b.w, p = Object.assign({}, b.p, { y: b.y, text: w >= VW - 24 ? fitText(b.p.text, VW - 40) : b.p.text });
+    const w = b.w, p = Object.assign({}, b.p, { x: b.x, y: b.y, text: w >= VW - 24 ? fitText(b.p.text, VW - 40) : b.p.text });
     const a = clamp(p.t / 0.5, 0, 1);
     const age = (p.life || 2.6) - p.t, sc = age < 0.12 ? 0.6 + age / 0.12 * 0.4 : 1;
     ctx.globalAlpha = a;
@@ -1173,8 +1174,9 @@ function drawHUD(now) {
     for (const wd of words) { const t = line ? line + ' ' + wd : wd; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t; }
     lines.push(line);
     const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 30, lh = compact ? 20 : 24;
-    const top = compact ? Math.max(VH * 0.36 - 24, 352) : Math.max(VH * 0.22 - 24, 256);   // below the HUD panel, the objective chip and the minimap
-    panel(VW / 2 - w / 2, top, w, 14 + lines.length * lh);
+    const bh = 14 + lines.length * lh;
+    const top = Math.max(8, Math.min(compact ? Math.max(VH * 0.36 - 24, 352) : Math.max(VH * 0.22 - 24, 256), VH - bh - 60));   // below the HUD panel, the objective chip and the minimap
+    panel(VW / 2 - w / 2, top, w, bh);
     ctx.fillStyle = G.banner.color;
     lines.forEach((l, i) => ctx.fillText(l, VW / 2, top + 24 + i * lh));
     ctx.globalAlpha = 1;

@@ -75,7 +75,7 @@ function updateCones(dt) {
       let lured = false;
       const NR = (c.can ? 400 : 320) * noiseMult();
       if (c.can) sfx.clang();
-      for (const w of watchers) if (!w.seeing && dist(w.x, w.y, c.tx, c.ty) < NR) lured = true;
+      for (const w of watchers) if (!w.seeing && !(w.asleep > 0) && !(w.eating > 0) && dist(w.x, w.y, c.tx, c.ty) < NR) lured = true;
       makeNoise(c.tx, c.ty, NR, 'cone');
       if (lured) unlock('decoy');
       if (lured && c.can) unlock('recycling');

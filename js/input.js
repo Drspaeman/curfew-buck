@@ -76,7 +76,7 @@ cv.addEventListener('mousedown', e => {
   if (state === 'story') advanceStory();
   else if (state === 'steve') { /* buttons only */ }
   else if (state === 'title') { if (!store.get('hs_save', null)) newCampaign(); }
-  else if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = 'title';
+  else if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = ['nights', 'whoswho', 'trophies', 'credits'].includes(state) ? 'extras' : 'title';
   else if (state === 'intro') state = 'play';
   else if (state === 'play') startDraw();
   else if (state === 'pause') state = 'play';

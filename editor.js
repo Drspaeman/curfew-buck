@@ -100,6 +100,7 @@ function hitTest(p) {
   const inR = (o, w, h) => p.x >= o.x - tol && p.x <= o.x + (o.w || w) + tol && p.y >= o.y - tol && p.y <= o.y + (o.h || h) + tol;
   const lists = [['signs', o => Math.hypot(o.x - p.x, o.y - p.y) < 60], ['bushes', o => Math.hypot(o.x - p.x, o.y - p.y) < 40], ['trees', o => Math.hypot(o.x - p.x, o.y - p.y) < 40],
     ['houses', o => inR(o, HW, HH)], ['pools', o => inR(o)], ['ponds', o => inR(o)], ['hedges', o => inR(o)], ['bulbs', o => Math.hypot(o.x - p.x, o.y - p.y) < o.r], ['roads', o => inR(o)], ['woods', o => inR(o)]];
+  for (let i = spec.signs.length - 1; i >= 0; i--) if (lists[0][1](spec.signs[i])) return () => spec.signs.splice(i, 1);
   for (const [k, w, h] of [['shed', 100, 70], ['van', 116, 56], ['clubhouse', 360, 110]]) if (spec[k] && inR(spec[k], w, h)) return () => { spec[k] = null; };
   for (const [k, f] of lists) { for (let i = spec[k].length - 1; i >= 0; i--) if (f(spec[k][i])) return () => spec[k].splice(i, 1); }
   return null;

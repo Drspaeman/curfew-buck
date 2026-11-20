@@ -37,7 +37,7 @@ function frame(now) {
   update(dt);
   netClientFrame(dt);
   netHostFrame(dt);
-  if (frame.lastState === 'play' && state !== 'play') stopGameplaySounds();
+  if (frame.lastState === 'play' && (state === 'pause' || state === 'title')) stopGameplaySounds();
   frame.lastState = state;
   render(now);
   netDrawOverlay(now);

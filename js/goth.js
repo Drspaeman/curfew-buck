@@ -244,7 +244,7 @@ function gothInteract() {
   }
   // Raven buys one antler rack a night for her art (a little more than Earl pays)
   if ((campaign.racks || []).length && !R.boughtRack && !oneNightMode()) {
-    const pts = campaign.racks.shift(), cash = pts * 10;
+    const pts = campaign.racks[0], cash = pts * 10;   // removed from campaign.racks when the night settles
     R.boughtRack = true; G.earned += cash; sfx.buy();
     popup(player.x, player.y - 40, `+$${cash}: Raven bought the ${pts}-point rack`, RAVEN_COLOR, 2.4);
     ravenSay(pick([`Antlers! For my installation piece, "Suburban Ossuary." Here's $${cash}.`, `${pts} points? It's perfect. It's going on my headboard. $${cash}, final offer.`, `Don't tell Earl. He'd only give you $${pts * 8}.`]), 4.5);
