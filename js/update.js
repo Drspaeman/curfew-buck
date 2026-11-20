@@ -852,7 +852,7 @@ function updateArrows(dt) {
         popup(w.x, w.y - 36, pick(QUIPS.arrow), '#ff6b6b');
         w.stare = 2; w.lastX = player.x; w.lastY = player.y;
         if (w.type === 'cop') G.arrest = Math.min(1, G.arrest + 0.5);
-        else if (!G.police) G.sus = Math.min(100, G.sus + 40);
+        else if (!G.police) { G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); }
         investigate(w, player.x, player.y);
       } else sfx.thunk();
     } else if (a.life <= 0) a.flying = false;
@@ -1319,6 +1319,7 @@ function endNight(reason) {
   if (night <= 5 && !oneNightMode()) { const bs = store.get('hs_stars', []); bs[night - 1] = Math.max(bs[night - 1] || 0, G.stars); store.set('hs_stars', bs); }
   if (reason === 'win' && night === 5 && !G.tracked) unlock('snowghost');
   if (reason === 'win' && night >= 7) unlock('nightowl');
+  if (reason === 'win' && settings.gothVest && gothBinderDone()) unlock('gothdad');
   G.resultAt = performance.now();
   G.news = buildNews(reason);
   G.voicemail = pick(G.exSaw ? VOICEMAILS.saw : VOICEMAILS.clean);

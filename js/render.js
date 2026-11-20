@@ -1098,6 +1098,8 @@ function drawHUD(now) {
   if (player.lit) tags.push(['UNDER LIGHT', '#ff9f6b']);
   let tx = 28;
   ctx.font = 'bold 11px system-ui, sans-serif';
+  const urgent = ['UNDER LIGHT', 'HIDDEN', 'DRAGGING'];
+  tags.sort((a, b) => (urgent.includes(b[0]) ? 1 : 0) - (urgent.includes(a[0]) ? 1 : 0));
   for (const [t, c] of tags.slice(0, 3)) {
     const w = ctx.measureText(t).width + 12;
     ctx.fillStyle = c; roundRect(ctx, tx, 94, w, 20, 5); ctx.fill();

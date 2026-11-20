@@ -364,7 +364,7 @@ function fillTag(d) {
   d.poached = true;
   G.poached++;
   if (!G.police) G.sus = Math.min(99, G.sus + 25);
-  popup(d.x, d.y - 48, `No ${k} tag left! That's poaching, Dale.`, '#ff6b6b', 2.2);
+  popup(d.x, d.y - 48, `No ${k} tag left! That's poaching, Dale. (+25 suspicion)`, '#ff6b6b', 2.2);
   hint('tags', 'You get 2 buck tags and (quota + 1) doe tags a night. A deer with no tag is poached: it scores nothing, and the neighbors get twitchy.');
 }
 function freshCampaign() {

@@ -59,6 +59,32 @@ ACH.superfan = ['Superfan', 'Find all 6 Velvet Casket gig posters'];
 ACH.offering = ['The Offering', 'Trade Raven a pinecone for a card hint'];
 WHOS_WHO.push(['Raven Pfister', 'Gary\'s daughter, 26. Moved back home after art school.', 'Draws trading cards of everyone. Fronts the band Velvet Casket. Does not snitch.', RAVEN_COLOR]);
 
+// ---------------------------------------------------------------- Raven around the neighborhood
+// (flavor added to systems that already exist: tips, HOA notices, gossip, voicemails, Tyler's texts)
+TIPS.push(
+  "Raven never calls the cops. Bring her a pinecone and she'll point you to a hidden trading card.",
+  "Raven's trading cards hide INSIDE bushes. You only see them up close, or with the night-vision goggles.",
+  "Velvet Casket's garage shows drown out your noise. Hunt near the band.",
+  "Edgar the crow caws if you walk up to him. Sneak past.");
+NOTICES.push(
+  'Violation #2350: Unpermitted garage concert ("Velvet Casket"). Volume: "ghostly."',
+  'Violation #2351: Black candles on a porch after 10 PM. Fire code AND vibes.',
+  'Violation #2352: Crow perched on HOA property without a permit.');
+GOSSIP.push(
+  'Raven Pfister has drawn a trading card of every person in Whispering Pines. Linda\'s has horns.',
+  'Gary tells everyone Raven is "at art school." She has lived in his basement for three years.');
+VOICEMAILS.saw.push('Gary\'s goth daughter says she saw "a cryptid" in my yard. Dale. That was you. In the vest.');
+VOICEMAILS.clean.push('Gary\'s daughter gave me a trading card of myself. "The Bathrobe Wraith." ...It\'s actually a good drawing.');
+if (typeof tylerLine === 'function') {
+  const baseTyler = tylerLine;
+  window.tylerLine = function () {
+    if (G && G.goth && G.goth.met && Math.random() < 0.35) return pick(['raven made me a card. "the teen familiar." i have never been more honored', 'did u meet raven?? she says ur "spiritually a crow"', 'velvet casket is actually kind of good. dont tell anyone']);
+    return baseTyler();
+  };
+}
+WHOS_WHO.push(['Edgar', 'Raven\'s crow.', 'Perches by Raven. Caws at anyone who walks up without sneaking. Judges you silently otherwise.', '#c9c3d1']);
+ACH.gothdad = ['Goth Dad', 'Finish a night in Raven\'s black vest'];
+
 const gothCards = () => store.get('hs_cards', []);
 const gothPosters = () => store.get('hs_posters', []);
 const SECRET_CARD = 12;   // Raven's self-portrait: not in the bushes, she hands it over herself
