@@ -261,6 +261,7 @@ const SHOP = [
   { id: 'ghillie', name: 'Ghillie Suit', price: 150, desc: 'Lose the orange vest. Everyone spots you 20% later.' },
   { id: 'boots', name: 'Quiet Boots', price: 100, desc: 'Dogs and deer notice you from much closer.' },
   { id: 'sled', name: 'Drag Sled', price: 120, desc: 'Drag deer at 80% speed instead of 60%.' },
+  { id: 'truckbed', name: 'Truck Bed Extender', price: 250, desc: 'Deer past your quota ride in the truck (up to 2) and count toward tomorrow.' },
   { id: 'recurve', weapon: 'recurve', name: 'Whisper Recurve (weapon)', price: 220, desc: 'Half as loud as your compound. Slower draw.' },
   { id: 'carbon', weapon: 'carbon', name: 'Carbon Compound (weapon)', price: 200, desc: 'Faster arrows, quicker draw, shorter reload.' },
   { id: 'crossbow', weapon: 'crossbow', name: 'Crossbow (weapon)', price: 380, desc: 'Near-instant full draw, deadly, long reload.' },
@@ -389,9 +390,12 @@ const HW = 230, HH = 160;
 let world = null;
 
 function buildWorld() {
-  const R = mulberry32(1337);
-  const vx = [M + 1000, M + 2100];
-  const hy = [M + 650, M + 1350];
+  const SEED = campaign && campaign.map === 'random' && campaign.mapSeed ? campaign.mapSeed : 1337;
+  const R = mulberry32(SEED);
+  const J = a => SEED === 1337 ? 0 : Math.round((R() * 2 - 1) * a);
+  const shuffled = n => { const a = [...Array(n).keys()]; if (SEED !== 1337) for (let i = n - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const vx = [M + 1000 + J(150), M + 2100 + J(150)];
+  const hy = [M + 650 + J(70), M + 1350 + J(70)];
   const roads = [];
   vx.forEach(x => roads.push({ x, y: M, w: ROAD, h: H - 2 * M, vert: true }));
   roads.push({ x: M, y: hy[0], w: W - 2 * M, h: ROAD, vert: false });
@@ -430,7 +434,7 @@ function buildWorld() {
   const van = { x: W - 205, y: hy[0] + 30, w: 116, h: 56 };
   // Backyard swimming pools: you can't walk through them, but you can see (and shoot) across.
   const pools = [];
-  for (const bi of [0, 2, 5, 6, 7]) {
+  for (const bi of (SEED === 1337 ? [0, 2, 5, 6, 7] : shuffled(9).slice(0, 3 + Math.floor(R() * 4)))) {
     const b = blocks[bi];
     const yardTop = b.y + 34 + HH, yardBot = b.y + b.h - 34 - HH;
     pools.push({ x: Math.round(b.x + b.w * 0.75 - 60), y: Math.round((yardTop + yardBot) / 2 - 32), w: 120, h: 64, pool: true, noLos: true });
@@ -448,6 +452,8 @@ function buildWorld() {
     ponds.push({ x: 110 + i * 150, y: cy, w: 158, h: 44, pond: true, noLos: true, creek: true, name: i === 0 ? 'Pruitt Creek' : '' });
   }
   const clubhouse = { x: W / 2 - 190, y: 40, w: 180, h: 110, clubhouse: true };
+  // The HOA clubhouse pool (members only, closed for the season, still lit)
+  pools.push({ x: W / 2 - 400, y: 52, w: 170, h: 86, pool: true, noLos: true, hoaPool: true });
   const garage = { x: exHouse.x + exHouse.w + 10, y: exHouse.y + exHouse.h / 2 };
   // Cars parked in driveways: solid cover that blocks flashlights. (Not Darlene's: she walks across hers.)
   const carColors = ['#8a2b2b', '#2b4a8a', '#d8d8d0', '#3a3a3a', '#5a7a3a', '#a88a2a', '#6a2a6a'];
@@ -467,7 +473,7 @@ function buildWorld() {
   }
   // Hedges between the front side yards of some blocks: solid cover that blocks flashlights
   const hedges = [];
-  for (const bi of [0, 2, 3, 5, 6, 8]) {
+  for (const bi of (SEED === 1337 ? [0, 2, 3, 5, 6, 8] : shuffled(9).slice(0, 3 + Math.floor(R() * 5)))) {
     const b = blocks[bi];
     hedges.push({ x: Math.round(b.x + b.w / 2 - 7), y: b.y + 40, w: 14, h: HH - 20, hedge: true });
     hedges.push({ x: Math.round(b.x + b.w / 2 - 7), y: b.y + b.h - 40 - (HH - 20), w: 14, h: HH - 20, hedge: true });
@@ -642,6 +648,52 @@ let deer = [], arrows = [], watchers = [], popups = [], particles = [], cones = 
 let cam = { x: 0, y: 0, shake: 0 };
 const camOff = { x: 0, y: 0 };
 const keys = {};
+// Rebindable keys. Each action has a default key code; binds maps default -> the key the player chose.
+// A capture-phase listener translates the physical key back to the default code, so the rest of the
+// game only ever sees default codes.
+const BINDABLE = [['Move up', 'KeyW'], ['Move down', 'KeyS'], ['Move left', 'KeyA'], ['Move right', 'KeyD'],
+  ['Sneak', 'ShiftLeft'], ['Sprint', 'KeyX'], ['Use / drag', 'KeyE'], ['Draw bow', 'Space'], ['Pinecone', 'KeyF'],
+  ['Grunt call', 'KeyG'], ['Beer', 'KeyV'], ['Corn', 'KeyB'], ['Goggles', 'KeyN'], ['Jerky', 'KeyJ'],
+  ['Map', 'Tab'], ['End night', 'KeyQ'], ['Pause', 'KeyP'], ['Look ahead', 'KeyR']];
+let binds = store.get('hs_binds', {});
+let keyTrans = {};
+let keyWait = null;
+function rebuildKeyTrans() { keyTrans = {}; for (const d in binds) if (binds[d] !== d) keyTrans[binds[d]] = d; }
+rebuildKeyTrans();
+function boundKey(def) { return binds[def] || def; }
+function keyLabel(code) { return String(code).replace(/^Key/, '').replace(/^Digit/, '').replace('ShiftLeft', 'L-Shift').replace('ShiftRight', 'R-Shift').replace('ControlLeft', 'L-Ctrl').replace('Arrow', 'Arrow '); }
+function bindKey(def, code) {
+  const cur = boundKey(def);
+  if (code === cur) return;
+  // whoever had this key gets our old key (a swap, so nothing is ever unbound)
+  const other = BINDABLE.map(b => b[1]).find(d => d !== def && boundKey(d) === code);
+  if (other) binds[other] = cur;
+  binds[def] = code;
+  for (const d in binds) if (binds[d] === d) delete binds[d];
+  store.set('hs_binds', binds); rebuildKeyTrans();
+}
+function resetBinds() { binds = {}; store.set('hs_binds', binds); rebuildKeyTrans(); }
+function remapKeyEvent(e) {
+  if (e._hs) return;
+  if (state === 'keys' && e.type === 'keydown') {
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (keyWait) { if (e.code !== 'Escape') bindKey(keyWait, e.code); keyWait = null; sfx.grab(); }
+    else if (e.code === 'Escape') state = 'settings';
+    return;
+  }
+  const to = keyTrans[e.code];
+  if (!to) {
+    // a default key that was moved to another action is now "free": don't let it fire its old action
+    if (binds[e.code] && binds[e.code] !== e.code && !keyTrans[e.code]) { e.stopImmediatePropagation(); }
+    return;
+  }
+  e.preventDefault(); e.stopImmediatePropagation();
+  const ev = new KeyboardEvent(e.type, { code: to, key: e.key, bubbles: true, cancelable: true, repeat: e.repeat });
+  ev._hs = true;
+  window.dispatchEvent(ev);
+}
+window.addEventListener('keydown', remapKeyEvent, true);
+window.addEventListener('keyup', remapKeyEvent, true);
 const mouse = { x: 0, y: 0, down: false };
 let night = 1;
 let campaign = null;
@@ -695,7 +747,7 @@ function hint(id, text) {
 }
 
 function startNight() {
-  if (campaign.map === 'golf') buildGolfWorld(); else buildWorld();
+  if (campaign.map === 'golf') buildGolfWorld(); else if (campaign.map === 'cul') buildCulWorld(); else buildWorld();
   buildNav();
   const NIGHT = Math.round((330 + night * 15) * diff().time);
   G = {
@@ -715,6 +767,10 @@ function startNight() {
     tags: { buck: 2, doe: 0 }, poached: 0, holiday: isHolidayNight(night),
   };
   G.tags.doe = G.quota + 1;
+  if (campaign.truckDeer && !oneNightMode()) {
+    G.delivered += campaign.truckDeer; G.fromTruck = campaign.truckDeer;
+    G.banner = { text: `🛻 ${campaign.truckDeer} deer from the truck bed already count toward tonight`, color: '#9be564', t: 4 };
+  }
   if (G.holiday) {
     // Inflatable Santas and snowmen go up in the yards. They count as cover, like a bush.
     let n = 0;
@@ -745,7 +801,7 @@ function startNight() {
   for (let i = 0; i < 9 + night; i++) spawnDeer(false);
   const legendChance = night >= 5 ? 1 : night >= 3 ? 0.5 : 0;
   if (Math.random() < legendChance) spawnDeer(false, true);
-  if (campaign.map === 'golf') setupGolfWatchers(); else setupWatchers();
+  if (campaign.map === 'golf') setupGolfWatchers(); else if (campaign.map === 'cul') setupCulWatchers(); else setupWatchers();
   spawnCritters();
   setupObjective();
   G.priceTrend = campaign.lastPrice ? Math.sign(G.price - campaign.lastPrice) : 0;
@@ -913,7 +969,7 @@ window.addEventListener('keydown', e => {
   if (state === 'court' && !G.court) { if (e.code === 'Digit1') courtPlea(0); if (e.code === 'Digit2') courtPlea(1); if (e.code === 'Digit3') courtPlea(2); }
   if (state === 'play' && e.code === 'KeyV') drinkBeer();
   if (state === 'play' && e.code === 'Tab') G.mapOpen = !G.mapOpen;
-  if ((['whoswho', 'nights', 'trophies', 'credits', 'settings'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = 'title';
+  if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = 'title';
   else if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) { if (!loadGame()) newCampaign(); }
   else if (state === 'intro' && (e.code === 'Enter' || e.code === 'Space')) state = 'play';
   else if (state === 'play') {
@@ -957,7 +1013,7 @@ cv.addEventListener('mousedown', e => {
   if (state === 'story') advanceStory();
   else if (state === 'steve') { /* buttons only */ }
   else if (state === 'title') { if (!store.get('hs_save', null)) newCampaign(); }
-  else if (['whoswho', 'nights', 'trophies', 'credits', 'settings'].includes(state)) state = 'title';
+  else if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = 'title';
   else if (state === 'intro') state = 'play';
   else if (state === 'play') startDraw();
   else if (state === 'pause') state = 'play';
@@ -1008,7 +1064,7 @@ function pollPad() {
     if (edge(0)) buy(SHOP[shopSel]);
     if (edge(9)) { night++; startNight(); }
   } else if (edge(0) || edge(9) || edge(1)) {
-    if (['whoswho', 'nights', 'trophies', 'credits', 'settings'].includes(state)) state = 'title';
+    if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = 'title';
     else if (edge(1)) { /* B only backs out of sub-menus */ }
     else if (state === 'title') { if (!loadGame()) newCampaign(); }
     else if (state === 'intro' || state === 'pause') state = 'play';
@@ -2797,6 +2853,7 @@ function updatePolice(dt) {
 
 function endNight(reason) {
   G.endReason = reason;
+  if (!oneNightMode()) campaign.truckDeer = (has('truckbed') && reason !== 'arrested') ? clamp(G.delivered - G.quota, 0, 2) : 0;
   if (reason === 'arrested') rumble(500, 1);
   const timeBonus = reason === 'win' ? Math.floor(G.time) * 2 : 0;
   const stealthBonus = (reason === 'win' && !G.police) ? 150 : 0;
@@ -2852,9 +2909,8 @@ function endNight(reason) {
     }
     if (campaign.daily) { const dd = store.get('hs_daily', {}); dd[campaign.daily] = Math.max(dd[campaign.daily] || 0, campaign.score); store.set('hs_daily', dd); unlock('daily'); restoreRandom(); }
     if (campaign.map === 'golf') { store.set('hs_golf_best', Math.max(store.get('hs_golf_best', 0), campaign.score)); if (reason !== 'arrested') unlock('golfer'); }
-    const scores = oneNightMode() ? [] : store.get('hs_scores', []);
-    scores.push({ score: campaign.score, night, cash: campaign.cash, date: new Date().toLocaleDateString() });
-    if (!oneNightMode()) { scores.sort((a, b) => b.score - a.score); store.set('hs_scores', scores.slice(0, 5)); }
+    if (campaign.map === 'cul' || campaign.map === 'random') store.set('hs_' + campaign.map + '_best', Math.max(store.get('hs_' + campaign.map + '_best', 0), campaign.score));
+    if (!oneNightMode()) recordScore();
     clearSave();
     state = 'over'; reason === 'win' ? sfx.win() : sfx.lose();
     if (reason === 'win' && night === 5) {
@@ -3254,11 +3310,13 @@ function drawGround() {
   // sidewalks then roads
   for (const r of world.roads) { ctx.fillStyle = '#6d706b'; ctx.fillRect(r.x - 14, r.y - 14, r.w + 28, r.h + 28); }
   for (const r of world.roads) { ctx.fillStyle = '#2d2f33'; ctx.fillRect(r.x, r.y, r.w, r.h); }
+  drawBulbs();
   ctx.strokeStyle = 'rgba(214,176,52,0.75)';
   ctx.lineWidth = 4;
   ctx.setLineDash([34, 30]);
   ctx.beginPath();
   for (const r of world.roads) {
+    if (r.bulb) continue;
     if (r.vert) { ctx.moveTo(r.x + r.w / 2, r.y); ctx.lineTo(r.x + r.w / 2, r.y + r.h); }
     else { ctx.moveTo(r.x, r.y + r.h / 2); ctx.lineTo(r.x + r.w, r.y + r.h / 2); }
   }
@@ -4180,7 +4238,7 @@ function wrapText(text, x, y, maxW, lh) {
 function drawScreens(now) {
   uiButtons = [];
   if (state === 'play') return;
-  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
+  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
   ctx.textAlign = 'center';
   const cx = VW / 2;
@@ -4219,6 +4277,9 @@ function drawScreens(now) {
     buttonGrid([
       { label: 'Daily Hunt', fn: () => startDaily(), hi: true },
       { label: '⛳ Country Club', fn: () => startGolf() },
+      { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul') },
+      { label: '🎲 Random map', fn: () => startMapMode('random') },
+      { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
       { label: 'Night select', fn: () => { state = 'nights'; } },
       { label: '⚙ Settings', fn: () => { state = 'settings'; } },
       { label: 'Who\'s Who', fn: () => { state = 'whoswho'; } },
@@ -4227,9 +4288,9 @@ function drawScreens(now) {
     ], y + 18, 160, 36);
   } else if (state === 'intro') {
     ctx.fillStyle = '#ff7a1a'; ctx.font = 'bold 40px system-ui, sans-serif';
-    ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
+    ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.map === 'cul' ? 'MAPLE COURT' : campaign.map === 'random' ? `RANDOM NEIGHBORHOOD #${campaign.mapSeed}` : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '17px system-ui, sans-serif';
-    let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
+    let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
     ctx.fillStyle = '#9be564'; ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillText(`Quota: ${G.quota} deer before sunrise`, cx, y + 50);
     ctx.fillStyle = '#9ecbff'; ctx.font = '15px system-ui, sans-serif';
@@ -4286,6 +4347,10 @@ function drawScreens(now) {
     drawCourt();
   } else if (state === 'settings') {
     drawSettings();
+  } else if (state === 'scores') {
+    drawScores();
+  } else if (state === 'keys') {
+    drawKeys();
   } else if (state === 'trophies') {
     drawTrophies();
   } else if (state === 'credits') {
@@ -4343,7 +4408,7 @@ function drawScreens(now) {
       `Deer delivered: ${G.delivered} / ${G.quota}${G.bucks ? ` (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}${G.legendDone ? ' + OLD HOSTA' : ''}`,
       `Arrows fired: ${G.shots}  ·  Accuracy: ${acc}%  ·  Times spotted: ${G.timesSpotted}`,
       `Venison sold to Steve: ${G.soldPacks || 0} packs  ·  Freezer: ${campaign.freezer} packs  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
-      campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}: best today ${(store.get('hs_daily', {})[campaign.daily] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
+      campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.map === 'cul' ? `Cul-de-sac best: ${store.get('hs_cul_best', 0)}` : campaign.map === 'random' ? `Random neighborhood best: ${store.get('hs_random_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}: best today ${(store.get('hs_daily', {})[campaign.daily] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
       `Time bonus: ${G.timeBonus || 0}  ·  Ghost bonus: ${G.stealthBonus || 0}  ·  Cash earned: $${G.earned}`,
       `Night score: ${G.nightScore}  ·  Season total: ${campaign.score}  ·  Best: ${best}`,
     ].filter(Boolean);
@@ -4616,7 +4681,7 @@ function drawTrophies() {
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 14px system-ui, sans-serif'; ctx.fillText('BEST SEASONS', cx, y); y += 20;
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
   if (!scores.length) { ctx.fillText('None yet. Go fill that freezer.', cx, y); }
-  scores.forEach((s, i) => { ctx.fillText(`${i + 1}. ${s.score} pts · reached night ${s.night} · $${s.cash} · ${s.date}`, cx, y); y += 18; });
+  scores.slice(0, 5).forEach((s, i) => { ctx.fillText(`${i + 1}. ${s.score} pts · reached night ${s.night} · $${s.cash} · ${s.date}`, cx, y); y += 18; });
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('Click or press Esc to go back', cx, VH - 20);
 }
 function drawCredits() {
@@ -4820,9 +4885,7 @@ function courtPlea(i) {
 }
 function finishCourt() {
   if (G.court.ok) { pickSpecial(); state = 'shop'; return; }
-  const scores = store.get('hs_scores', []);
-  scores.push({ score: campaign.score, night, cash: campaign.cash, date: new Date().toLocaleDateString() });
-  scores.sort((a, b) => b.score - a.score); store.set('hs_scores', scores.slice(0, 5));
+  recordScore();
   clearSave();
   state = 'over';
 }
@@ -4864,6 +4927,7 @@ function drawSettings() {
     { label: `Flashing: ${settings.flashes ? 'On' : 'Reduced'}`, fn: () => { settings.flashes = !settings.flashes; saveSettings(); } },
     { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => { settings.hints = !settings.hints; saveSettings(); } },
     { label: `Text size: ${settings.bigText ? 'Large' : 'Normal'}`, fn: () => { settings.bigText = !settings.bigText; saveSettings(); } },
+    { label: '⌨ Controls…', fn: () => { state = 'keys'; keyWait = null; } },
     { label: `Tutorial: ${store.get('hs_tut_done', false) ? 'Done (reset)' : 'Ready'}`, fn: () => { try { localStorage.removeItem('hs_tut_done'); } catch (e) {} } },
     { label: 'Fullscreen', fn: () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) { /* not allowed */ } } },
   ], Math.max(110, VH * 0.18 + 40), 200, 42);
@@ -4985,7 +5049,50 @@ const EARL_LINES = [
 
 // ---- Country Club map ----
 const GOLF_INTRO = 'Bonus night: the Whispering Pines Country Club, the HOA\'s crown jewel. The deer have been eating the greens, and Linda would rather die than let you hunt here. Earl lent you his truck. Fill the bed before sunrise.';
-function oneNightMode() { return !!(campaign && (campaign.daily || campaign.map === 'golf')); }
+function recordScore() {
+  const scores = store.get('hs_scores', []);
+  scores.push({ score: campaign.score, night, cash: campaign.cash, date: new Date().toLocaleDateString(), deer: campaign.totalDeer || 0, diff: settings.difficulty });
+  scores.sort((a, b) => b.score - a.score); store.set('hs_scores', scores.slice(0, 10));
+}
+function drawScores() {
+  const cx = VW / 2, maxW = Math.min(640, VW - 30);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ff7a1a'; fitFont('🏅 LEADERBOARD', 900, 38, VW - 24); ctx.fillText('🏅 LEADERBOARD', cx, Math.max(60, VH * 0.11));
+  let y = Math.max(96, VH * 0.11 + 40);
+  ctx.fillStyle = '#9be564'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('TOP 10 SEASONS', cx, y); y += 24;
+  const scores = store.get('hs_scores', []);
+  ctx.font = '13px system-ui, sans-serif';
+  if (!scores.length) { ctx.fillStyle = '#ccc'; ctx.fillText('No finished seasons yet. Go fill that freezer.', cx, y); y += 20; }
+  scores.slice(0, 10).forEach((r, i) => {
+    ctx.fillStyle = i === 0 ? '#ffd166' : i < 3 ? '#e8e8e8' : '#bbb';
+    ctx.fillText(fitText(`${i + 1}. ${r.score} pts · night ${r.night} · $${r.cash}${r.deer ? ' · ' + r.deer + ' deer' : ''}${r.diff && r.diff !== 'normal' ? ' · ' + r.diff : ''} · ${r.date}`, maxW), cx, y); y += 19;
+  });
+  y += 14;
+  ctx.fillStyle = '#9ecbff'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('MODE BESTS', cx, y); y += 24;
+  const daily = store.get('hs_daily', {}); const dayBest = Math.max(0, ...Object.values(daily));
+  const rows = [['Daily Hunt (best day)', dayBest], ['Daily Hunt (today)', daily[dailyKey()] || 0], ['⛳ Country Club', store.get('hs_golf_best', 0)],
+    ['🏘 Maple Court cul-de-sac', store.get('hs_cul_best', 0)], ['🎲 Random neighborhood', store.get('hs_random_best', 0)], ['Endless: furthest night', store.get('hs_endless_best', 0)]];
+  ctx.font = '13px system-ui, sans-serif';
+  for (const [k, v] of rows) { ctx.fillStyle = v ? '#e8e8e8' : '#777'; ctx.fillText(`${k}: ${v || '—'}`, cx, y); y += 19; }
+  ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('Scores are saved on this device. Click or press Esc to go back.', cx, VH - 20);
+}
+function drawKeys() {
+  const cx = VW / 2;
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ff7a1a'; fitFont('CONTROLS', 900, 38, VW - 24); ctx.fillText('CONTROLS', cx, Math.max(56, VH * 0.1));
+  ctx.fillStyle = keyWait ? '#ffd166' : '#aaa'; ctx.font = '14px system-ui, sans-serif';
+  const pending = keyWait && BINDABLE.find(b => b[1] === keyWait);
+  ctx.fillText(pending ? `Press a key for "${pending[0]}" (Esc cancels)` : 'Click an action, then press the key you want. Keys swap if taken.', cx, Math.max(82, VH * 0.1 + 26));
+  const y = buttonGrid(BINDABLE.map(([name, def]) => ({ label: `${name}: ${keyWait === def ? '…' : keyLabel(boundKey(def))}`, fn: () => { keyWait = def; }, hi: keyWait === def })), Math.max(100, VH * 0.1 + 44), 200, 32, 8);
+  buttonGrid([{ label: 'Reset to defaults', fn: () => { resetBinds(); keyWait = null; } }, { label: '◀ Back', fn: () => { state = 'settings'; keyWait = null; }, hi: true }], y + 12, 200, 38);
+}
+function oneNightMode() { return !!(campaign && (campaign.daily || campaign.map === 'golf' || campaign.map === 'cul' || campaign.map === 'random')); }
+function startMapMode(map) {
+  restoreRandom();
+  campaign = freshCampaign(); campaign.map = map;
+  if (map === 'random') campaign.mapSeed = 1 + Math.floor(Math.random() * 999999);
+  campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
+  night = 3;
+  startNight();
+}
 function startGolf() {
   restoreRandom();
   campaign = freshCampaign(); campaign.map = 'golf';
@@ -5082,6 +5189,145 @@ function buildGolfWorld() {
   const floods = [{ x: club.x + club.w / 2, y: club.y + club.h + 4, on: 0, house: club }, { x: barn.x + barn.w / 2, y: barn.y + barn.h + 4, on: 0, house: barn }];
   const props = tees.slice(0, 6).map(t => ({ x: t.x + 34, y: t.y, kind: 'trash', down: 0 }));
   world = { golf: true, roads, blocks, houses, fences: [], truck, shed: truck, van, ponds, clubhouse, garage: { x: -999, y: -999 }, cars, hedges, sprinklers, ice, puddles, creekGaps: [], clearing: null, phase2: [], pools: [], grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked, greens, tees, sand };
+}
+const CUL_INTRO = 'Maple Court, Birch Court and Elm Court: three dead-end streets off Pruitt Parkway. Darlene moved her book club here for the night, so Dale\'s camping in the shed behind her sister\'s place. Every street is a dead end. Plan your way out.';
+const RANDOM_INTRO = 'Same HOA, different streets. Roads, pools and hedges are shuffled every time. Nobody knows this place, including you.';
+function buildCulWorld() {
+  const R = mulberry32(777);
+  const hy0 = M + 1120;
+  const vx = [M + 700, M + 2300], hy = [hy0, hy0];
+  const BR = 200;
+  const roads = [{ x: M, y: hy0, w: W - 2 * M, h: ROAD, vert: false }];
+  const courts = [
+    { name: 'MAPLE CT', x: vx[0], cy: M + 420, north: true },
+    { name: 'BIRCH CT', x: vx[1], cy: M + 420, north: true },
+    { name: 'ELM CT', x: W / 2 - ROAD / 2, cy: H - M - 330, north: false },
+  ];
+  const bulbs = [], houses = [], blocks = [];
+  const roofs = ['#6b4a3a', '#4a5568', '#5a3e36', '#3d4f5c', '#704f3b', '#55606b', '#4f5d45'];
+  const walls = ['#d9cfbf', '#c9d3d9', '#e3d6c4', '#cfc6b8', '#d6dccf', '#e0d0c0'];
+  const mk = (x, y, top, b) => ({ x: Math.round(x), y: Math.round(y), w: HW, h: HH, top, roof: roofs[Math.floor(R() * roofs.length)], wall: walls[Math.floor(R() * walls.length)],
+    lit: [R() < 0.4, R() < 0.4, R() < 0.4], tv: R() < 0.25, ex: false, block: b });
+  for (const c of courts) {
+    const cx = c.x + ROAD / 2, cy = c.cy;
+    if (c.north) roads.push({ x: c.x, y: cy, w: ROAD, h: hy0 - cy, vert: true });
+    else roads.push({ x: c.x, y: hy0 + ROAD, w: ROAD, h: cy - hy0 - ROAD, vert: true });
+    roads.push({ x: cx - 140, y: cy - 140, w: 280, h: 280, vert: false, bulb: true });
+    bulbs.push({ x: cx, y: cy, r: BR, name: c.name });
+    const b = { x: cx - 520, y: c.north ? M - 140 : hy0 + ROAD + 40, w: 1040 + ROAD, h: c.north ? hy0 - M + 120 : H - M - hy0 - ROAD + 100, i: 0, j: 0 };
+    blocks.push(b);
+    // three houses around the far end of the bulb
+    const farY = c.north ? cy - BR - 30 - HH : cy + BR + 30;
+    for (let k = -1; k <= 1; k++) houses.push(mk(cx + k * (HW + 40) - HW / 2, farY + (k ? (c.north ? 70 : -70) : 0), !c.north, b));
+    // two houses on each side of the street
+    for (let k = 0; k < 2; k++) {
+      const yy = c.north ? cy + BR + 40 + k * (HH + 60) : cy - BR - 40 - HH - k * (HH + 60);
+      houses.push(mk(c.x - 50 - HW, yy, !c.north, b));
+      houses.push(mk(c.x + ROAD + 50, yy, !c.north, b));
+    }
+  }
+  while (blocks.length < 9) blocks.push(blocks[blocks.length % 3]);
+  const exHouse = houses[0 + 1]; // Maple Ct, far end, middle house
+  exHouse.ex = true; exHouse.roof = '#a24d7a'; exHouse.wall = '#f2d7e4'; exHouse.lit = [true, true, false];
+  const truck = { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y - 76 - 70, w: 100, h: 70, shed: true };
+  const van = { x: W - 205, y: hy0 + 30, w: 116, h: 56 };
+  const ponds = [{ x: 60, y: hy0 - 160, w: 170, h: 130, pond: true, noLos: true, name: 'Mud Pond' },
+    { x: W / 2 - 70, y: M + 160, w: 160, h: 100, pond: true, noLos: true, name: 'Greenbelt Pond' }];
+  const clubhouse = { x: W - M - 330, y: hy0 + ROAD + 70, w: 180, h: 110, clubhouse: true };
+  const pools = [{ x: clubhouse.x + 200, y: clubhouse.y + 10, w: 150, h: 80, pool: true, noLos: true, hoaPool: true }];
+  const birchFar = houses[8];
+  pools.push({ x: birchFar.x + 30, y: birchFar.y - 130, w: 120, h: 64, pool: true, noLos: true });
+  const garage = { x: exHouse.x + exHouse.w + 10, y: exHouse.y + exHouse.h / 2 };
+  const carColors = ['#8a2b2b', '#2b4a8a', '#d8d8d0', '#3a3a3a', '#5a7a3a', '#a88a2a'];
+  const cars = [];
+  for (const bl of bulbs) for (let k = 0; k < 2; k++) { const a = R() * TAU; cars.push({ x: Math.round(bl.x + Math.cos(a) * 95 - 12), y: Math.round(bl.y + Math.sin(a) * 95 - 22), w: 24, h: 44, car: true, color: carColors[Math.floor(R() * carColors.length)], top: false }); }
+  const hedges = [];
+  houses.forEach((h, i) => { if (i % 4 === 2 && !h.ex) hedges.push({ x: h.x - 26, y: h.y + 10, w: 14, h: HH - 20, hedge: true }); });
+  const sprinklers = houses.filter((h, i) => i % 3 === 1 && !h.ex).map(h => ({ x: h.x + 40, y: h.top ? h.y - 18 : h.y + h.h + 18, r: 70, phase: R() * 26 }));
+  const ice = [], puddles = [];
+  const wx = weatherFor(night);
+  const mainRoads = roads.filter(r => !r.bulb);
+  if (wx === 'snow') for (let k = 0; k < 7; k++) { const rd = mainRoads[k % mainRoads.length]; const t = 0.15 + (k * 0.27) % 0.7; ice.push(rd.vert ? { x: rd.x + 10, y: rd.y + rd.h * t, w: rd.w - 20, h: 120 } : { x: rd.x + rd.w * t, y: rd.y + 10, w: 150, h: rd.h - 20 }); }
+  if (wx === 'rain') for (let k = 0; k < 10; k++) { const rd = mainRoads[k % mainRoads.length]; const t = 0.1 + (k * 0.31) % 0.8; puddles.push(rd.vert ? { x: rd.x + 20 + R() * (rd.w - 40), y: rd.y + rd.h * t, r: 18 + R() * 10 } : { x: rd.x + rd.w * t, y: rd.y + 20 + R() * (rd.h - 40), r: 18 + R() * 10 }); }
+  const solids = [...houses, truck, van, clubhouse, ...pools, ...ponds, ...cars, ...hedges];
+  const exZone = { x: exHouse.x - 90, y: exHouse.y - 20, w: exHouse.w + 180, h: exHouse.h + 120 };
+  function inRect(x, y, r, m) { return x > r.x - m && x < r.x + r.w + m && y > r.y - m && y < r.y + r.h + m; }
+  function blocked(x, y, m) {
+    if (x < 30 || y < 30 || x > W - 30 || y > H - 30) return true;
+    for (const h of solids) if (inRect(x, y, h, m)) return true;
+    for (const rd of roads) if (inRect(x, y, rd, m)) return true;
+    for (const bl of bulbs) if (dist(x, y, bl.x, bl.y) < bl.r + m) return true;
+    if (inRect(x, y, exZone, 0)) return true;
+    if (dist(x, y, truck.x + truck.w / 2, truck.y + truck.h / 2) < 150) return true;
+    if (dist(x, y, van.x + van.w / 2, van.y + van.h / 2) < 200) return true;
+    return false;
+  }
+  // woods: the map edges plus the greenbelt between the north courts and the empty lots around Elm Ct
+  const inWoods = (x, y) => x < M || x > W - M || y < M || y > H - M ||
+    (y < hy0 - 90 && x > vx[0] + ROAD + 420 && x < vx[1] - 420) ||
+    (y > hy0 + ROAD + 90 && (x < W / 2 - 700 || (x > W / 2 + 700 && x < W - M - 420)));
+  const trees = [];
+  const addTree = (x, y) => { if (trees.some(t => dist(x, y, t.x, t.y) < 60)) return false; trees.push({ x, y, trunk: 13, canopy: 26 + R() * 18, block: 17, hue: R() }); return true; };
+  for (let k = 0; k < 1400 && trees.length < 300; k++) { const x = R() * W, y = R() * H; if (inWoods(x, y) && !blocked(x, y, 30)) addTree(x, y); }
+  const bushes = [];
+  const addBush = (x, y) => { if (trees.some(t => dist(x, y, t.x, t.y) < 55) || bushes.some(q => dist(x, y, q.x, q.y) < 80)) return false; bushes.push({ x, y, r: 30 + R() * 8, seed: R() * 100 }); return true; };
+  for (const h of houses) { let n = 0; for (let k = 0; k < 40 && n < 2; k++) { const x = h.x - 60 + R() * (h.w + 120), y = h.y - 80 + R() * (h.h + 160); if (!blocked(x, y, 36) && addBush(x, y)) n++; } }
+  for (let k = 0; k < 600 && bushes.length < 100; k++) { const x = R() * W, y = R() * H; if (inWoods(x, y) && !blocked(x, y, 30)) addBush(x, y); }
+  const grass = [];
+  for (let k = 0; k < 700 && grass.length < 30; k++) {
+    const x = R() * W, y = R() * H;
+    if (!inWoods(x, y) || blocked(x, y, 10) || grass.some(g => dist(g.x, g.y, x, y) < 150)) continue;
+    grass.push({ x, y, r: 50 + R() * 25, seed: R() * 100 });
+  }
+  const lights = [];
+  for (const rd of mainRoads) {
+    if (rd.vert) for (let y = rd.y + 150; y < rd.y + rd.h; y += 380) lights.push({ x: rd.x - 6, y });
+    else for (let x = rd.x + 200; x < rd.x + rd.w; x += 430) lights.push({ x, y: rd.y - 6 });
+  }
+  for (const bl of bulbs) lights.push({ x: bl.x, y: bl.y });
+  const dogs = [];
+  for (const idx of [4, 11, 17]) { const h = houses[idx]; if (!h || h.ex) continue; const ax = h.x + h.w / 2, ay = h.top ? h.y + h.h + 40 : h.y - 40; dogs.push({ ax, ay, x: ax, y: ay, ang: 0, bark: 0, cd: 0, name: pick(['Biscuit', 'Duke', 'Pickles', 'Moose']) }); }
+  const signs = courts.map(c => ({ x: c.x + ROAD + 70, y: hy0 + (c.north ? -24 : ROAD + 24), text: c.name + ' (DEAD END)' }));
+  signs.push({ x: M + 220, y: hy0 - 24, text: 'PRUITT PARKWAY' }, { x: clubhouse.x + 90, y: clubhouse.y - 14, text: 'HOA POOL: CLOSED' });
+  const floods = [3, 9, 15].map(i => houses[i]).filter(h => h && !h.ex).map(h => ({ x: h.x + h.w / 2, y: h.top ? h.y + h.h + 4 : h.y - 4, on: 0, house: h }));
+  const gardens = [], props = [];
+  houses.forEach((h, i) => {
+    if (i % 3 === 0 || h.ex) { const g = { x: h.x - 95, y: h.y + 40, w: 80, h: 80, ex: h.ex }; if (!blocked(g.x + 40, g.y + 40, 0) || h.ex) { gardens.push(g); props.push({ x: g.x + 8, y: g.y + 8, kind: 'gnome', down: 0 }); } }
+    if (i % 2 === 1) props.push({ x: h.x + h.w - 4, y: h.top ? h.y - 22 : h.y + h.h + 22, kind: 'trash', down: 0 });
+  });
+  world = { cul: true, roads, bulbs, blocks, houses, fences: [], truck, shed: truck, van, ponds, clubhouse, garage, cars, hedges, sprinklers, ice, puddles, creekGaps: [], clearing: null, phase2: [], pools, grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked };
+}
+function setupCulWatchers() {
+  const { vx, hy, exHouse: h, bulbs } = world;
+  watchers = [];
+  const x0 = h.x - 45, x1 = h.x + h.w + 45, y0 = h.y + h.h + 14, yb = h.y + 10;
+  const A = { x: x0, y: yb }, B = { x: x0, y: y0 }, C = { x: x1, y: y0 }, D = { x: x1, y: yb };
+  watchers.push(makeWatcher('ex', [A, B, C, D, C, B], { speed: 50, fov: 1.45, range: 235, pause: 2.6, rate: 32, label: NAMES.ex + ' (ex)' }));
+  const y = hy[0] + 60, mid = W / 2;
+  watchers.push(makeWatcher('hoa', [
+    { x: M + 80, y }, { x: vx[0] + 60, y }, { x: vx[0] + 60, y: bulbs[0].y + 60 }, { x: vx[0] + 60, y },
+    { x: mid, y }, { x: mid, y: bulbs[2].y - 60 }, { x: mid, y },
+    { x: vx[1] + 60, y }, { x: vx[1] + 60, y: bulbs[1].y + 60 }, { x: vx[1] + 60, y }, { x: W - M - 80, y }],
+    { speed: 105, fov: 1.15, range: 265, pause: 1.4, rate: 22, label: NAMES.hoa + ', HOA Pres.', cart: true }));
+  watchers.push(makeWatcher('watch', [{ x: mid + 90, y: hy[0] + ROAD + 40 }, { x: mid + 90, y: bulbs[2].y - 230 }],
+    { speed: 58, fov: 1.3, range: 225, pause: 2.5, rate: 22, label: NAMES.watch + ', Nbhd Watch' }));
+  for (const idx of [7, 13]) {
+    const hh = world.houses[idx];
+    if (!hh || hh.ex) continue;
+    const cw = makeWatcher('cam', [{ x: hh.x + 70, y: hh.top ? hh.y - 7 : hh.y + hh.h + 7 }], { speed: 0, fov: 0.9, range: 135, pause: 999, rate: 14, label: 'Doorbell cam', fixed: true });
+    cw.ang = cw.baseAng = hh.top ? -Math.PI / 2 : Math.PI / 2; cw.pi = 0;
+    watchers.push(cw);
+  }
+}
+function drawBulbs() {
+  if (!world.bulbs) return;
+  for (const b of world.bulbs) {
+    if (!inView(b.x, b.y, b.r + 40)) continue;
+    ctx.fillStyle = '#6d706b'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 14, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2d2f33'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2f5a2c'; ctx.beginPath(); ctx.arc(b.x, b.y, 46, 0, TAU); ctx.fill(); // landscaped island
+    ctx.fillStyle = '#3d7a37'; ctx.beginPath(); ctx.arc(b.x - 10, b.y - 8, 22, 0, TAU); ctx.fill();
+  }
 }
 function setupGolfWatchers() {
   const { vx, hy } = world;
