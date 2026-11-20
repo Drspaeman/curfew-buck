@@ -459,6 +459,17 @@ function startNight() {
     drawing: false, draw: 0, arrows: 8 + (has('quiver') ? 6 : 0), cones: 2 + (has('pouch') ? 3 : 0),
     cooler: 0, bag: 0, fishing: null,
   };
+  // if Dale would start overlapping a fence or hedge (some maps), nudge him out the way walking would
+  for (let k = 0; k < 3; k++) moveCircle(player, 0, 0, PLAYER_R);
+  if (!nearTruck()) {
+    // pushed too far from the shed: pick the first clear spot around it instead
+    const cx = world.shed.x + world.shed.w / 2, cy = world.shed.y + world.shed.h / 2;
+    for (let k = 0; k < 32; k++) {
+      const ang = k / 32 * TAU, c = { x: cx + Math.cos(ang) * 82, y: cy + Math.sin(ang) * 82 }, x0 = c.x, y0 = c.y;
+      moveCircle(c, 0, 0, PLAYER_R);
+      if (Math.hypot(c.x - x0, c.y - y0) < 0.5) { player.x = c.x; player.y = c.y; break; }
+    }
+  }
   deer = []; arrows = []; popups = []; particles = []; cones = []; drops = []; marks = []; flies = []; leaves = [];
   for (let i = 0; i < 9 + night; i++) spawnDeer(false);
   const legendChance = night >= 5 ? 1 : night >= 3 ? 0.5 : 0;
