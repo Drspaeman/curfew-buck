@@ -25,6 +25,13 @@ window.addEventListener('keydown', e => {
   if (state === 'court' && !G.court) { if (e.code === 'Digit1') courtPlea(0); if (e.code === 'Digit2') courtPlea(1); if (e.code === 'Digit3') courtPlea(2); }
   if (state === 'play' && e.code === 'KeyV') drinkBeer();
   if (state === 'play' && e.code === 'Tab') G.mapOpen = !G.mapOpen;
+  // photo mode
+  if (state === 'photo') {
+    if (e.code === 'KeyH' || e.code === 'Escape') state = 'play';
+    else if (e.code === 'Enter') savePhoto();
+    return;
+  }
+  if (state === 'play' && e.code === 'KeyH' && !netLive()) { player.drawing = false; state = 'photo'; unlock('photo'); return; }
   if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = ['nights', 'whoswho', 'trophies', 'credits'].includes(state) ? 'extras' : 'title';
   else if (['modes', 'players', 'extras'].includes(state) && e.code === 'Escape') state = 'title';
   else if (state === 'title' && ['KeyK', 'KeyO', 'KeyI'].includes(e.code)) {

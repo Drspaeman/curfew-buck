@@ -387,6 +387,7 @@ const ACH = {
   thrifty: ['Thrifty', 'Finish the season without buying anything'],
   collector: ['Neighborhood Gossip', 'Collect every gossip note'],
   oldboot: ['Catch and Re-Lace', 'Reel in an old boot'],
+  photo: ['Say Cheese', 'Open photo mode (H)'],
   recycling: ['Recycling Has Its Rewards', 'Distract a watcher with an empty can'],
   mail: ['Return to Sender', 'Put an arrow in somebody\'s mailbox'],
   haggler: ['Art of the Deal', 'Win a haggle with Steve'],

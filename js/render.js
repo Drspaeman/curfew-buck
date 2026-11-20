@@ -1221,7 +1221,7 @@ function drawHUD(now) {
     // as many controls as fit on one line; the pause screen lists them all
     const parts = pad.connected
       ? ['🎮 L-stick move', 'R-stick aim', 'hold RT to draw', 'LB sneak', 'A drag', 'B pinecone', 'X grunt', 'Y leave / decline call', 'Start pause']
-      : ['WASD move', 'Shift sneak', 'hold click to draw, release to shoot', 'E use', 'F pinecone', 'X sprint', 'R look ahead', 'G grunt', 'V beer', 'N goggles', 'J jerky', 'Tab map', 'Q end night', 'P pause'];
+      : ['WASD move', 'Shift sneak', 'hold click to draw, release to shoot', 'E use', 'F pinecone', 'X sprint', 'R look ahead', 'G grunt', 'V beer', 'N goggles', 'J jerky', 'Tab map', 'H photo', 'Q end night', 'P pause'];
     ctx.fillText(fitParts(parts, VW - 32 - (muted ? 60 : 0), ' · ', ' · P pause: all keys') + (muted ? '  (muted)' : ''), 16, VH - 14);
   }
 }
@@ -1335,9 +1335,22 @@ function wrapText(text, x, y, maxW, lh) {
 // Menu screens scroll when they are taller than the window (phones, landscape): wheel, drag, arrow keys.
 let menuScroll = 0, menuMax = 0, menuBottom = 0, menuState = null, drawScroll = 0;
 function scrollMenu(dy) { if (state !== 'play' && menuMax > 0) menuScroll = clamp(menuScroll + dy, 0, menuMax); }
+function savePhoto() {
+  const hint = photoHint; photoHint = false; render(performance.now()); photoHint = hint;   // a clean frame without the hint
+  try { const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'hunter-sub-photo.png'; a.click(); sfx.grab(); } catch (e) { /* blocked */ }
+}
+let photoHint = true;
 function drawScreens(now) {
   uiButtons = [];
   if (state === 'play') { menuState = null; return; }
+  if (state === 'photo') {
+    if (photoHint) {
+      ctx.fillStyle = 'rgba(10,14,20,0.7)'; roundRect(ctx, VW / 2 - 170, VH - 40, 340, 26, 8); ctx.fill();
+      ctx.fillStyle = '#ddd'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('📷 PHOTO MODE  ·  Enter: save picture  ·  H or Esc: back', VW / 2, VH - 22);
+    }
+    return;
+  }
   if (state !== menuState) { menuState = state; menuScroll = 0; }
   menuScroll = clamp(menuScroll, 0, menuMax);
   ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt', 'modes', 'players', 'extras'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
@@ -1461,7 +1474,7 @@ function drawScreenBody(now) {
     // every control, with your own key bindings
     const k = d => keyLabel(boundKey(d));
     const all = touchMode ? 'Left stick: move (push lightly to sneak) · Hold the right side: draw, let go: shoot · Buttons: use, pinecone, grunt, map, leave'
-      : `${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')}: move · ${k('ShiftLeft')}: sneak · ${k('KeyX')}: sprint · hold click (or ${k('Space')}): draw, let go: shoot · ${k('KeyE')}: drag deer / fish / pack cooler / talk to Steve · ${k('KeyF')} or right-click: pinecone · ${k('KeyG')}: grunt call · ${k('KeyV')}: beer · ${k('KeyB')}: corn · ${k('KeyN')}: goggles · ${k('KeyJ')}: jerky for dogs · T: decline call · ${k('Tab')}: map · ${k('KeyR')}: look ahead · ${k('KeyQ')}: end night at the shed · ${k('KeyP')}: pause`;
+      : `${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')}: move · ${k('ShiftLeft')}: sneak · ${k('KeyX')}: sprint · hold click (or ${k('Space')}): draw, let go: shoot · ${k('KeyE')}: drag deer / fish / pack cooler / talk to Steve · ${k('KeyF')} or right-click: pinecone · ${k('KeyG')}: grunt call · ${k('KeyV')}: beer · ${k('KeyB')}: corn · ${k('KeyN')}: goggles · ${k('KeyJ')}: jerky for dogs · T: decline call · ${k('Tab')}: map · ${k('KeyR')}: look ahead · H: photo mode · ${k('KeyQ')}: end night at the shed · ${k('KeyP')}: pause`;
     ctx.fillStyle = '#9aa'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.fillText('CONTROLS', cx, py + 14);
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
     wrapText(all, cx, py + 34, Math.min(640, VW - 30), 18);
