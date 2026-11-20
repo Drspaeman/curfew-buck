@@ -157,7 +157,7 @@ function netOnMessage(str) {
   } else if (NET.role === 'client') {
     if (m.t === 'start') netClientStart(m);
     else if (m.t === 'snap' && NET.live) netApply(m);
-    else if (m.t === 'refuse') { NET.err = m.why; NET.role = null; NET.live = false; }
+    else if (m.t === 'refuse') { const why = m.why; netLeave(true); NET.err = why; }
     else if (m.t === 'bye') netOnEvent({ type: 'peer-left' });
   }
 }
@@ -211,7 +211,7 @@ function netClientStart(m) {
 for (const k of Object.keys(sfx)) {
   const f = sfx[k];
   if (typeof f !== 'function') continue;
-  sfx[k] = function (...a) { if (netHost() && NET.sfxQ.length < 40) NET.sfxQ.push(k); return f.apply(this, a); };
+  sfx[k] = function (...a) { if (netHost() && NET.sfxQ.length < 40) NET.sfxQ.push(a.length ? [k, ...a.filter(x => typeof x === 'number')] : k); return f.apply(this, a); };
 }
 // long lists: send only the newest entries (route is only drawn on the results map)
 const NET_G_TRIM = { route: 0, trail: 40, prints: 80 };
@@ -236,8 +236,10 @@ function netEncode(obj) {
 function netSnapshot() {
   const g = {};
   if (G) for (const k in G) g[k] = k in NET_G_TRIM && Array.isArray(G[k]) ? G[k].slice(G[k].length - NET_G_TRIM[k]) : G[k];
+  if (G && G.goth) { g.goth = Object.assign({}, G.goth, { hint: null, hintIdx: G.goth.hint ? G.goth.cards.indexOf(G.goth.hint) : -1 }); }
+  if (G && ['nightdone', 'over'].includes(state) && G.route) g.route = G.route.slice(-300);   // the results map
   return {
-    t: 'snap', st: state, night, G: G ? g : null, player, tyler, deer, watchers, arrows, cones, drops, popups,
+    t: 'snap', st: state, night, G: G ? g : null, player, tyler, deer, watchers, arrows, cones, drops: drops.slice(-200), popups,
     particles: particles.slice(-60), toasts, critters,
     w: world ? { dogs: world.dogs, floods: world.floods, sprinklers: world.sprinklers, lights: world.lights } : null,
     campaign: netCampaign(), sfx: NET.sfxQ.splice(0),
@@ -273,6 +275,7 @@ function netSmooth(oldE, newE) {
 function netApply(s) {
   const ents = { deer: s.deer || [], watchers: s.watchers || [], player: s.player, tyler: s.tyler };
   for (const k of ['G', 'player', 'tyler', 'arrows', 'cones', 'drops', 'popups', 'particles', 'toasts', 'critters', 'w']) s[k] = netRevive(s[k], ents, 0);
+  if (s.G && s.G.goth && s.G.goth.hintIdx >= 0) s.G.goth.hint = s.G.goth.cards[s.G.goth.hintIdx] || null;
   ents.deer.forEach(d => netRevive(d, ents, 1));
   ents.watchers.forEach(w => netRevive(w, ents, 1));
   // keep motion smooth between snapshots
@@ -291,7 +294,7 @@ function netApply(s) {
   // the host's menus (results, pause) show up here too, but only the host can click through them
   NET.hostState = s.st;
   state = ['play', 'pause', 'intro', 'nightdone', 'over'].includes(s.st) ? s.st : 'netwait';
-  for (const k of s.sfx || []) if (sfx[k]) try { sfx[k](); } catch (e) { /* sounds are best-effort */ }
+  for (const e of s.sfx || []) { const [k, ...args] = Array.isArray(e) ? e : [e]; if (sfx[k]) try { sfx[k](...args); } catch (x) { /* sounds are best-effort */ } }
   NET.snaps++; NET.lastSnapAt = performance.now();
 }
 function netMyChar() {
@@ -300,6 +303,7 @@ function netMyChar() {
 }
 function netClientFrame(dt) {
   if (!netClient()) return;
+  if (NET.lastSnapAt && performance.now() - NET.lastSnapAt > 10000) { netLeave(true); restoreRandom(); state = 'online'; NET.err = 'Lost the host (no game updates for 10 seconds).'; return; }
   const k = Math.min(1, dt * 14);
   const ease = e => { if (e && e._tx !== undefined) { e.x += (e._tx - e.x) * k; e.y += (e._ty - e.y) * k; } };
   deer.forEach(ease); watchers.forEach(ease); ease(player); ease(tyler);
@@ -340,7 +344,7 @@ function netOnlineKey(e) {
   if (state !== 'online' || e.type !== 'keydown') return false;
   if (e.code === 'Escape') { netLeave(); state = 'title'; return true; }
   if (e.code === 'Backspace') { NET.codeInput = NET.codeInput.slice(0, -1); return true; }
-  if (e.code === 'Enter' && NET.codeInput) { netJoinLobby(NET.codeInput, NET.pick || 'Steam'); return true; }
+  if (e.code === 'Enter' && NET.codeInput && !e.repeat && !NET.role) { netJoinLobby(NET.codeInput, NET.pick || 'Steam'); return true; }
   if (/^[0-9]$/.test(e.key) && NET.codeInput.length < 24) { NET.codeInput += e.key; return true; }
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { netPaste(); return true; }
   return true;

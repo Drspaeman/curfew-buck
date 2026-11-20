@@ -96,7 +96,8 @@ function normalize(s) {
   return out;
 }
 function hitTest(p) {
-  const inR = (o, w, h) => p.x >= o.x && p.x <= o.x + (o.w || w) && p.y >= o.y && p.y <= o.y + (o.h || h);
+  const tol = Math.max(6, 14 / scale);   // about 14 screen pixels, in map units
+  const inR = (o, w, h) => p.x >= o.x - tol && p.x <= o.x + (o.w || w) + tol && p.y >= o.y - tol && p.y <= o.y + (o.h || h) + tol;
   const lists = [['signs', o => Math.hypot(o.x - p.x, o.y - p.y) < 60], ['bushes', o => Math.hypot(o.x - p.x, o.y - p.y) < 40], ['trees', o => Math.hypot(o.x - p.x, o.y - p.y) < 40],
     ['houses', o => inR(o, HW, HH)], ['pools', o => inR(o)], ['ponds', o => inR(o)], ['hedges', o => inR(o)], ['bulbs', o => Math.hypot(o.x - p.x, o.y - p.y) < o.r], ['roads', o => inR(o)], ['woods', o => inR(o)]];
   for (const [k, w, h] of [['shed', 100, 70], ['van', 116, 56], ['clubhouse', 360, 110]]) if (spec[k] && inR(spec[k], w, h)) return () => { spec[k] = null; };

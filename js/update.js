@@ -93,11 +93,12 @@ function musicTick(dt) {
   if (musicT > 0) return;
   musicT = [0.62, 0.42, 0.28][danger];
   toneChannel = 'music';
-  const n = BASS[musicBeat % BASS.length];
-  tone(n, musicT * 0.9, 'triangle', danger ? 0.05 : 0.035);
+  const goth = typeof has === 'function' && has('vccd');   // Velvet Casket CD (js/goth.js)
+  const n = (goth ? GOTH_BASS : BASS)[musicBeat % BASS.length];
+  tone(n, musicT * 0.9, goth ? 'sawtooth' : 'triangle', (danger ? 0.05 : 0.035) * (goth ? 0.6 : 1));
   if (danger >= 1 && musicBeat % 2 === 1) tone(6000, 0.02, 'square', 0.008);
   if (danger === 2) tone(n * 2, 0.08, 'sawtooth', 0.015);
-  if (danger === 0 && musicBeat % 4 === 2 && Math.random() < 0.6) tone(pick(PLUCK), 0.25, 'triangle', 0.02, null, 0.05);
+  if (danger === 0 && musicBeat % 4 === 2 && Math.random() < 0.6) tone(pick(goth ? GOTH_PLUCK : PLUCK), goth ? 0.5 : 0.25, 'triangle', 0.02, null, 0.05);
   musicBeat++;
   toneChannel = 'sfx';
 }

@@ -30,7 +30,7 @@ window.addEventListener('keydown', e => {
   else if (state === 'intro' && (e.code === 'Enter' || e.code === 'Space')) state = 'play';
   else if (state === 'play') {
     if (e.code === 'KeyE') interact();
-    if ((e.code === 'Enter' || e.code === 'NumpadEnter') && twoP()) p2Action();
+    if ((e.code === 'Enter' || e.code === 'NumpadEnter') && twoP() && !netHost()) p2Action();
     if (e.code === 'KeyQ') tryLeave();
     if (e.code === 'KeyF') throwCone();
     if (e.code === 'KeyG') grunt();
@@ -55,7 +55,7 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => {
   keys[e.code] = false;
-  if (e.code === 'Space' && state === 'play') releaseDraw();
+  if (e.code === 'Space' && state === 'play' && !netClient()) releaseDraw();
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touch.mx = touch.my = 0; if (netClient()) { NET.lastIn = ''; NET.inT = 0; } if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
@@ -78,7 +78,7 @@ cv.addEventListener('mousedown', e => {
   else if (state === 'nightdone') goShop();
   else if (state === 'over') newCampaign();
 });
-window.addEventListener('mouseup', e => { if (e.button === 0 && state === 'play') releaseDraw(); });
+window.addEventListener('mouseup', e => { if (e.button === 0 && state === 'play' && !netClient()) releaseDraw(); });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('wheel', e => { if (state !== 'play' && menuMax > 0) { e.preventDefault(); scrollMenu(e.deltaY); } }, { passive: false });
 

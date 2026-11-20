@@ -1148,7 +1148,7 @@ function drawHUD(now) {
   } else {
     const flash = settings.flashes ? Math.floor(now / 300) % 2 === 0 : true;
     ctx.fillStyle = flash ? '#ff5a5a' : '#6f9bff'; ctx.font = `bold ${compact ? 12 : 14}px system-ui, sans-serif`;
-    ctx.fillText(G.policeT > 0 ? `🚨 911 CALLED — COPS IN ${Math.ceil(G.policeT)}s` : '🚨 POLICE ON SCENE — GET TO YOUR SHED', bcx, by + 14);
+    ctx.fillText(fitText(G.policeT > 0 ? `🚨 911 CALLED — COPS IN ${Math.ceil(G.policeT)}s` : `🚨 POLICE ON SCENE — GET TO YOUR ${world.golf ? 'TRUCK' : 'SHED'}`, bw + 20), bcx, by + 14);   // fits with Large text too
     ctx.fillStyle = '#ddd'; ctx.font = 'bold 11px system-ui, sans-serif';
     ctx.fillText('ARREST', bcx, by + 34);
     ctx.fillStyle = 'rgba(255,255,255,0.1)'; roundRect(ctx, bx, by + 42, bw, 12, 6); ctx.fill();

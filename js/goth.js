@@ -53,6 +53,10 @@ function ravenPost() {
   return pick(['quiet night. the cryptid looked sad. gave it a pinecone. (it gave me the pinecone.)', 'my dad\'s drone hit a tree again. no further questions.']);
 }
 const RAVEN_COLOR = '#b48cff';
+SHOP.push({ id: 'vccd', name: 'Velvet Casket CD', price: 5, desc: '"Hostas Bloom in Darkness." Swaps the banjo for a gloomy minor key. Signed by Raven.' });
+// the same walking bass, in A minor, for anyone who owns the CD
+const GOTH_BASS = [55, 55, 65.41, 49, 55, 51.91, 61.74, 49];
+const GOTH_PLUCK = [220, 246.94, 261.63, 311.13, 329.63, 415.3];
 ACH.raven = ['Night Shift', 'Meet Raven, the only goth in Whispering Pines'];
 ACH.binder = ['Full Binder', 'Collect all 12 of Raven\'s Cryptids of Whispering Pines cards'];
 ACH.superfan = ['Superfan', 'Find all 6 Velvet Casket gig posters'];
