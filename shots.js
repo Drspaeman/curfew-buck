@@ -10,6 +10,8 @@
   const list = [
     ['title', () => { state = 'title'; }],
     ['play', () => { inGame(); }],
+    ['intro1', () => { localStorage.removeItem('hs_save'); newCampaign(); night = 1; startNight(); story = null; state = 'intro'; }],
+    ['title-fresh', () => { localStorage.removeItem('hs_save'); state = 'title'; }],
     ['pause', () => { inGame(); state = 'pause'; }],
     ['steve', () => { inGame(); player.cooler = 3; openSteve(); }],
     ['results', () => { inGame(); G.delivered = G.quota; G.shots = 5; G.hits = 4; G.earned = 300; endNight('win'); story = null; state = 'nightdone'; }],

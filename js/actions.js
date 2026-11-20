@@ -127,6 +127,7 @@ function interact() {
   }
   if (nearTruck() && G.freezer > 0 && !deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) {
     player.cooler = Math.min(10, G.freezer);
+    G.packedCooler = true;
     G.freezer -= player.cooler;
     sfx.pickup();
     popup(player.x, player.y - 30, `Packed a cooler: ${player.cooler} venison packs. Sell them to Steve!`, '#9ecbff', 2);
@@ -275,7 +276,7 @@ const TUTORIAL = [
   { text: 'Find a deer. The green arrow points to the nearest one.', done: () => deer.some(d => d.dead) || G.delivered > 0 || (nearestDeer() && dist(player.x, player.y, nearestDeer().x, nearestDeer().y) < 320 && los(player.x, player.y, nearestDeer().x, nearestDeer().y)) },
   { text: () => `${ctl('draw')} to draw your bow. ${ctl('release')} when the ring turns GREEN.`, done: () => deer.some(d => d.dead) || G.delivered > 0 },
   { text: () => `Walk to the deer and ${ctl('press')} ${ctl('use')} to drag it. Bring it home to your shed (yellow arrow).`, done: () => G.delivered > 0 },
-  { text: () => `At your shed, ${ctl('press')} ${ctl('use')} to pack a cooler of venison from the freezer.`, done: () => player.cooler > 0 || (G.soldPacks || 0) > 0 },
+  { text: () => `At your shed, ${ctl('press')} ${ctl('use')} to pack a cooler of venison from the freezer.`, done: () => player.cooler > 0 || G.packedCooler },
   { text: () => `Follow the green arrow to Steve's van. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('use')} to open his menu, then choose Sell.`, done: () => (G.soldPacks || 0) > 0 },
 ];
 function nearestDeer() {
@@ -296,7 +297,7 @@ function drawTutorial() {
   if (!G.tut) return;
   const step = TUTORIAL[G.tut.step];
   const compact = VW < 760;
-  const w = Math.min(560, VW - 28), x = VW / 2 - w / 2, y = compact ? VH - 150 : 80;
+  const w = Math.min(560, VW - 28), x = VW / 2 - w / 2, y = compact ? 316 : 80;
   ctx.font = '15px system-ui, sans-serif';
   const lines = wrapLines(typeof step.text === 'function' ? step.text() : step.text, w - 30);
   const h = 34 + lines.length * 20;

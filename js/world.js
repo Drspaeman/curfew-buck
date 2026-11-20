@@ -358,7 +358,7 @@ function isHolidayNight(n) { if (campaign && campaign.map === 'golf') return fal
 function fillTag(d) {
   if (!G || !G.tags || d.legend) return;
   const k = d.buck ? 'buck' : 'doe';
-  if (G.tags[k] > 0) { G.tags[k]--; if (G.tags[k] === 0) popup(d.x, d.y - 48, `Last ${k} tag used.`, '#ffd166', 1.6); return; }
+  if (G.tags[k] > 0) { G.tags[k]--; if (G.tags[k] === 0) { popup(d.x, d.y - 48, `Last ${k} tag used.`, '#ffd166', 1.6); banner(`No ${k} tags left tonight. Another ${k} would be poaching: it scores nothing and raises suspicion.`, '#ffd166'); } return; }
   d.poached = true;
   G.poached++;
   if (!G.police) G.sus = Math.min(99, G.sus + 25);
@@ -391,8 +391,18 @@ function unlock(id) {
 
 function hint(id, text) {
   if (!G || campaign.hints[id] || settings.hints === false) return;
+  if (G.hint && G.hint.id !== id) {
+    G.hintQ = G.hintQ || [];
+    if (!G.hintQ.some(h => h.id === id) && G.hintQ.length < 4) G.hintQ.push({ id, text });
+    return;
+  }
   campaign.hints[id] = true;
-  G.hint = { text, t: 6 };
+  G.hint = { id, text, t: 6 };
+}
+// next queued hint, if any (called when the current one fades out)
+function nextHint() {
+  const q = G && G.hintQ;
+  while (q && q.length) { const h = q.shift(); if (!campaign.hints[h.id]) { campaign.hints[h.id] = true; G.hint = { id: h.id, text: h.text, t: 6 }; return; } }
 }
 
 function startNight() {

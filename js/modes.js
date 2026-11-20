@@ -938,7 +938,8 @@ function drawShop(now) {
     const my = mouse.y + drawScroll;   // menus scroll: compare in content coordinates
     const hover = selected || (mouse.x >= x && mouse.x <= x + bw && my >= rowY && my <= rowY + rowH);
     panel(x, rowY, bw, rowH);
-    if (hover && !owned && afford) { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; roundRect(ctx, x, rowY, bw, rowH, 10); ctx.stroke(); }
+    if ((hover && !owned && afford) || selected) { ctx.strokeStyle = afford && !owned ? '#ffd166' : '#888'; ctx.lineWidth = 2; roundRect(ctx, x, rowY, bw, rowH, 10); ctx.stroke(); }
+    if (selected && pad.connected) { if (rowY - menuScroll < 70) menuScroll = Math.max(0, rowY - 70); else if (rowY + rowH - menuScroll > VH - 70) menuScroll = rowY + rowH - VH + 70; }
     ctx.textAlign = 'left';
     ctx.fillStyle = owned ? '#9be564' : afford ? '#fff' : '#777';
     ctx.font = `bold ${rowH < 40 ? 13 : 14}px system-ui, sans-serif`;

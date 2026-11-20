@@ -1118,7 +1118,7 @@ function drawHUD(now) {
   const o = G.objective;
   if (o) {
     ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left';
-    const txt = fitText(`${o.done ? '✔' : '★'} ${o.text}${o.need > 1 && !o.done ? ` (${o.count}/${o.need})` : ''}`, compact ? VW - 40 : 360);
+    const txt = fitText(`${o.done ? '✔' : '★ Optional:'} ${o.text}${o.need > 1 && !o.done ? ` (${o.count}/${o.need})` : ''}`, compact ? VW - 40 : 360);
     const oy = compact ? by + (G.police ? 82 : 58) : 220;
     const ow = ctx.measureText(txt).width + 20;
     panel(14, oy, ow, 26);
@@ -1372,8 +1372,7 @@ function drawScreenBody(now) {
       ctx.fillStyle = '#e0b83a'; ctx.font = '13px system-ui, sans-serif';
       ctx.fillText(`Cabin fund $${save.campaign.cash || 0} / $${CABIN_GOAL}  ·  Freezer ${save.campaign.freezer || 0} packs  ·  ${save.night > 5 ? 'Endless night ' + save.night : 'Night ' + save.night + ' of 5'}`, cx, y + 16); y += 26;
     } else {
-      if (Math.floor(now / 600) % 2 === 0) ctx.fillText(touchMode ? 'Tap to start' : 'Click or press Enter to start', cx, y + 20);
-      y += 34;
+      y = buttonGrid([{ label: '▶ Start the season', fn: () => newCampaign(), hi: true }], y - 4, 240, 44) - 10;
     }
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
     const nAch = Object.keys(ACH).filter(k => achievements[k]).length;
@@ -1409,13 +1408,17 @@ function drawScreenBody(now) {
     ctx.fillStyle = '#c9d6ff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(moonFx().label, cx, y + 98); y += 20;
     if (G.objective) {
       ctx.fillStyle = '#7cf'; ctx.font = 'bold 15px system-ui, sans-serif';
-      ctx.fillText(fitText(`★ Story objective: ${G.objective.text}${G.objective.reward ? ` (+$${G.objective.reward})` : ''}`, maxW), cx, y + 102);
+      ctx.fillText(fitText(`★ Optional objective: ${G.objective.text}${G.objective.reward ? ` (+$${G.objective.reward})` : ''}`, maxW), cx, y + 102);
       y += 24;
     }
     if (night <= 5) {
       ctx.fillStyle = '#e0b83a'; ctx.font = '14px system-ui, sans-serif';
       ctx.fillText(fitText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL}  ·  Freezer: ${G.freezer} packs  ·  Steve pays $${G.price}/pack tonight`, maxW), cx, y + 102);
       y += 24;
+    }
+    if (night === 1 && !oneNightMode()) {
+      ctx.fillStyle = '#ffb3a7'; ctx.font = '14px system-ui, sans-serif';
+      y = wrapText('Being seen fills Suspicion. Break line of sight behind houses, hedges and bushes to cool it off. If it fills, someone calls 911: get to your shed.', cx, y + 102, maxW, 19) - 78;
     }
     ctx.fillStyle = '#bbb'; ctx.font = '14px system-ui, sans-serif';
     y = wrapText(`Watching tonight: ${watchers.map(w => w.label).join(' · ')}`, cx, y + 104, maxW, 20);
@@ -1652,7 +1655,7 @@ function drawSteve() {
     { label: '6. Leave', fn: () => { state = 'play'; } },
   ], y, 230, 44);
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif';
-  ctx.fillText('Time is frozen while you haggle. (Steve is very fast at haggling.)', cx, VH - 30);
+  ctx.fillText(pad.connected ? '🎮 A sell · X beer · Y arrows · D-pad ↑ pinecones · D-pad ↓ haggle · B leave' : 'Time is frozen while you haggle. (Steve is very fast at haggling.)', cx, VH - 30);
 }
 
 // ---- Context prompt: one clear hint for what E does right now ----

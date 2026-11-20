@@ -19,7 +19,7 @@ function update(dt) {
   G.time -= dt;
   G.playT += dt;
   if (G.banner) { G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
-  if (G.hint) { G.hint.t -= dt; if (G.hint.t <= 0) G.hint = null; }
+  if (G.hint) { G.hint.t -= dt; if (G.hint.t <= 0) { G.hint = null; nextHint(); } }
   if (G.ghost) { G.ghost.t -= dt; if (G.ghost.t <= 0) G.ghost = null; }
   G.radioCD -= dt;
   musicTick(dt);
@@ -29,7 +29,7 @@ function update(dt) {
 
   // Tutorial hints (first season only shows each once)
   if (night === 1 && G.playT > 0.5 && !G.tut) hint('start', 'Sneak (hold Shift) toward a deer. HOLD click to draw your bow, RELEASE to fire. Full draw = deadly.');
-  if (G.playT > 35) hint('cone', 'Right-click (or F) throws a pinecone. Watchers walk over to check it out. Use it to clear a path.');
+  if (G.playT > 35 && !G.tut) hint('cone', `${inputKind() === 'touch' ? 'The CONE button' : inputKind() === 'pad' ? 'B' : 'Right-click (or F)'} throws a pinecone. Watchers walk over to check it out. Use it to clear a path.`);
   if (night === 2 && G.playT > 3) hint('flood', 'More porch floodlights tonight. Sneak and give them room: get too close and they click on.');
 
   // Crickets

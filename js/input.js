@@ -121,7 +121,7 @@ function pollPad() {
   } else if (state === 'story') {
     if (edge(0)) advanceStory(); else if (edge(1) || edge(9)) advanceStory(true);
   } else if (state === 'steve') {
-    if (edge(0)) steveSell(); else if (edge(2)) steveBuy('beer'); else if (edge(3)) steveBuy('arrows'); else if (edge(1) || edge(9)) state = 'play';
+    if (edge(0)) steveSell(); else if (edge(2)) steveBuy('beer'); else if (edge(3)) steveBuy('arrows'); else if (edge(12)) steveBuy('cones'); else if (edge(13)) steveHaggle(); else if (edge(1) || edge(9)) state = 'play';
   } else if (state === 'court') {
     if (!G.court) {
       if (edge(12)) G.courtSel = ((G.courtSel || 0) + COURT_PLEAS.length - 1) % COURT_PLEAS.length;
@@ -170,7 +170,7 @@ function touchButtons() {
   const mmH = Math.max(70, Math.min(220, VW * 0.25, VW - 300)) * H / W;
   out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
   out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
-  if (nearTruck()) out.push({ id: 'leave', label: 'LEAVE', fn: tryLeave, x: VW / 2, y: VH - 120, r: 34, hot: true });
+  if (nearTruck()) out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && G.delivered < G.quota ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: VW / 2, y: VH - 120, r: 34, hot: true });
   return out;
 }
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
