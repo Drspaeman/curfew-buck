@@ -100,6 +100,7 @@ ACH.halloween = ['Nice Costume', 'Meet quota on Halloween night'];
 ACH.edgar = ['Nevermore', 'Startle Edgar, Raven\'s crow, into a caw'];
 ACH.openingact = ['Opening Act', 'Bag a deer while Velvet Casket\'s garage show covers your noise'];
 const CONCERT_R = 420;   // how far the band drowns you out
+const HALLOWEEN_LINES = ['Happy Halloween. My favorite day. The one day I look normal.', 'Kids keep asking what I\'m dressed as. I\'m dressed as me.', 'This is the Velvet Casket Halloween Spooktacular. Admission: one pinecone.'];
 const CONCERT_LINES = [
   'This next one is called "Hostas Bloom in Darkness." It\'s about you, Dale.',
   'We\'re Velvet Casket. We\'ve played one real show. This is the second.',
@@ -142,6 +143,29 @@ function updateHalloween(dt) {
     // deer bolt from the noisy kids
     for (const d of deer) if (!d.dead && d.state !== 'flee' && dist(d.x, d.y, w.x, w.y) < 170) { d.state = 'flee'; d.t = 2.5; d.ang = Math.atan2(d.y - w.y, d.x - w.x); }
     if (w.seeing && w.kidCD <= 0) { w.kidCD = 6; popup(w.x, w.y - 30, pick(KID_LINES), '#ffb347', 2); }
+  }
+}
+// The trick-or-treaters: a little ghost, a witch and a pumpkin-head, trailing their group's spot
+function drawKidCostumes(now) {
+  if (!G || !G.halloween) return;
+  for (const w of watchers) {
+    if (!w.kids || !inView(w.x, w.y, 60)) continue;
+    const bob = k => Math.sin(now / 160 + k * 2) * 1.5;
+    const back = w.ang + Math.PI, off = (k, side) => ({ x: w.x + Math.cos(back) * (10 + k * 12) + Math.cos(back + Math.PI / 2) * side, y: w.y + Math.sin(back) * (10 + k * 12) + Math.sin(back + Math.PI / 2) * side + bob(k) });
+    // ghost
+    let p = off(0, -10);
+    ctx.fillStyle = '#f2f2f2'; ctx.beginPath(); ctx.arc(p.x, p.y - 2, 6, Math.PI, 0); ctx.lineTo(p.x + 6, p.y + 6); ctx.lineTo(p.x + 2, p.y + 4); ctx.lineTo(p.x - 2, p.y + 6); ctx.lineTo(p.x - 6, p.y + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.fillRect(p.x - 3, p.y - 3, 1.6, 2); ctx.fillRect(p.x + 1.4, p.y - 3, 1.6, 2);
+    // witch
+    p = off(1, 9);
+    ctx.fillStyle = '#5b2a8a'; ctx.beginPath(); ctx.arc(p.x, p.y, 5.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.moveTo(p.x - 7, p.y - 3); ctx.lineTo(p.x + 7, p.y - 3); ctx.lineTo(p.x, p.y - 13); ctx.closePath(); ctx.fill();
+    // pumpkin-head
+    p = off(2, -4);
+    ctx.fillStyle = '#e8741a'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 6, 5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd166'; ctx.fillRect(p.x - 3, p.y - 1, 1.6, 1.6); ctx.fillRect(p.x + 1.4, p.y - 1, 1.6, 1.6);
+    // candy buckets
+    ctx.fillStyle = '#e8741a'; ctx.fillRect(w.x + 6, w.y + 4, 4, 4);
   }
 }
 function drawPumpkins(now) {
@@ -235,6 +259,8 @@ function gothInteract() {
     ravenSay('Bring me a pinecone. For the altar. Don\'t ask what the altar is for.');
   } else if (R.traded && hidden) {
     ravenSay('One hint per night. I have a brand to maintain.');
+  } else if (G.halloween) {
+    ravenSay(HALLOWEEN_LINES[R.line++ % HALLOWEEN_LINES.length]);
   } else if (R.concert) {
     ravenSay(CONCERT_LINES[R.line++ % CONCERT_LINES.length]);
   } else {

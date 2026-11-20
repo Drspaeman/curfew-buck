@@ -62,7 +62,7 @@ function render(now) {
   if (G && G.flash > 0 && !settings.flashes && state === 'play') { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(20,24,40,0.85)'; const ly = G.sirenCap > 0 ? VH - 122 : VH - 92; roundRect(ctx, VW / 2 - 130, ly, 260, 24, 8); ctx.fill(); ctx.fillStyle = '#e6ebff'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚡ Lightning: you\'re easier to see', VW / 2, ly + 17); }
   ctx.setTransform(DPR, 0, 0, DPR, (-cam.x + sx) * DPR, (-cam.y + sy) * DPR);
   if (G) drawAmbient(now);
-  if (G) { drawCones(); drawGhost(); drawWatchers(now); }
+  if (G) { drawCones(); drawGhost(); drawWatchers(now); drawKidCostumes(now); }
   drawPlayerOverlay();   // the [E] prompt and stamina bar sit above bushes and the night darkness
   drawPopups();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1050,7 +1050,7 @@ function drawHUD(now) {
   ctx.textAlign = 'left';
   panel(14, 14, 250, 196);
   ctx.fillStyle = '#fff'; ctx.font = 'bold 15px system-ui, sans-serif';
-  ctx.fillText(`NIGHT ${night}  ·  ${clockText()}`, 28, 38);
+  ctx.fillText(`${campaign.halloween ? '🎃 HALLOWEEN' : 'NIGHT ' + night}  ·  ${clockText()}`, 28, 38);
   ctx.font = '13px system-ui, sans-serif';
   ctx.fillStyle = G.delivered >= G.quota ? '#9be564' : '#e8e8e8';
   ctx.fillText(`Deer in freezer: ${G.delivered} / ${G.quota}${G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 28, 60);

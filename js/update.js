@@ -1353,6 +1353,7 @@ function endNight(reason) {
     }
     if (campaign.daily) { const dd = store.get('hs_daily', {}); dd[campaign.daily] = Math.max(dd[campaign.daily] || 0, campaign.score); store.set('hs_daily', dd); unlock('daily'); restoreRandom(); }
     if (campaign.map === 'golf') { store.set('hs_golf_best', Math.max(store.get('hs_golf_best', 0), campaign.score)); if (reason !== 'arrested') unlock('golfer'); }
+    if (campaign.halloween) store.set('hs_halloween_best', Math.max(store.get('hs_halloween_best', 0), campaign.score));
     if (campaign.map === 'cul' || campaign.map === 'random') store.set('hs_' + campaign.map + '_best', Math.max(store.get('hs_' + campaign.map + '_best', 0), campaign.score));
     if (!oneNightMode()) { recordScore(); clearSave(); }
     state = 'over'; reason === 'win' ? sfx.win() : sfx.lose();

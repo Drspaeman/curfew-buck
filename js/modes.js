@@ -371,7 +371,7 @@ function drawScores() {
   ctx.fillStyle = '#9ecbff'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('MODE BESTS', cx, y); y += 24;
   const daily = store.get('hs_daily', {}); const dayBest = Math.max(0, ...Object.values(daily));
   const rows = [['Daily Hunt (best day)', dayBest], ['Daily Hunt (today)', daily[dailyKey()] || 0], ['⛳ Country Club', store.get('hs_golf_best', 0)],
-    ['🏘 Maple Court cul-de-sac', store.get('hs_cul_best', 0)], ['🎲 Random neighborhood', store.get('hs_random_best', 0)], ['Endless: last night cleared', store.get('hs_endless_best', 0) > 5 ? store.get('hs_endless_best', 0) : 0]];
+    ['🏘 Maple Court cul-de-sac', store.get('hs_cul_best', 0)], ['🎲 Random neighborhood', store.get('hs_random_best', 0)], ['🎃 Halloween night', store.get('hs_halloween_best', 0)], ['Endless: last night cleared', store.get('hs_endless_best', 0) > 5 ? store.get('hs_endless_best', 0) : 0]];
   ctx.font = '13px system-ui, sans-serif';
   for (const [k, v] of rows) { ctx.fillStyle = v ? '#e8e8e8' : '#777'; ctx.fillText(`${k}: ${v || '—'}`, cx, y); y += 19; }
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('Scores are saved on this device. Click or press Esc to go back.', cx, VH - 20);

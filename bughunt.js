@@ -120,6 +120,7 @@
     ['Country Club', () => startGolf()],
     ['Cul-de-sac', () => startMapMode('cul')],
     ['Random map', () => startMapMode('random')],
+    ['Halloween', () => startHalloween()],
     ['Versus', () => startTwoPlayer('versus')],
     ['Co-op', () => startTwoPlayer('coop')],
     ['Hard night 3', () => { settings.difficulty = 'hard'; newCampaign(); night = 3; startNight(); }],
