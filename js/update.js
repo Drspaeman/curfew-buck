@@ -1032,8 +1032,13 @@ function updateDrone(w, dt) {
   if (w.seeing) tgt = { x: player.x, y: player.y };
   const d = dist(w.x, w.y, tgt.x, tgt.y);
   if (d < 20 && tgt === w.target) {
-    // pick a new random spot over the subdivision (Gary flies like he drives)
-    w.target = { x: rnd(M + 100, W - M - 100), y: rnd(M + 100, H - M - 100) };
+    // pick a new random spot over the subdivision (Gary flies like he drives).
+    // On concert nights he mostly hovers over his daughter's garage show, yelling through the drone speaker.
+    const c = G.goth && G.goth.concert;
+    if (c && Math.random() < 0.75) {
+      w.target = { x: clamp(c.x + rnd(-160, 160), M + 40, W - M - 40), y: clamp(c.y + rnd(-160, 160), M + 40, H - M - 40) };
+      if (!c.garyYelled || Math.random() < 0.15) { c.garyYelled = true; popup(w.x, w.y - 22, pick(['Gary (drone speaker): "RAVEN. IT IS FOUR IN THE MORNING."', 'Gary (drone speaker): "Is this a NOISE VIOLATION, young lady?"', 'Gary (drone speaker): "...the bass is actually pretty good."']), '#b8e0ff', 2.6); }
+    } else w.target = { x: rnd(M + 100, W - M - 100), y: rnd(M + 100, H - M - 100) };
   } else if (d > 4) {
     const wob = Math.sin(G.playT * 3 + w.x * 0.01) * 0.6;
     const a = Math.atan2(tgt.y - w.y, tgt.x - w.x) + wob;
