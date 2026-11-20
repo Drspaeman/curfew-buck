@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Game modes: Daily Hunt, Country Club, Maple Court, random and custom maps, two-player.
-// Part 7 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 7 of 9. All parts share one global scope, so load them in order (see index.html).
 function startDaily() {
   // Same starting layout (deer, critters, notes, weather) for everyone on the same day.
   const key = dailyKey();
@@ -409,6 +409,7 @@ function setupTwoPlayer() {
   }
 }
 function p2Action() {
+  if (netClient()) { NET.action++; return; }
   if (state !== 'play') return;
   if (campaign.versus) {
     const w = watchers.find(q => q.p2);
@@ -431,7 +432,8 @@ function p2Action() {
 }
 function p2Move() {
   let mx = 0, my = 0;
-  if (keys.ArrowUp) my -= 1; if (keys.ArrowDown) my += 1; if (keys.ArrowLeft) mx -= 1; if (keys.ArrowRight) mx += 1;
+  const k = netP2Keys();
+  if (k.up) my -= 1; if (k.down) my += 1; if (k.left) mx -= 1; if (k.right) mx += 1;
   const len = Math.hypot(mx, my);
   return len ? { x: mx / len, y: my / len } : null;
 }
@@ -451,7 +453,7 @@ function updateP2Cart(w, dt) {
 }
 function updateTyler(dt) {
   const t = tyler;
-  t.crouch = !!keys.ShiftRight;
+  t.crouch = !!netP2Keys().sneak;
   t.quipCD -= dt; t.seenT = Math.max(0, t.seenT - dt);
   const m = p2Move();
   if (m) {

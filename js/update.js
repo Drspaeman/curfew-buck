@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Main update: player, deer, critters, fishing, objectives, story, watchers, police.
-// Part 5 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 5 of 9. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Update
 // ============================================================
@@ -14,7 +14,7 @@ function update(dt) {
   for (const t of toasts) t.t -= dt;
   toasts = toasts.filter(t => t.t > 0);
   if (G && (G.weather === 'rain' || G.weather === 'snow') && (state === 'play' || state === 'intro' || state === 'pause')) updateRain(dt);
-  if (state !== 'play') return;
+  if (state !== 'play' || netClient()) return;
 
   G.time -= dt;
   G.playT += dt;

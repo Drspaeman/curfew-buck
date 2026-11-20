@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Drawing the world, characters, HUD and menus.
-// Part 6 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 6 of 9. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Rendering
 // ============================================================
@@ -784,6 +784,7 @@ function drawLighting(now) {
     for (let i = 0; i < 3; i++) if (h.lit[i]) glow(lctx, h.x + 43 + i * 70, h.top ? h.y - 10 : h.y + h.h + 10, 55, 0.55);
   }
   if (player) glow(lctx, player.x, player.y, 120, 0.55);
+  if (tyler) glow(lctx, tyler.x, tyler.y, netClient() ? 120 : 80, netClient() ? 0.55 : 0.35);   // P2 can see around Tyler too
   for (const w of watchers) {
     if (!w.poly || !inView(w.x, w.y, 500)) continue;
     const R = coneRange(w);
@@ -1284,7 +1285,7 @@ function wrapText(text, x, y, maxW, lh) {
 function drawScreens(now) {
   uiButtons = [];
   if (state === 'play') return;
-  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
+  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
   ctx.textAlign = 'center';
   const cx = VW / 2;
@@ -1327,6 +1328,7 @@ function drawScreens(now) {
       { label: '🎲 Random map', fn: () => startMapMode('random') },
       { label: '🆚 Versus (2P)', fn: () => startTwoPlayer('versus') },
       { label: '🤝 Co-op (2P)', fn: () => startTwoPlayer('coop') },
+      { label: '🌐 Online (Steam)', fn: () => openOnline(), hi: true },
       { label: '🧩 Custom map', fn: () => customMapMenu() },
       { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; } },
       { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
@@ -1397,6 +1399,8 @@ function drawScreens(now) {
     drawCourt();
   } else if (state === 'settings') {
     drawSettings();
+  } else if (state === 'online') {
+    drawOnline(now);
   } else if (state === 'scores') {
     drawScores();
   } else if (state === 'keys') {

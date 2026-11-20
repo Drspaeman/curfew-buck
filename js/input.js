@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Keyboard, gamepad and touch input.
-// Part 3 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 3 of 9. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Input
 // ============================================================
@@ -8,6 +8,7 @@ window.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') { muted = !muted; store.set('hs_muted', muted); }
+  if (netOnlineKey(e) || netClientKey(e)) return;
   if (e.repeat) return;
   if (state === 'story') { if (e.code === 'Escape') advanceStory(true); else if (['Enter', 'Space', 'KeyE'].includes(e.code)) advanceStory(); return; }
   if (state === 'steve') {
@@ -52,12 +53,13 @@ window.addEventListener('keyup', e => {
   keys[e.code] = false;
   if (e.code === 'Space' && state === 'play') releaseDraw();
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') { player.drawing = false; state = 'pause'; } });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') { player.drawing = false; state = 'pause'; } });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
 cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 cv.addEventListener('mousedown', e => {
   mouse.x = e.clientX; mouse.y = e.clientY;
   if (state === 'play' && e.button === 2) { throwCone(); return; }
+  if (netClient()) { if (e.button === 0 && state === 'play') NET.action++; return; }
   if (e.button !== 0) return;
   for (const b of uiButtons) {
     if (mouse.x >= b.x && mouse.x <= b.x + b.w && mouse.y >= b.y && mouse.y <= b.y + b.h) { b.fn(); return; }

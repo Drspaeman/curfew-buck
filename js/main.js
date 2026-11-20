@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Startup and the main loop.
-// Part 8 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 9 of 9. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Main loop
 // ============================================================
@@ -30,11 +30,14 @@ if (location.hash.startsWith('#demo')) {
 }
 let last = performance.now();
 function frame(now) {
+  requestAnimationFrame(frame);   // first, so one bad frame can't stop the game
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (G && G.slowmo > 0 && state === 'play') { G.slowmo -= dt; dt *= 0.3; }
   update(dt);
+  netClientFrame(dt);
+  netHostFrame(dt);
   render(now);
-  requestAnimationFrame(frame);
+  netDrawOverlay(now);
 }
 requestAnimationFrame(frame);

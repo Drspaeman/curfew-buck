@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: World builder for the subdivision, and per-night game state.
-// Part 2 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 2 of 9. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // World
 // ============================================================

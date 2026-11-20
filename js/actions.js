@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Player actions, weapons, pathfinding and the tutorial.
-// Part 4 of 8. All parts share one global scope, so load them in order (see index.html).
+// Part 4 of 9. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Player actions
 // ============================================================
