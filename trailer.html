@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hunter Sub Trailer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05080e; color: #e8e8e8; font: 14px system-ui, sans-serif; overflow: hidden; }
+  #game { display: block; width: 100vw; height: calc(100vh - 44px); touch-action: none; }
+  #trailer-bar { height: 44px; display: flex; gap: 8px; align-items: center; padding: 0 12px; background: #151b23; border-top: 1px solid #2a3440; }
+  #trailer-bar button { font: inherit; color: #111; background: #ff7a1a; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="trailer-bar"></div>
+<script src="story.js"></script>
+<script src="game.js"></script>
+<script src="trailer.js"></script>
+</body>
+</html>
