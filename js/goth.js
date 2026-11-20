@@ -45,6 +45,13 @@ const RAVEN_LINES = [
   'Darlene\'s bathrobe is honestly kind of goth. I respect it.',
   'Every hosta in this neighborhood is a tiny green tombstone. Think about it.',
 ];
+// Raven's post about tonight, shown on the results screen if you met her
+function ravenPost() {
+  if (G.goth && G.goth.concert) return pick(['VELVET CASKET LIVE: 3 attendees, 1 cryptid. best show of our career.', 'played a garage show. the orange menace was in the crowd. he did not clap. iconic.']);
+  if (G.police) return pick(['saw the cops chase the cryptid tonight. he is faster than he looks. sketching it now.', 'sirens at 5 AM. the neighborhood is finally interesting.']);
+  if (G.delivered >= G.quota) return pick(['the cryptid dragged ' + G.delivered + ' deer past my dad\'s house. 10/10 aesthetic.', 'spotted: the orange menace, thriving.']);
+  return pick(['quiet night. the cryptid looked sad. gave it a pinecone. (it gave me the pinecone.)', 'my dad\'s drone hit a tree again. no further questions.']);
+}
 const RAVEN_COLOR = '#b48cff';
 ACH.raven = ['Night Shift', 'Meet Raven, the only goth in Whispering Pines'];
 ACH.binder = ['Full Binder', 'Collect all 12 of Raven\'s Cryptids of Whispering Pines cards'];

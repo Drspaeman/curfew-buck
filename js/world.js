@@ -475,9 +475,9 @@ function startNight() {
   setupTwoPlayer();
   cam.shake = 0;
   updateCam(1);
-  saveGame();
   state = 'intro';
   if (SCENES['intro' + night]) sceneFor('intro' + night, () => { state = 'intro'; });
+  saveGame();
 }
 
 // After a won night: the "after" cutscene (once), then Earl's shop.

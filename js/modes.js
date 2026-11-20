@@ -202,7 +202,8 @@ function drawCourt() {
   y += 70;
   if (!G.court) {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 16px system-ui, sans-serif'; ctx.fillText('How do you plead?', cx, y); y += 16;
-    y = buttonGrid(COURT_PLEAS.map((p, i) => ({ label: p.label + (p.odds ? '' : ''), fn: () => courtPlea(i) })), y, Math.min(560, VW - 30), 42);
+    y = buttonGrid(COURT_PLEAS.map((p, i) => ({ label: VW < 640 ? `${i + 1}. ${Math.round(p.odds * 100)}%${p.fine ? `, $${p.fine}` : ''}: ${p.label.slice(3)}` : `${p.label}  ·  ${Math.round(p.odds * 100)}% chance${p.fine ? `, $${p.fine}` : ''}`, fn: () => courtPlea(i), enabled: !(p.cost && campaign.cash < p.fine), hi: pad.connected && (G.courtSel || 0) === i })), y, Math.min(620, VW - 30), 42);
+    if (pad.connected) { ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('D-pad ↑/↓ to choose · A to plead', VW / 2, y + 8); }
     if (G.courtMsg) { ctx.fillStyle = '#ff9f6b'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(G.courtMsg, cx, y + 14); }
     ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('One court date per season. If you lose, the season is over.', cx, VH - 26);
   } else {

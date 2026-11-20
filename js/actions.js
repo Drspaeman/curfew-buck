@@ -142,13 +142,13 @@ function nearTruck() {
 }
 
 function tryLeave() {
-  if (!nearTruck()) { popup(player.x, player.y - 30, 'Get back to your shed to end the night (Q)', '#ffd166', 1.4); return; }
+  if (!nearTruck()) { popup(player.x, player.y - 30, `Get back to your shed to end the night (${ctl('leave')})`, '#ffd166', 1.4); return; }
   if (G.delivered >= G.quota) { endNight('win'); return; }
   if (G.police) { endNight('escaped'); return; }
   const short = G.quota - G.delivered;
   if (G.leaveAsk === undefined || G.playT - G.leaveAsk > 3) {
     G.leaveAsk = G.playT;
-    popup(player.x, player.y - 30, `${short} deer short of quota. Press Q again to end the night anyway.`, '#ff9f6b', 3);
+    popup(player.x, player.y - 30, `${short} deer short of quota. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} again to end the night anyway.`, '#ff9f6b', 3);
     sfx.thunk();
     return;
   }
@@ -253,16 +253,30 @@ function findPath(sx, sy, tx, ty, maxNodes = 5000) {
   }
   return out;
 }
+// Controls in words, for whatever you're playing with: keyboard (your own bindings), gamepad or touch.
+function inputKind() { return touchMode ? 'touch' : pad.connected ? 'pad' : 'kb'; }
+function ctl(what) {
+  const k = d => keyLabel(boundKey(d)), dev = inputKind();
+  const T = {
+    use: { kb: k('KeyE'), pad: 'A', touch: 'USE' },
+    leave: { kb: k('KeyQ'), pad: 'Y', touch: 'LEAVE' },
+    sneak: { kb: `Hold ${k('ShiftLeft').toUpperCase()} and move (${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')})`, pad: 'Hold LB and move the left stick', touch: 'Push the left stick just a little' },
+    draw: { kb: 'HOLD the mouse button', pad: 'HOLD the right trigger (aim with the right stick)', touch: 'HOLD your thumb on the right side of the screen' },
+    release: { kb: 'Release', pad: 'Let go', touch: 'Lift your thumb' },
+    press: { kb: 'press', pad: 'press', touch: 'tap' },
+  };
+  return (T[what] || {})[dev] || what;
+}
 // ============================================================
 // Guided tutorial (first Night 1 only)
 // ============================================================
 const TUTORIAL = [
-  { text: 'Hold SHIFT and move (WASD) to sneak. Sneaking is silent and harder to spot.', done: () => player.crouch && player.moving && (G.tutT += 1 / 60) > 1.2 },
-  { text: 'Find a deer. The green arrow points to the nearest one.', done: () => nearestDeer() && dist(player.x, player.y, nearestDeer().x, nearestDeer().y) < 320 },
-  { text: 'HOLD the mouse button to draw your bow. Release when the ring turns GREEN.', done: () => deer.some(d => d.dead) },
-  { text: 'Walk to the deer and press E to drag it. Bring it home to your shed (yellow arrow).', done: () => G.delivered > 0 },
-  { text: 'At your shed, press E to pack a cooler of venison from the freezer.', done: () => player.cooler > 0 || (G.soldPacks || 0) > 0 },
-  { text: 'Follow the green arrow to Steve\'s van. Press E to open his menu, then choose Sell.', done: () => (G.soldPacks || 0) > 0 },
+  { text: () => `${ctl('sneak')} to sneak. Sneaking is silent and harder to spot.`, done: () => player.crouch && player.moving && (G.tutT += 1 / 60) > 1.2 },
+  { text: 'Find a deer. The green arrow points to the nearest one.', done: () => deer.some(d => d.dead) || G.delivered > 0 || (nearestDeer() && dist(player.x, player.y, nearestDeer().x, nearestDeer().y) < 320 && los(player.x, player.y, nearestDeer().x, nearestDeer().y)) },
+  { text: () => `${ctl('draw')} to draw your bow. ${ctl('release')} when the ring turns GREEN.`, done: () => deer.some(d => d.dead) || G.delivered > 0 },
+  { text: () => `Walk to the deer and ${ctl('press')} ${ctl('use')} to drag it. Bring it home to your shed (yellow arrow).`, done: () => G.delivered > 0 },
+  { text: () => `At your shed, ${ctl('press')} ${ctl('use')} to pack a cooler of venison from the freezer.`, done: () => player.cooler > 0 || (G.soldPacks || 0) > 0 },
+  { text: () => `Follow the green arrow to Steve's van. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('use')} to open his menu, then choose Sell.`, done: () => (G.soldPacks || 0) > 0 },
 ];
 function nearestDeer() {
   let best = null, bd = 1e9;
@@ -284,15 +298,16 @@ function drawTutorial() {
   const compact = VW < 760;
   const w = Math.min(560, VW - 28), x = VW / 2 - w / 2, y = compact ? VH - 150 : 80;
   ctx.font = '15px system-ui, sans-serif';
-  const lines = wrapLines(step.text, w - 30);
+  const lines = wrapLines(typeof step.text === 'function' ? step.text() : step.text, w - 30);
   const h = 34 + lines.length * 20;
   panel(x, y, w, h);
   ctx.strokeStyle = '#9be564'; ctx.lineWidth = 1.5; roundRect(ctx, x, y, w, h, 10); ctx.stroke();
   ctx.textAlign = 'left'; ctx.fillStyle = '#9be564'; ctx.font = 'bold 11px system-ui, sans-serif';
-  ctx.fillText(`TUTORIAL ${G.tut.step + 1}/${TUTORIAL.length}   (skip: pause menu)`, x + 14, y + 16);
+  ctx.fillText(`TUTORIAL ${G.tut.step + 1}/${TUTORIAL.length}   (skip: ${inputKind() === 'pad' ? 'Start, then Y' : 'pause menu'})`, x + 14, y + 16);
   ctx.fillStyle = '#fff'; ctx.font = '15px system-ui, sans-serif';
   lines.forEach((l, i) => ctx.fillText(l, x + 14, y + 36 + i * 20));
-  if (G.tut.step === 1) { const d = nearestDeer(); if (d) drawTruckPointer({ x: d.x, y: d.y, w: 0, h: 0 }, 'DEER', '#9be564'); }
+  if (G.tut.step === 1 || G.tut.step === 2) { const d = nearestDeer(); if (d) drawTruckPointer({ x: d.x, y: d.y, w: 0, h: 0 }, 'DEER', '#9be564'); }
+  if (G.tut.step === 3 && !player.carry) { const d = deer.find(q => q.dead && !q.carried); if (d) drawTruckPointer({ x: d.x, y: d.y, w: 0, h: 0 }, 'DEER', '#9be564'); }
 }
 
 function routeLength(x, y, route) { let L = 0; for (const p of route) { L += dist(x, y, p.x, p.y); x = p.x; y = p.y; } return L; }

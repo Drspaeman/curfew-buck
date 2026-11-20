@@ -122,6 +122,14 @@ function pollPad() {
     if (edge(0)) advanceStory(); else if (edge(1) || edge(9)) advanceStory(true);
   } else if (state === 'steve') {
     if (edge(0)) steveSell(); else if (edge(2)) steveBuy('beer'); else if (edge(3)) steveBuy('arrows'); else if (edge(1) || edge(9)) state = 'play';
+  } else if (state === 'court') {
+    if (!G.court) {
+      if (edge(12)) G.courtSel = ((G.courtSel || 0) + COURT_PLEAS.length - 1) % COURT_PLEAS.length;
+      if (edge(13)) G.courtSel = ((G.courtSel || 0) + 1) % COURT_PLEAS.length;
+      if (edge(0)) courtPlea(G.courtSel || 0);
+    } else if (edge(0) || edge(9)) finishCourt();
+  } else if (state === 'pause' && G && G.tut && edge(3)) {
+    skipTutorial(); state = 'play';
   } else if (state === 'shop') {
     if (edge(12)) shopSel = (shopSel + SHOP.length - 1) % SHOP.length;
     if (edge(13)) shopSel = (shopSel + 1) % SHOP.length;

@@ -1166,6 +1166,11 @@ function drawHUD(now) {
   if (player.cooler && !G.police) drawTruckPointer(world.van, 'STEVE', '#b5e86a');
   else if (player.carry || player.bag > 3 || G.police || G.delivered >= G.quota) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   if (player.cooler && G.police) drawTruckPointer(world.shed, 'SHED', '#ffd166');
+  if (player.arrows <= 0 && !player.carry) {
+    let best = null, bd = 1e9;
+    for (const a of arrows) if (!a.flying) { const dd = dist(a.x, a.y, player.x, player.y); if (dd < bd) { bd = dd; best = a; } }
+    if (best) drawTruckPointer({ x: best.x, y: best.y, w: 0, h: 0 }, 'ARROW', '#ff9f6b');
+  }
   const op = objectivePlace();
   if (op && !player.carry && !player.cooler && !G.police) drawTruckPointer({ x: op.x, y: op.y, w: 0, h: 0 }, 'GOAL', '#7cf');
   drawGothPointer();
@@ -1439,7 +1444,7 @@ function drawScreenBody(now) {
       { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
       { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => { settings.hints = !settings.hints; saveSettings(); } },
       { label: 'Quit to title', fn: () => { state = 'title'; } },
-      ...(G.tut ? [{ label: 'Skip tutorial', fn: () => { skipTutorial(); state = 'play'; } }] : []),
+      ...(G.tut ? [{ label: pad.connected ? 'Skip tutorial (Y)' : 'Skip tutorial', fn: () => { skipTutorial(); state = 'play'; } }] : []),
     ], VH * 0.4 + 64, 180, 40);
     // every control, with your own key bindings
     const k = d => keyLabel(boundKey(d));
@@ -1553,6 +1558,7 @@ function drawScreenBody(now) {
     ctx.fillStyle = '#ff9ad5'; ctx.font = '14px system-ui, sans-serif';
     y = wrapText('📞 Voicemail from Darlene: "' + G.voicemail + '"', cx, y + 6, maxW, 20);
     if (!campaign.daily) { ctx.fillStyle = '#7cf'; y = wrapText('📱 Tyler: "' + (G.tylerLine || (G.tylerLine = tylerLine())) + '"', cx, y + 22, maxW, 20); }
+    if (G.goth && G.goth.met) { ctx.fillStyle = RAVEN_COLOR; y = wrapText('🦇 Raven posted: "' + (G.ravenPost || (G.ravenPost = ravenPost())) + '"', cx, y + 22, maxW, 20); }
     if (VW >= 1100 && G.route && G.route.length > 1) drawRouteMap(VW - 250, VH - 210, 230);
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 19px system-ui, sans-serif';
     if (state === 'over' && r === 'win' && night === 5) {
@@ -1584,7 +1590,7 @@ function button(x, y, w, h, label, fn, enabled = true, highlight = false) {
   ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = highlight ? '#111' : enabled ? '#fff' : '#888';
   ctx.font = 'bold 14px system-ui, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(label, x + w / 2, y + h / 2 + 5);
+  ctx.fillText(fitText(label, w - 14), x + w / 2, y + h / 2 + 5);   // long labels shrink to fit the button
   if (enabled) uiButtons.push({ x, y: y - drawScroll, w, h, fn });
   if (y + h > menuBottom) menuBottom = y + h;
 }
@@ -1663,7 +1669,7 @@ function contextLabel() {
   return '';
 }
 function drawContextPrompt() {
-  const t = contextLabel();
+  const t = (contextLabel() || '').replace('[E]', `[${ctl('use')}]`).replace('[Q]', `[${ctl('leave')}]`);
   if (!t) return;
   ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center';
   const w = ctx.measureText(t).width + 12;

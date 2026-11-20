@@ -588,7 +588,8 @@ function drawStory(now) {
     ctx.fillText(part, tx, y + (who === 'narrator' ? 40 : 58) + i * 26);
   });
   ctx.textAlign = 'center'; ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
-  ctx.fillText(`${story.i + 1} / ${story.lines.length}  ·  ${touchMode ? 'Tap' : 'Click / Enter'} to continue  ·  Esc to skip`, cx, y + h + 26);
+  ctx.fillText(`${story.i + 1} / ${story.lines.length}  ·  ${inputKind() === 'touch' ? 'Tap to continue  ·  SKIP (top right) skips the scene' : inputKind() === 'pad' ? 'A continue  ·  B skip' : 'Click / Enter to continue  ·  Esc to skip'}`, cx, y + h + 26);
+  if (touchMode) button(VW - 96, 14, 82, 34, 'SKIP ▶▶', () => advanceStory(true));
 }
 
 function progress() { return 1 - G.time / G.NIGHT; }
@@ -759,9 +760,11 @@ function updateRain(dt) {
 }
 
 function updateArrows(dt) {
+  const hits0 = G.hits;
   for (const a of arrows) {
     if (!a.flying) { a.t -= dt; continue; }
     a.life -= dt;
+    for (const d of deer) if (!d.dead) { const dd = dist(a.x, a.y, d.x, d.y); if (dd < (a.nearest || 1e9)) a.nearest = dd; }
     const dx = a.vx * dt, dy = a.vy * dt, x2 = a.x + dx, y2 = a.y + dy;
     let bestT = 1, hit = null;
     for (const s of world.solids) {
@@ -861,6 +864,8 @@ function updateArrows(dt) {
     }
   }
   arrows = arrows.filter(a => a.flying || a.t > 0);
+  // near miss: the arrow stopped within a deer's length of one, and nothing was hit this frame
+  for (const a of arrows) if (!a.flying && a.nearest !== undefined && !a.missSaid) { a.missSaid = true; if (G.hits === hits0 && a.nearest < 38) popup(a.x, a.y - 18, 'Just missed!', '#ffb347', 1.2); }
 }
 
 function fleeFrom(d, x, y) {
@@ -900,7 +905,11 @@ function updateDeer(d, dt) {
     d.wounded -= dt;
     d.dropT = (d.dropT || 0) - dt;
     if (d.dropT <= 0) { d.dropT = 0.12; drops.push({ x: d.x + rnd(-5, 5), y: d.y + rnd(-5, 5), r: rnd(2, 4) }); }
-    if (d.wounded <= 0) { d.dead = true; d.state = 'dead'; d.wounded = 0; d.tracked = true; fillTag(d); return; }
+    if (d.wounded <= 0) {
+      d.dead = true; d.state = 'dead'; d.wounded = 0; d.tracked = true; fillTag(d);
+      if (dist(d.x, d.y, player.x, player.y) < 700) { tone(90, 0.25, 'sine', 0.08, 50); popup(d.x, d.y - 24, 'It went down here.', '#ffd166', 2); for (let i = 0; i < 10; i++) particles.push({ x: d.x, y: d.y, vx: rnd(-60, 60), vy: rnd(-60, 20), t: 0.6, c: '#8a6a3a' }); }
+      return;
+    }
     if (d.state !== 'flee') { d.state = 'flee'; d.t = 99; }
   }
   const pd = dist(d.x, d.y, player.x, player.y);
@@ -1245,7 +1254,7 @@ function callPolice(w) {
   G.caller = w.type;
   sfx.alert();
   popup(w.x, w.y - 50, w.type === 'ex' ? QUIPS.callEx : w.type === 'cop' ? 'Dispatch, I have eyes on the orange vest! Send everybody.' : QUIPS.callHoa, '#ff6b6b', 3.5);
-  banner('911 CALLED! Cops arrive in 7 seconds — get back to your shed!', '#ff5a5a');
+  banner(G.delivered >= G.quota || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');
   hint('police', 'The cops are coming. Get back inside your shed to escape. If a cruiser\'s spotlight holds on you, the ARREST bar fills.');
 }
 
