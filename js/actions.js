@@ -196,6 +196,29 @@ function buildNav() {
 }
 const cellOf = v => Math.floor(v / CELL);
 function cellFree(cx, cy) { return cx >= 0 && cy >= 0 && cx < navW && cy < navH && !navGrid[cy * navW + cx]; }
+// A patrol drawn as straight lines can cut through a house on some maps: nudge each waypoint out of
+// anything solid, and route each blocked leg around buildings with the nav grid.
+function fixRoute(path) {
+  if (!navGrid || !path || path.length < 2) return path;
+  const pts = path.map(p => { const c = { x: p.x, y: p.y }; for (let k = 0; k < 3; k++) moveCircle(c, 0, 0, 14); return c; });
+  const out = [pts[0]];
+  for (let i = 1; i <= pts.length; i++) {
+    const a = out[out.length - 1], b = pts[i % pts.length];
+    if (i === pts.length && b === pts[0] && walkable(a.x, a.y, b.x, b.y)) break;   // the loop back to the start is fine
+    if (walkable(a.x, a.y, b.x, b.y)) { if (i < pts.length) out.push(b); continue; }
+    const p = findPath(a.x, a.y, b.x, b.y);
+    if (p && p.length) { const legs = i < pts.length ? p : p.slice(0, -1); out.push(...legs); } else if (i < pts.length) out.push(b);
+  }
+  return out;
+}
+// Walking watchers on map modes get their routes fixed (carts, cops, drones and cameras keep theirs)
+function fixWalkerRoutes(carts) {
+  for (const w of watchers) {
+    if ((w.cart && !carts) || w.fixed || ['cop', 'drone', 'cam', 'k9'].includes(w.type) || !w.path || w.path.length < 2) continue;
+    w.path = fixRoute(w.path);
+    w.x = w.path[0].x; w.y = w.path[0].y; w.pi = 1 % w.path.length;
+  }
+}
 function walkable(x1, y1, x2, y2) {
   const n = Math.max(1, Math.ceil(dist(x1, y1, x2, y2) / 8));
   for (let i = 0; i <= n; i++) {

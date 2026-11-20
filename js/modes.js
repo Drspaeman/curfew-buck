@@ -771,6 +771,7 @@ function setupSpecWatchers() {
     cw.ang = cw.baseAng = hh.top ? -Math.PI / 2 : Math.PI / 2; cw.pi = 0;
     watchers.push(cw);
   });
+  fixWalkerRoutes(true);   // custom maps: the HOA cart follows connected roads too
 }
 // Custom maps: load from the level editor (saved in this browser), a .json file, or ?map=maps/name.json
 function startCustomMap(spec) {
@@ -821,6 +822,7 @@ function setupCulWatchers() {
     cw.ang = cw.baseAng = hh.top ? -Math.PI / 2 : Math.PI / 2; cw.pi = 0;
     watchers.push(cw);
   }
+  fixWalkerRoutes();
 }
 function drawBulbs() {
   if (!world.bulbs) return;
