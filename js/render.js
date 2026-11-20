@@ -1335,6 +1335,14 @@ function wrapText(text, x, y, maxW, lh) {
 // Menu screens scroll when they are taller than the window (phones, landscape): wheel, drag, arrow keys.
 let menuScroll = 0, menuMax = 0, menuBottom = 0, menuState = null, drawScroll = 0;
 function scrollMenu(dy) { if (state !== 'play' && menuMax > 0) menuScroll = clamp(menuScroll + dy, 0, menuMax); }
+function shareText() {
+  const mode = campaign.daily ? 'Daily Hunt ' + campaign.daily : campaign.halloween ? 'Halloween night' : campaign.versus ? 'Versus' : campaign.coop ? 'Co-op'
+    : campaign.map === 'golf' ? 'Country Club' : campaign.map === 'cul' ? 'Maple Court' : campaign.map === 'random' ? 'Random #' + campaign.mapSeed : campaign.map === 'custom' ? String(campaign.customSpec && campaign.customSpec.name || 'Custom map') : 'Night ' + night;
+  const deerRow = G.delivered ? '🦌'.repeat(Math.min(10, G.delivered)) + (G.delivered > 10 ? '+' : '') : 'no deer';
+  const stars = '★'.repeat(G.stars || 0) + '☆'.repeat(3 - (G.stars || 0));
+  const how = G.endReason === 'arrested' ? ' 🚔 busted' : G.police ? ' 🚨 escaped the cops' : '';
+  return `Hunter Sub · ${mode} · ${deerRow} ${stars} · ${campaign.score} pts${how}`;
+}
 function savePhoto() {
   const hint = photoHint; photoHint = false; render(performance.now()); photoHint = hint;   // a clean frame without the hint
   try { const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'hunter-sub-photo.png'; a.click(); sfx.grab(); } catch (e) { /* blocked */ }
@@ -1586,6 +1594,10 @@ function drawScreenBody(now) {
     y = wrapText('📞 Voicemail from Darlene: "' + G.voicemail + '"', cx, y + 6, maxW, 20);
     if (!campaign.daily) { ctx.fillStyle = '#7cf'; y = wrapText('📱 Tyler: "' + (G.tylerLine || (G.tylerLine = tylerLine())) + '"', cx, y + 22, maxW, 20); }
     if (G.goth && G.goth.met) { ctx.fillStyle = RAVEN_COLOR; y = wrapText('🦇 Raven posted: "' + (G.ravenPost || (G.ravenPost = ravenPost())) + '"', cx, y + 22, maxW, 20); }
+    // one-night modes: copy a shareable result line (like a daily puzzle)
+    if (state === 'over' && oneNightMode() && !netClient()) {
+      y = buttonGrid([{ label: G.copiedAt && now - G.copiedAt < 1500 ? '✓ Copied!' : '📋 Copy result', fn: () => { try { navigator.clipboard.writeText(shareText()).then(() => { G.copiedAt = performance.now(); }); } catch (e) { /* no clipboard */ } } }], y + 14, 200, 34) - 6;
+    }
     if (VW >= 1100 && G.route && G.route.length > 1) drawRouteMap(VW - 250, VH - 210, 230);
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 19px system-ui, sans-serif';
     if (state === 'over' && r === 'win' && night === 5) {
