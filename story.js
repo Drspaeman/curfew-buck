@@ -173,6 +173,13 @@ function buildEnding(c) {
     lines.push(['kowalski', 'Off duty. Two burritos. Don\'t tell Sarge.']);
   }
   lines.push(['narrator', friendly ? 'Darlene leaves a plate of eggs on the shed steps. That\'s new.' : 'Darlene changes the locks on the garage. And the shed. From the outside.']);
+  // Raven's epilogue (js/goth.js): her zine, if you found every card
+  const ravenCards = (typeof gothCards === 'function') ? gothCards() : [];
+  if (typeof CARDS !== 'undefined' && CARDS.every((_, i) => ravenCards.includes(i))) {
+    lines.push(['narrator', 'Raven\'s zine, "Cryptids of Whispering Pines," sells out at the county fair. The cover is a blurry orange shape dragging a deer. Gary buys ten copies.']);
+  } else if (c.flags && c.flags.raven) {
+    lines.push(['narrator', 'Raven still thinks you\'re a cryptid. Honestly? Fair.']);
+  }
   lines.push(['narrator', 'THE END. (Thanks for playing Hunter Sub.)']);
   return lines;
 }

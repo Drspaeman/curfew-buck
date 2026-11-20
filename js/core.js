@@ -365,7 +365,7 @@ const ACH = {
   rabbit: ['Wascally', 'Bag a rabbit'],
   soaked: ['Lawn Care', 'Get soaked by a sprinkler'],
   snowghost: ['Snow Ghost', 'Win Night 5 without anyone following your footprints'],
-  nightowl: ['Night Owl', 'Survive to Endless Night 8'],
+  nightowl: ['Night Owl', 'Survive to Endless Night 8 (win Night 7)'],
   allstars: ['Perfect Season', 'Earn 3 stars on all five nights'],
   fullcooler: ['Full Cooler', 'Sell 10 packs to Steve in one trip'],
   bigspender: ['Big Spender', 'Spend $500 at Earl\'s in one season'],

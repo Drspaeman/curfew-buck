@@ -127,7 +127,7 @@ function gothNoiseMult() { const c = G && G.goth && G.goth.concert; return c && 
 function gothInteract() {
   if (!nearRaven()) return false;
   const R = G.goth;
-  if (!R.met) { R.met = true; unlock('raven'); }
+  if (!R.met) { R.met = true; unlock('raven'); campaign.flags.raven = true; }
   if (gothBinderDone() && !gothHasSecret()) {
     const got = gothCards(); got.push(SECRET_CARD); store.set('hs_cards', got); unlock('selfportrait');
     ravenSay('You found all twelve? ...Okay. Here. It\'s me. I drew it in a mirror at 3 AM. Don\'t make it weird.', 6);

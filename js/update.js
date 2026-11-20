@@ -699,7 +699,7 @@ function updatePlayer(dt) {
     popup(player.x, player.y - 30, `+${player.bag} small-game pack${player.bag > 1 ? 's' : ''} into the freezer`, '#9be564', 1.6);
     player.bag = 0;
   }
-  if (G.police && nearTruck() && !player.carry) {
+  if (G.police && nearTruck() && !player.carry && !(tyler && tyler.carry)) {
     unlock('getaway');
     if (watchers.some(w => w.type === 'cop' && w.parked && dist(w.x, w.y, player.x, player.y) < 300)) unlock('footchase');
     endNight(G.delivered >= G.quota ? 'win' : 'escaped');
@@ -729,7 +729,7 @@ function deliver() {
   if (G.streak >= 2) { const bonus = 50 * (G.streak - 1); G.nightScore += bonus; popup(player.x, player.y - 74, `👻 Ghost streak ×${G.streak} (+${bonus})`, '#b8e0ff', 2); }
   if (G.streak >= 4) unlock('streak');
   if (d.legend) { unlock('legend'); G.legendDone = true; banner('LEGEND BAGGED: OLD HOSTA', '#ffd166'); }
-  if (G.delivered === G.quota) { banner('QUOTA MET! Press Q at your shed to call it a night — or keep hunting', '#9be564'); tone(523, 0.18, 'triangle', 0.08); tone(659, 0.18, 'triangle', 0.08, null, 0.12); tone(784, 0.35, 'triangle', 0.09, null, 0.24); rumble(200, 0.4); }
+  if (G.delivered === G.quota) { banner(`QUOTA MET! ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} at your ${world.golf ? 'truck' : 'shed'} to call it a night, or keep hunting`, '#9be564'); tone(523, 0.18, 'triangle', 0.08); tone(659, 0.18, 'triangle', 0.08, null, 0.12); tone(784, 0.35, 'triangle', 0.09, null, 0.24); rumble(200, 0.4); }
 }
 
 function updateFloods(dt) {
@@ -1254,7 +1254,7 @@ function callPolice(w) {
   G.caller = w.type;
   sfx.alert();
   popup(w.x, w.y - 50, w.type === 'ex' ? QUIPS.callEx : w.type === 'cop' ? 'Dispatch, I have eyes on the orange vest! Send everybody.' : QUIPS.callHoa, '#ff6b6b', 3.5);
-  banner(G.delivered >= G.quota || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');
+  banner(world.golf ? '911 CALLED! Cops arrive in 7 seconds. Get back to Earl\'s truck!' : G.delivered >= G.quota || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');
   hint('police', 'The cops are coming. Get back inside your shed to escape. If a cruiser\'s spotlight holds on you, the ARREST bar fills.');
 }
 
@@ -1316,14 +1316,14 @@ function endNight(reason) {
   addL('sold', G.soldPacks || 0); addL('squirrels', G.squirrels || 0); addL('fish', G.fish || 0); addL('rabbits', G.rabbits || 0);
   addL('cash', G.earned); if (reason === 'arrested') addL('busted', 1); if (G.legendDone) addL('hosta', 1);
   store.set('hs_life', life);
-  if (night <= 5) { const bs = store.get('hs_stars', []); bs[night - 1] = Math.max(bs[night - 1] || 0, G.stars); store.set('hs_stars', bs); }
+  if (night <= 5 && !oneNightMode()) { const bs = store.get('hs_stars', []); bs[night - 1] = Math.max(bs[night - 1] || 0, G.stars); store.set('hs_stars', bs); }
   if (reason === 'win' && night === 5 && !G.tracked) unlock('snowghost');
-  if (reason === 'win' && night >= 8) unlock('nightowl');
+  if (reason === 'win' && night >= 7) unlock('nightowl');
   G.resultAt = performance.now();
   G.news = buildNews(reason);
   G.voicemail = pick(G.exSaw ? VOICEMAILS.saw : VOICEMAILS.clean);
   player.drawing = false;
-  store.set('hs_reached', Math.max(store.get('hs_reached', 1), Math.min(5, night + (reason === 'win' ? 1 : 0))));
+  if (!oneNightMode()) store.set('hs_reached', Math.max(store.get('hs_reached', 1), Math.min(5, night + (reason === 'win' ? 1 : 0))));
   if (night > 5) store.set('hs_endless_best', Math.max(store.get('hs_endless_best', 0), reason === 'win' ? night : night - 1));
   if (reason === 'win' && night !== 5 && !oneNightMode()) { state = 'nightdone'; sfx.win(); saveNext(); }
   else {

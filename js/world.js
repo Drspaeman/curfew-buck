@@ -43,8 +43,8 @@ function buildWorld() {
     const fx = Math.round(b.x + b.w / 2 - 5);
     const y0 = b.y + 34 + HH + 20, y1 = b.y + b.h - 34 - HH - 20;
     const gc = (y0 + y1) / 2;
-    fences.push({ x: fx, y: y0, w: 10, h: gc - 40 - y0, fence: true });
-    fences.push({ x: fx, y: gc + 40, w: 10, h: y1 - (gc + 40), fence: true });
+    if (gc - 40 - y0 > 8) fences.push({ x: fx, y: y0, w: 10, h: gc - 40 - y0, fence: true });
+    if (y1 - (gc + 40) > 8) fences.push({ x: fx, y: gc + 40, w: 10, h: y1 - (gc + 40), fence: true });
   }
   const exHouse = houses[16];
   exHouse.ex = true; exHouse.roof = '#a24d7a'; exHouse.wall = '#f2d7e4'; exHouse.lit = [true, true, false];
@@ -330,6 +330,8 @@ function remapKeyEvent(e) {
     else if (e.code === 'Escape') state = 'settings';
     return;
   }
+  // local 2-player: arrows, Right Shift and Enter belong to Player 2, whatever Dale's bindings say
+  if (typeof twoP === 'function' && twoP() && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftRight', 'Enter', 'NumpadEnter'].includes(e.code)) return;
   const to = keyTrans[e.code];
   if (!to) {
     // a default key that was moved to another action is now "free": don't let it fire its old action
@@ -477,7 +479,8 @@ function startNight() {
     // Endless: extra Neighborhood Watch every couple of nights
     const extra = Math.min(4, Math.floor((night - 4) / 2));
     for (let i = 0; i < extra; i++) {
-      const bx = world.blocks[(i * 4 + night) % 9];
+      let bx = world.blocks[(i * 4 + night) % 9];
+      for (let k = 0; k < 9; k++) { const c = world.blocks[(i * 4 + night + k) % 9], py = c.y + c.h / 2 + 36; if (!world.solids.some(s => segRect(c.x + 40, py, c.x + c.w - 40, py, s) >= 0)) { bx = c; break; } }
       watchers.push(makeWatcher('watch', [{ x: bx.x + 40, y: bx.y + bx.h / 2 + 36 }, { x: bx.x + bx.w - 40, y: bx.y + bx.h / 2 + 36 }],
         { speed: 60, fov: 1.3, range: 230, pause: 2, rate: 24, label: 'Volunteer #' + (i + 1) }));
     }

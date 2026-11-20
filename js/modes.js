@@ -371,7 +371,7 @@ function drawScores() {
   ctx.fillStyle = '#9ecbff'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('MODE BESTS', cx, y); y += 24;
   const daily = store.get('hs_daily', {}); const dayBest = Math.max(0, ...Object.values(daily));
   const rows = [['Daily Hunt (best day)', dayBest], ['Daily Hunt (today)', daily[dailyKey()] || 0], ['⛳ Country Club', store.get('hs_golf_best', 0)],
-    ['🏘 Maple Court cul-de-sac', store.get('hs_cul_best', 0)], ['🎲 Random neighborhood', store.get('hs_random_best', 0)], ['Endless: furthest night', store.get('hs_endless_best', 0)]];
+    ['🏘 Maple Court cul-de-sac', store.get('hs_cul_best', 0)], ['🎲 Random neighborhood', store.get('hs_random_best', 0)], ['Endless: last night cleared', store.get('hs_endless_best', 0) > 5 ? store.get('hs_endless_best', 0) : 0]];
   ctx.font = '13px system-ui, sans-serif';
   for (const [k, v] of rows) { ctx.fillStyle = v ? '#e8e8e8' : '#777'; ctx.fillText(`${k}: ${v || '—'}`, cx, y); y += 19; }
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('Scores are saved on this device. Click or press Esc to go back.', cx, VH - 20);
@@ -430,7 +430,7 @@ function p2Action() {
     return;
   }
   const near = deer.find(d => d.dead && !d.carried && dist(d.x, d.y, tyler.x, tyler.y) < 46);
-  if (near) { near.carried = true; tyler.carry = near; sfx.pickup(); popup(tyler.x, tyler.y - 30, 'Tyler grabs the deer', '#9be564', 1.2); }
+  if (near) { near.carried = true; tyler.carry = near; sfx.pickup(); popup(tyler.x, tyler.y - 30, 'Tyler grabs the deer', '#9be564', 1.2); if (near.tracked) { near.tracked = false; unlock('tracker'); } }
 }
 function p2Move() {
   let mx = 0, my = 0;
@@ -472,7 +472,8 @@ function updateTyler(dt) {
     if (d > coneRange(w) * (t.crouch ? 0.65 : 1) * (t.carry ? 1.25 : 1)) continue;
     if (Math.abs(angDiff(w.ang, Math.atan2(t.y - w.y, t.x - w.x))) > w.fov / 2 && d > 38) continue;
     if (!los(w.x, w.y, t.x, t.y)) continue;
-    t.seenT = 0.5;
+    if (t.seenT <= 0) G.timesSpotted++;
+    t.seenT = 0.5; G.unseen = 0; G.anySeen = true;
     if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) callPolice(w); }
     if (t.quipCD <= 0) { popup(w.x, w.y - 36, pick(['Is that... Tyler?!', 'Tyler, it\'s a school night!', 'Does your mother know you\'re out?']), '#ffe9a8', 2); t.quipCD = 5; }
   }
@@ -682,6 +683,7 @@ function worldFromSpec(spec) {
   const truck = spec.shed ? { x: Math.round(spec.shed.x), y: Math.round(spec.shed.y), w: 100, h: 70, shed: true }
     : exHouse.top ? { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y + exHouse.h + 76, w: 100, h: 70, shed: true }
       : { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y - 146, w: 100, h: 70, shed: true };
+  truck.x = clamp(truck.x, M + 20, W - M - 120); truck.y = clamp(truck.y, M + 20, H - M - 120);   // never off the map
   const van = spec.van ? { x: Math.round(spec.van.x), y: Math.round(spec.van.y), w: 116, h: 56 } : { x: W - 205, y: hy[0] + 30, w: 116, h: 56 };
   const ponds = (spec.ponds || []).map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, pond: true, noLos: true, name: p.name || '' }));
   const clubhouse = spec.clubhouse ? { x: Math.round(spec.clubhouse.x), y: Math.round(spec.clubhouse.y), w: 180, h: 110, clubhouse: true } : { x: -999, y: -999, w: 1, h: 1, clubhouse: true };

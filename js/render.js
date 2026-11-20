@@ -1493,7 +1493,7 @@ function drawScreenBody(now) {
     buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n > reached ? '🔒' : ask === n ? 'Again: replace save?' : `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}`, fn: () => { if (sv && sv.campaign && ask !== n) { nightAsk = { n, at: performance.now() }; return; } nightAsk = null; startAtNight(n); }, enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
     if (sv && sv.campaign) { ctx.fillStyle = '#e0b83a'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(`Starting a night here replaces your saved season (Night ${sv.night}).`, cx, VH * 0.22 + 52); }
     const eb = store.get('hs_endless_best', 0);
-    if (eb) { ctx.fillStyle = '#9ecbff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(`Endless mode best: night ${eb}`, cx, VH * 0.22 + 150); }
+    if (eb) { ctx.fillStyle = '#9ecbff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(eb > 5 ? `Endless mode: last night cleared ${eb}` : 'Endless mode: no night cleared yet', cx, VH * 0.22 + 150); }
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
     ctx.fillText('Click anywhere else or press Esc to go back', cx, VH * 0.22 + 180);
   } else if (state === 'nightdone' || state === 'over') {
@@ -1567,7 +1567,7 @@ function drawScreenBody(now) {
     if (state === 'over' && r === 'win' && night === 5) {
       buttonGrid([{ label: 'Endless Mode ▶', fn: () => startEndless(), hi: true }, { label: 'New season', fn: () => newCampaign() }], y + 24, 220, 44);
     } else if (state === 'over' && night > 5) {
-      ctx.fillText(`Endless run ended on night ${night}. Best: night ${store.get('hs_endless_best', 0)}`, cx, y + 30);
+      ctx.fillText(`Endless run ended on night ${night}. Best: ${store.get('hs_endless_best', 0) > 5 ? 'cleared night ' + store.get('hs_endless_best', 0) : 'no night cleared yet'}`, cx, y + 30);
       if (Math.floor(now / 600) % 2 === 0) { ctx.font = 'bold 17px system-ui, sans-serif'; ctx.fillText('Click to start a new season', cx, y + 62); }
     } else if (Math.floor(now / 600) % 2 === 0) ctx.fillText(`${touchMode ? 'Tap' : 'Click'} ${state === 'nightdone' ? 'to visit the bait shop' : 'to start a new season'}`, cx, y + 40);
   }
