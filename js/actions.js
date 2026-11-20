@@ -121,7 +121,7 @@ function interact() {
   if (G.police && dist(player.x, player.y, world.van.x + world.van.w / 2, world.van.y + world.van.h / 2) < 160) { popup(player.x, player.y - 30, 'Steve: "Cops at the end of the road, man. Come back later!"', '#b5e86a', 2); return; }
   if (nearVan()) { openSteve(); return; }
   if (player.cooler) {
-    if (nearTruck()) { G.freezer += player.cooler; popup(player.x, player.y - 30, 'Cooler back in the shed.', '#9ecbff', 1.2); player.cooler = 0; sfx.pickup(); }
+    if (nearTruck()) { G.freezer += player.cooler; popup(player.x, player.y - 30, 'Cooler unpacked. The freezer missed you.', '#9ecbff', 1.4); player.cooler = 0; sfx.pickup(); }
     else popup(player.x, player.y - 30, 'Follow the green STEVE arrow to sell that cooler.', '#ffd166', 1.6);
     return;
   }

@@ -1018,10 +1018,23 @@ function drawWatchers(now) {
 function drawPopups() {
   ctx.font = 'bold 13px system-ui, sans-serif';
   ctx.textAlign = 'center';
+  // lay out first: skip off-screen ones, keep long ones on screen, and stack overlapping bubbles upward
+  const boxes = [];
   for (const p of popups) {
+    if (!inView(p.x, p.y, 300)) { p.dy = 0; continue; }
+    const w = Math.min(ctx.measureText(p.text).width + 16, VW - 24);
+    let y = p.y;
+    for (let k = 0; k < 6; k++) {
+      const hit = boxes.find(b => Math.abs(b.x - p.x) < (b.w + w) / 2 && Math.abs(b.y - y) < 30);
+      if (!hit) break;
+      y = hit.y - 31;
+    }
+    boxes.push({ x: p.x, y, w, p });
+  }
+  for (const b of boxes) {
+    const w = b.w, p = Object.assign({}, b.p, { y: b.y, text: w >= VW - 24 ? fitText(b.p.text, VW - 40) : b.p.text });
     const a = clamp(p.t / 0.5, 0, 1);
     const age = (p.life || 2.6) - p.t, sc = age < 0.12 ? 0.6 + age / 0.12 * 0.4 : 1;
-    const w = ctx.measureText(p.text).width + 16;
     ctx.globalAlpha = a;
     ctx.save(); ctx.translate(p.x, p.y - 6); ctx.scale(sc, sc); ctx.translate(-p.x, -(p.y - 6));
     ctx.fillStyle = 'rgba(15,18,24,0.85)';

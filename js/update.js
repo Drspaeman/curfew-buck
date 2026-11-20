@@ -131,8 +131,9 @@ function spawnDawnWatchers() {
 }
 
 function trackPrints(dt) {
-  for (const p of G.prints) p.t -= dt;
-  if (G.prints.length && G.prints[0].t <= 0) G.prints = G.prints.filter(p => p.t > 0);
+  let keep = 0;
+  for (const p of G.prints) { p.t -= dt; if (p.t > 0) G.prints[keep++] = p; }
+  G.prints.length = keep;
   G.trackCD -= dt;
   if (G.trackCD > 0 || !G.prints.length) return;
   G.trackCD = 0.4;
@@ -466,7 +467,7 @@ function reelIn() {
   let catchName, packs;
   if (f.pond.koi && !campaign.flags.koi && night === 4) { catchName = 'a TAGGED HOA KOI. Proof!'; packs = 0; campaign.flags.koi = true; objectiveEvent('koi'); }
   else if (f.pond.koi) { catchName = 'a koi (Steve will love this)'; packs = 3; }
-  else { const r = Math.random(); if (r < 0.1) { catchName = 'an old boot. Classic.'; packs = 0; } else if (r < 0.3) { catchName = 'a fat catfish'; packs = 2; } else { catchName = 'a largemouth bass'; packs = 1; } }
+  else { const r = Math.random(); if (r < 0.1) { catchName = 'an old boot. Classic.'; packs = 0; unlock('oldboot'); } else if (r < 0.3) { catchName = 'a fat catfish'; packs = 2; } else { catchName = 'a largemouth bass'; packs = 1; } }
   player.bag = (player.bag || 0) + packs;
   sfx.deliver();
   popup(player.x, player.y - 30, `You caught ${catchName}${packs ? ` (+${packs} pack${packs > 1 ? 's' : ''})` : ''}`, '#9be564', 2.4);
@@ -1025,7 +1026,7 @@ function updateDrone(w, dt) {
   if (w.crashT <= 0) {
     w.crashT = rnd(35, 55); w.down = rnd(5, 8); w.state = 'patrol';
     sfx.clang();
-    popup(w.x, w.y - 20, '*CRASH* ...GARY!', '#ffb36b', 2);
+    popup(w.x, w.y - 20, pick(['*CRASH* ...GARY!', 'Gary: "Log that as a LANDING."', 'Gary: "The tree moved. I have it on video."']), '#ffb36b', 2);
     return;
   }
   let tgt = w.target;
@@ -1192,7 +1193,10 @@ function detection(dt) {
       if (w.type === 'cam') { G.camClips = (G.camClips || 0) + 1; unlock('oncamera'); }
       if (w.type === 'watch') { tone(2600, 0.12, 'sine', 0.06, 3200); tone(2600, 0.25, 'sine', 0.06, 3000, 0.15); }
       if (w.cart) { tone(420, 0.12, 'square', 0.05); tone(420, 0.2, 'square', 0.05, null, 0.16); }
-      if (w.quipCD <= 0 || w.type === 'cop') { voice(w.type); popup(w.x, w.y - 36, pick(QUIPS[w.type]), w.type === 'ex' ? '#ff9ad5' : w.type === 'cop' ? '#9ecbff' : '#ffe9a8'); w.quipCD = 4; }
+      if (w.quipCD <= 0 || w.type === 'cop') {
+        const special = w.type === 'hoa' && player.cooler ? 'Is that a cooler? Catering needs a COMMITTEE.' : w.type === 'ex' && player.carry ? 'Dale. Use the SHED door. I just mopped.' : null;
+        voice(w.type); popup(w.x, w.y - 36, special || pick(QUIPS[w.type]), w.type === 'ex' ? '#ff9ad5' : w.type === 'cop' ? '#9ecbff' : '#ffe9a8'); w.quipCD = 4;
+      }
       hint('spotted', 'SPOTTED! Break line of sight: duck behind a house, a fence or into a bush. The meter drains when nobody sees you.');
       // HOA and Neighborhood Watch carry walkie-talkies: everyone nearby looks your way.
       if (w.type !== 'ex' && w.type !== 'cop') {
@@ -1397,6 +1401,8 @@ function buildNews(reason) {
   if (G.legendDone) headline = 'LEGENDARY BUCK "OLD HOSTA" VANISHES; GARDEN CLUB HOLDS VIGIL';
   else if (reason === 'arrested') headline = 'LOCAL MAN ARRESTED IN HOSTA BED';
   else if (G.police) headline = 'POLICE CHASE "ORANGE MENACE" THROUGH ESTATES. SUSPECT AT LARGE';
+  else if (reason === 'win' && G.shots === 0) headline = 'BOW ACCOMPANIES MAN ON ERRANDS';
+  else if (G.noticesGot === 3) headline = 'HOA FORMS MISSING. COMMITTEE FORMED TO DESIGN A REPLACEMENT FORM';
   else if (G.timesSpotted === 0) headline = pick(['DEER POPULATION MYSTERIOUSLY DECLINING; RESIDENTS BAFFLED', 'HOSTA LOSSES AT RECORD LOW; GARDEN CLUB SUSPICIOUS', 'NOBODY SAW ANYTHING, AND THAT\'S WHAT WORRIES LINDA']);
   else headline = `HOA REPORTS ${G.timesSpotted} "ORANGE BLUR" SIGHTING${G.timesSpotted > 1 ? 'S' : ''} OVERNIGHT`;
   const fines = G.timesSpotted * 250 + G.shots * 50;

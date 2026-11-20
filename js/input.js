@@ -26,6 +26,10 @@ window.addEventListener('keydown', e => {
   if (state === 'play' && e.code === 'KeyV') drinkBeer();
   if (state === 'play' && e.code === 'Tab') G.mapOpen = !G.mapOpen;
   if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = 'title';
+  else if (state === 'title' && ['KeyK', 'KeyO', 'KeyI'].includes(e.code)) {
+    titleEgg = (titleEgg + e.code.slice(3)).slice(-3);
+    if (titleEgg === 'KOI') { titleEgg = ''; toasts.push({ title: 'HOA AQUATICS AUDIT', desc: 'One koi is listed as a gazebo.', t: 4 }); sfx.grab(); }
+  }
   else if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) { if (!loadGame()) newCampaign(); }
   else if (state === 'intro' && (e.code === 'Enter' || e.code === 'Space')) state = 'play';
   else if (state === 'play') {
@@ -86,7 +90,7 @@ cv.addEventListener('wheel', e => { if (state !== 'play' && menuMax > 0) { e.pre
 // Gamepad (standard mapping: Xbox / PlayStation style)
 // ============================================================
 const pad = { connected: false, prev: [], mx: 0, my: 0, aim: null, crouch: false, draw: false };
-let shopSel = 0;
+let shopSel = 0, titleEgg = '';
 function pollPad() {
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
   const gp = gps[0];
@@ -346,6 +350,6 @@ function declineCall() {
   if (!G.mom || G.mom.state !== 'buzz') return;
   G.mom.state = 'done';
   G.banner = null;
-  popup(player.x, player.y - 30, 'Declined. Sorry, Ma.', '#ff9ad5', 1.6);
+  popup(player.x, player.y - 30, player.hidden ? 'Declined. Mom is outside your shrub\'s service area.' : 'Declined. Sorry, Ma.', '#ff9ad5', 1.6);
   unlock('callme');
 }

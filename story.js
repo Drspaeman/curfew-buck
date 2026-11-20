@@ -131,6 +131,7 @@ function buildEnding(c) {
       lines.push(['darlene', 'Seconded.']);
       lines.push(['narrator', 'In the first write-in victory in Whispering Pines history, the new HOA president is Dale Pruitt. He accepts the gavel while wearing the orange vest.']);
       lines.push(['dale', 'Motion one: Bylaw 14.3 is repealed. Motion two: the HOA budget now includes an annual venison BBQ.']);
+      lines.push(['gary', 'For the record, the gavel goes back in the supply closet by nine.']);
       lines.push(['narrator', 'Both motions pass unanimously. HOA President Dale Pruitt does not move out of the shed. He says it has "character."']);
     } else {
       lines.push(['narrator', friendly ? 'The new HOA president, elected in a landslide: Darlene Pruitt. Her first act is to repeal Bylaw 14.3.' : 'The new HOA president, elected by default because nobody else wanted it: Todd.']);

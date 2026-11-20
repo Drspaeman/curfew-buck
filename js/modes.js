@@ -39,7 +39,7 @@ function steveHaggle() {
   if (G.haggled) return;
   G.haggled = true;
   if (Math.random() < 0.55) { G.price = Math.round(G.price * 1.25); G.steveLine = 'Steve: "Fine. FINE. $' + G.price + ' a pack. Hard bargain for a guy who lives in a shed."'; sfx.buy(); unlock('haggler'); }
-  else { G.price = Math.max(10, Math.round(G.price * 0.85)); G.steveLine = 'Steve: "Now you\'ve insulted me. $' + G.price + '. Take it or leave it."'; sfx.thunk(); }
+  else { G.price = Math.max(10, Math.round(G.price * 0.85)); G.steveLine = pick(['Steve: "Now you\'ve insulted me. $' + G.price + '. Take it or leave it."', 'Steve: "I ran the numbers on a napkin. A pessimistic napkin. $' + G.price + ' a pack."']); sfx.thunk(); }
 }
 function priceOf(item) { return campaign.special === item.id ? Math.round(item.price * 0.75) : item.price; }
 function pickSpecial() {

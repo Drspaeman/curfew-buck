@@ -294,7 +294,8 @@ function updateGoth(dt) {
     const l = G.police ? pick(['For the record, I didn\'t call them. I would never.', 'Sirens. How romantic. Run.'])
       : player.carry ? pick(['Is that... for an altar? Respect.', 'You\'re dragging a whole deer past my dad\'s house. Iconic.'])
       : player.cooler ? 'Is that a cooler of venison or a portable crypt? Both. It\'s both.'
-      : G.buzz > 0 ? 'Are you... drunk? At 4 AM? On a lawn? That\'s my whole aesthetic.' : null;
+      : G.buzz > 0 ? 'Are you... drunk? At 4 AM? On a lawn? That\'s my whole aesthetic.'
+      : G.soaked > 0 ? 'Your boots squeak in B-flat. Can you do it twice before the chorus?' : null;
     if (l) { ravenSay(l); R.talkCD = 14; }
   }
   // Edgar, Raven's crow, sits on the fence. Get too close without sneaking and he caws (everyone hears it)

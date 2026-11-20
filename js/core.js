@@ -297,6 +297,7 @@ const SHOP = [
 ];
 const NOTICES = [
   'Violation #2291: Excessive garden gnomes.',
+  'Violation #2364: Welcome mat deployed without a guest list.',
   'Violation #2304: Mailbox is "too whimsical."',
   'Violation #2310: Christmas lights still up (it\'s October).',
   'Violation #2318: Grass 1/4 inch over regulation.',
@@ -383,6 +384,7 @@ const ACH = {
   bigspender: ['Big Spender', 'Spend $500 at Earl\'s in one season'],
   thrifty: ['Thrifty', 'Finish the season without buying anything'],
   collector: ['Neighborhood Gossip', 'Collect every gossip note'],
+  oldboot: ['Catch and Re-Lace', 'Reel in an old boot'],
   haggler: ['Art of the Deal', 'Win a haggle with Steve'],
   streak: ['Ghost Streak', 'Deliver 4 deer in a row without being spotted'],
   golfer: ['Members Only', 'Finish a night at the Country Club'],
