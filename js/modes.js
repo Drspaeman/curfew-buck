@@ -930,7 +930,7 @@ function drawShop(now) {
   }
   // Earl buys leftover freezer meat (cheap)
   if (campaign.freezer > 0) {
-    y = buttonGrid([{ label: `Sell ${campaign.freezer} freezer packs to Earl ($12 each)`, fn: () => { campaign.cash += campaign.freezer * 12; campaign.freezer = 0; sfx.buy(); saveNext(); } }], y, 340, 34) + 2;
+    y = buttonGrid([{ label: `Sell ${campaign.freezer} freezer packs to Earl ($12 each)`, fn: () => { campaign.cash += campaign.freezer * 12; campaign.freezer = 0; sfx.buy(); saveNext(); toasts.push({ title: 'Earl', desc: 'Goin\' in the freezer marked BAIT. That freezer has range.', t: 3.5 }); } }], y, 340, 34) + 2;
   } else y += 8;
   const cols = VW >= 1100 ? 2 : 1;
   const bw = cols === 2 ? Math.min(520, (VW - 60) / 2) : Math.min(620, VW - 24);

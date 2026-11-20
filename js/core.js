@@ -349,7 +349,9 @@ const CREDITS = [
   ['HUNTER SUB', 'A game about deer, divorce, and HOA bylaws.'],
   ['Engine', 'Plain JavaScript + HTML5 canvas. No libraries.'],
   ['Sound', 'Every beep, bark, burp and banjo-ish bassline is synthesized live.'],
-  ['Built with', 'Claude Code.'],
+  ['Built with', 'Claude Code, with bug hunts and joke reviews from Codex.'],
+  ['Music', 'Velvet Casket appears courtesy of Gary\'s garage. Gary was not consulted.'],
+  ['Trading cards', 'Hand-drawn by Raven Pfister, mostly at 3 AM.'],
   ['Special thanks', 'Earl, for asking no questions.'],
   ['Disclaimer', 'No HOA presidents were harmed. Gary\'s pride took a hit.'],
 ];

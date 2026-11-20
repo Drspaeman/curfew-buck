@@ -239,7 +239,7 @@ function updateWorldEvents(dt) {
     if (dist(p.x, p.y, player.x, player.y) < 15 && player.moving) {
       p.down = 1;
       sfx.clang();
-      popup(p.x, p.y - 18, p.kind === 'trash' ? '*CLANG!*' : '*CRACK*', '#ffb36b', 1.2);
+      popup(p.x, p.y - 18, p.kind === 'trash' ? (player.crouch ? '*clang* (quietly)' : '*CLANG!*') : '*CRACK*', '#ffb36b', 1.2);
       makeNoise(p.x, p.y, (p.kind === 'trash' ? 280 : 200) * (player.crouch ? 0.6 : 1) * noiseMult(), 'prop');
     }
   }
