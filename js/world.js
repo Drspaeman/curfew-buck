@@ -453,8 +453,8 @@ function startNight() {
   setupObjective();
   G.priceTrend = campaign.lastPrice ? Math.sign(G.price - campaign.lastPrice) : 0;
   campaign.lastPrice = G.price;
-  if (campaign.heat && !campaign.daily && night <= 5) {
-    campaign.heat = 0;
+  if ((campaign.heat || campaign.heatNight === night) && !campaign.daily && night <= 5) {
+    campaign.heat = 0; campaign.heatNight = night;
     G.heatPatrol = true;
     spawnCop();
     const pc = watchers[watchers.length - 1]; pc.label = 'Patrol car';

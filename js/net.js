@@ -40,14 +40,20 @@ function netLocalBackend() {
   if (typeof BroadcastChannel === 'undefined') return null;
   const bc = new BroadcastChannel('hunter-sub-net');
   const me = Math.random().toString(36).slice(2, 8);
-  let room = null;
-  bc.onmessage = e => { const m = e.data; if (!m || m.room !== room || m.from === me) return; if (m.bye) netOnEvent({ type: 'peer-left' }); else netOnMessage(m.msg); };
+  let room = null, peer = null;
+  bc.onmessage = e => {
+    const m = e.data;
+    if (!m || m.room !== room || m.from === me) return;
+    if (!peer) peer = m.from;            // the first window to answer is our partner
+    else if (m.from !== peer) return;    // a third window can't join or steal Player 2
+    if (m.bye) { peer = null; netOnEvent({ type: 'peer-left' }); } else netOnMessage(m.msg);
+  };
   return {
     name: 'Local', available: true, user: 'Player',
-    host: () => { room = String(1000 + Math.floor(Math.random() * 9000)); return Promise.resolve({ code: room }); },
-    join: code => { room = String(code).trim(); return Promise.resolve({ ok: true }); },
+    host: () => { room = String(1000 + Math.floor(Math.random() * 9000)); peer = null; return Promise.resolve({ code: room }); },
+    join: code => { room = String(code).trim(); peer = null; return Promise.resolve({ ok: true }); },
     invite: () => {},
-    leave: () => { if (room) bc.postMessage({ room, from: me, bye: true }); room = null; },
+    leave: () => { if (room) bc.postMessage({ room, from: me, bye: true }); room = null; peer = null; },
     send: str => { if (room) bc.postMessage({ room, from: me, msg: str }); },
   };
 }
@@ -74,8 +80,13 @@ function netUse(which) {
   NET.backend = which === 'Steam' ? netSteamBackend() : netLocalBackend();
   return NET.backend;
 }
+function netResetSession() {
+  NET.p2 = { u: 0, d: 0, l: 0, r: 0, sh: 0, a: 0 }; NET.actionSeen = 0; NET.action = 0;
+  NET.lastIn = ''; NET.inT = 0; NET.sendT = 0; NET.sfxQ = []; NET.snaps = 0; NET.inAt = performance.now(); NET.hostState = '';
+}
 async function netHostLobby(kind, which) {
   const b = netUse(which);
+  netResetSession();
   if (!b || !b.available) { NET.err = which === 'Steam' ? 'Steam isn\'t available here. Open the desktop app with Steam running.' : 'This browser can\'t do local play.'; return; }
   NET.role = 'host'; NET.kind = kind; NET.live = false; NET.err = '';
   NET.status = 'Creating a lobby…';
@@ -88,6 +99,7 @@ async function netHostLobby(kind, which) {
 }
 async function netJoinLobby(code, which) {
   code = String(code || '').trim();
+  netResetSession();
   if (!code) { NET.err = 'Type or paste a lobby code first.'; return; }
   const b = netUse(which);
   if (!b || !b.available) { NET.err = 'Steam isn\'t available here.'; return; }
@@ -130,14 +142,15 @@ function netOnMessage(str) {
   NET.bytes += typeof str === 'string' ? str.length : 0;
   if (NET.role === 'host') {
     if (m.t === 'hello') {
+      if (NET.live) return;
       NET.peer = m.name || 'Player 2';
       if (m.v && m.v !== VERSION) { netSend({ t: 'refuse', why: `Version mismatch: host has v${VERSION}, you have v${m.v}.` }); return; }
-      NET.live = true; NET.actionSeen = 0; NET.p2 = { u: 0, d: 0, l: 0, r: 0, sh: 0, a: 0 };
+      netResetSession(); NET.live = true;
       NET.status = NET.peer + ' joined!';
       startTwoPlayer(NET.kind);     // the startNight wrapper below sends 'start'
       banner(`🌐 ONLINE: ${NET.peer} is ${NET.kind === 'versus' ? 'driving the HOA cart' : 'Tyler'}.`, '#9be564');
     } else if (m.t === 'in' && NET.live) {
-      NET.p2 = m;
+      NET.p2 = m; NET.inAt = performance.now();
       if (m.a > NET.actionSeen) { NET.actionSeen = m.a; p2Action(); }
     } else if (m.t === 'bye') netOnEvent({ type: 'peer-left' });
   } else if (NET.role === 'client') {
@@ -231,6 +244,10 @@ function netSnapshot() {
 }
 function netHostFrame(dt) {
   if (!netHost()) return;
+  if (state === 'title' || !twoP()) { netLeave(true); return; }
+  const quiet = performance.now() - (NET.inAt || 0);
+  if (quiet > 1500) NET.p2 = Object.assign({}, NET.p2, { u: 0, d: 0, l: 0, r: 0, sh: 0 });   // stale keys: let go
+  if (quiet > 12000 && NET.backend && NET.backend.name === 'Local') { netOnEvent({ type: 'peer-left' }); return; }
   NET.sendT -= dt;
   if (NET.sendT > 0) return;
   NET.sendT = 1 / NET.rate;
@@ -271,7 +288,8 @@ function netApply(s) {
   if (s.campaign) Object.assign(campaign, s.campaign);
   night = s.night;
   // the host's menus (results, pause) show up here too, but only the host can click through them
-  state = ['play', 'pause', 'intro', 'nightdone', 'over', 'story'].includes(s.st) ? s.st : 'play';
+  NET.hostState = s.st;
+  state = ['play', 'pause', 'intro', 'nightdone', 'over'].includes(s.st) ? s.st : 'netwait';
   for (const k of s.sfx || []) if (sfx[k]) try { sfx[k](); } catch (e) { /* sounds are best-effort */ }
   NET.snaps++; NET.lastSnapAt = performance.now();
 }
@@ -295,9 +313,9 @@ function netClientFrame(dt) {
     cam.shake = Math.max(0, cam.shake - dt * 20);
   }
   // send my keys: whenever they change, and 10 times a second anyway
-  const up = !!(keys.KeyW || keys.ArrowUp || pad.my < -0.4), down = !!(keys.KeyS || keys.ArrowDown || pad.my > 0.4);
-  const left = !!(keys.KeyA || keys.ArrowLeft || pad.mx < -0.4), right = !!(keys.KeyD || keys.ArrowRight || pad.mx > 0.4);
-  const msg = { t: 'in', u: +up, d: +down, l: +left, r: +right, sh: +!!(keys.ShiftLeft || keys.ShiftRight || pad.crouch), a: NET.action };
+  const up = !!(keys.KeyW || keys.ArrowUp || pad.my < -0.4 || touch.my < -0.4), down = !!(keys.KeyS || keys.ArrowDown || pad.my > 0.4 || touch.my > 0.4);
+  const left = !!(keys.KeyA || keys.ArrowLeft || pad.mx < -0.4 || touch.mx < -0.4), right = !!(keys.KeyD || keys.ArrowRight || pad.mx > 0.4 || touch.mx > 0.4);
+  const msg = { t: 'in', u: +up, d: +down, l: +left, r: +right, sh: +!!(keys.ShiftLeft || keys.ShiftRight || pad.crouch || touch.crouch), a: NET.action };
   const str = JSON.stringify(msg);
   NET.inT -= dt;
   if (str !== NET.lastIn || NET.inT <= 0) { netSend(str); NET.lastIn = str; NET.inT = 0.1; }
@@ -340,7 +358,7 @@ function drawOnline(now) {
   let y = Math.max(86, VH * 0.1 + 30);
   ctx.font = '14px system-ui, sans-serif';
   ctx.fillStyle = steam && steam.available ? '#9be564' : '#ffb347';
-  const sline = !steam ? 'Steam: only in the Hunter Sub desktop app (steam/ folder). Local play works in any browser.'
+  const sline = !steam ? 'Steam play needs the Hunter Sub desktop app. For Local, open two tabs of the game in the same browser.'
     : steam.available ? `Steam: signed in as ${steam.user} (testing as Spacewar, app 480)` : 'Steam: ' + (steam.error || 'not running. Start Steam, then reopen the game.');
   y = wrapText(sline, cx, y, maxW, 19) + 26;
   y = buttonGrid([
@@ -385,6 +403,14 @@ function drawOnline(now) {
   if (NET.err) { ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 14px system-ui, sans-serif'; wrapText(NET.err, cx, y + 18, maxW, 19); }
   buttonGrid([{ label: '◀ Back', fn: () => { netLeave(true); state = 'title'; } }], VH - 56, 160, 36);
 }
+// Shown on the client while the host is somewhere P2 can't see (cutscene, Steve's van, Earl's shop, court).
+function drawNetWait(now) {
+  const cx = VW / 2, why = { story: 'Dale is watching a cutscene', steve: 'Dale is selling meat at Steve\'s van', shop: 'Dale is shopping at Earl\'s Bait & Tackle', court: 'Dale is in court', title: 'The host is on the title screen', settings: 'The host is in Settings' }[NET.hostState] || 'The host is busy';
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ffd166'; fitFont('⏳ ' + why, 'bold', 24, VW - 24); ctx.fillText('⏳ ' + why, cx, VH * 0.42);
+  ctx.fillStyle = '#bbb'; ctx.font = '15px system-ui, sans-serif';
+  ctx.fillText('The game picks up again on its own.', cx, VH * 0.42 + 34);
+  ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif'; ctx.fillText('Esc leaves the match', cx, VH * 0.42 + 62);
+}
 // A small status strip during online matches.
 function netDrawOverlay(now) {
   if (!NET.live) return;
@@ -393,7 +419,7 @@ function netDrawOverlay(now) {
   const late = NET.role === 'client' && now - NET.lastSnapAt > 1500;
   const txt = NET.role === 'host'
     ? `🌐 ${NET.backend ? NET.backend.name : ''} · P2: ${NET.peer}`
-    : `🌐 You are ${campaign && campaign.coop ? 'Tyler' : 'Linda\'s cart'} · WASD/arrows move, Shift sneak, Enter ${campaign && campaign.coop ? 'drag/drop' : 'spotlight'} · Esc leave${late ? ' · ⚠ waiting for host…' : ''}${NET.worldOk ? '' : ' · ⚠ map mismatch'}`;
+    : `🌐 You are ${campaign && campaign.coop ? 'Tyler' : 'Linda\'s cart'} · WASD/arrows move · ${campaign && campaign.coop ? 'Shift sneak · Enter grab/drop, or deliver at the shed' : 'Enter spotlight'} · Esc leave${late ? ' · ⚠ waiting for host…' : ''}${NET.worldOk ? '' : ' · ⚠ map mismatch'}`;
   ctx.font = 'bold 12px system-ui, sans-serif';
   const w = Math.min(VW - 16, ctx.measureText(txt).width + 20);
   ctx.fillStyle = late ? 'rgba(120,30,30,0.85)' : 'rgba(10,14,20,0.75)';

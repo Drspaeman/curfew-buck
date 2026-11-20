@@ -9,13 +9,17 @@ window.addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (e.code === 'KeyM') { muted = !muted; store.set('hs_muted', muted); }
   if (netOnlineKey(e) || netClientKey(e)) return;
+  if (!['play', 'keys', 'steve'].includes(state) && menuMax > 0) {
+    const step = { ArrowDown: 60, ArrowUp: -60, PageDown: VH * 0.8, PageUp: -VH * 0.8, End: 1e6, Home: -1e6 }[e.code];
+    if (step) { scrollMenu(step); e.preventDefault(); return; }
+  }
   if (e.repeat) return;
   if (state === 'story') { if (e.code === 'Escape') advanceStory(true); else if (['Enter', 'Space', 'KeyE'].includes(e.code)) advanceStory(); return; }
   if (state === 'steve') {
     if (e.code === 'Digit1') steveSell(); else if (e.code === 'Digit2') steveBuy('beer');
     else if (e.code === 'Digit3') steveBuy('arrows'); else if (e.code === 'Digit4') steveBuy('cones');
-    else if (e.code === 'Digit6') steveHaggle();
-    else if (['Escape', 'KeyE', 'Enter', 'Digit5'].includes(e.code)) state = 'play';
+    else if (e.code === 'Digit5') steveHaggle();
+    else if (['Escape', 'KeyE', 'Enter', 'Digit6'].includes(e.code)) state = 'play';
     return;
   }
   if (state === 'court' && !G.court) { if (e.code === 'Digit1') courtPlea(0); if (e.code === 'Digit2') courtPlea(1); if (e.code === 'Digit3') courtPlea(2); }
@@ -76,6 +80,7 @@ cv.addEventListener('mousedown', e => {
 });
 window.addEventListener('mouseup', e => { if (e.button === 0 && state === 'play') releaseDraw(); });
 cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('wheel', e => { if (state !== 'play' && menuMax > 0) { e.preventDefault(); scrollMenu(e.deltaY); } }, { passive: false });
 
 // ============================================================
 // Gamepad (standard mapping: Xbox / PlayStation style)
@@ -85,7 +90,10 @@ let shopSel = 0;
 function pollPad() {
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
   const gp = gps[0];
-  if (!gp) { pad.connected = false; pad.mx = pad.my = 0; pad.aim = null; pad.crouch = false; return; }
+  if (!gp) {
+    if (pad.draw && player) player.drawing = false;
+    pad.connected = false; pad.mx = pad.my = 0; pad.aim = null; pad.crouch = false; pad.draw = false; pad.look = false; pad.sprint = false; return;
+  }
   pad.connected = true;
   const b = gp.buttons.map(x => x.pressed);
   const edge = i => b[i] && !pad.prev[i];
@@ -96,18 +104,20 @@ function pollPad() {
   pad.crouch = !!(b[4] || b[10] || b[6]);
   pad.look = !!b[5];
   pad.sprint = !!b[11];
-  if (state === 'play') {
+  if (netClient()) { if (edge(0) || edge(7)) NET.action++; if (edge(9)) netLeave(); }
+  else if (state === 'play') {
     if (b[7] && !pad.draw) { pad.draw = true; startDraw(); }
     if (!b[7] && pad.draw) { pad.draw = false; releaseDraw(); }
-    if (edge(0)) interact();
-    if (edge(1)) throwCone();
-    if (edge(2)) grunt();
-    if (edge(3)) { if (G.mom && G.mom.state === 'buzz') declineCall(); else tryLeave(); }
-    if (edge(9)) { player.drawing = false; state = 'pause'; }
-    if (edge(12)) drinkBeer();
-    if (edge(8)) G.mapOpen = !G.mapOpen;
-    if (edge(13)) toggleNVG();
-    if (edge(14)) feedDog();
+    const go = i => edge(i) && state === 'play';
+    if (go(0)) interact();
+    if (go(1)) throwCone();
+    if (go(2)) grunt();
+    if (go(3)) { if (G.mom && G.mom.state === 'buzz') declineCall(); else tryLeave(); }
+    if (go(9)) { player.drawing = false; state = 'pause'; }
+    if (go(12)) drinkBeer();
+    if (go(8)) G.mapOpen = !G.mapOpen;
+    if (go(13)) toggleNVG();
+    if (go(14)) feedDog();
   } else if (state === 'story') {
     if (edge(0)) advanceStory(); else if (edge(1) || edge(9)) advanceStory(true);
   } else if (state === 'steve') {
@@ -132,7 +142,7 @@ function pollPad() {
 // Touch controls (phones / tablets): left thumb = move stick, right thumb = aim + draw
 // ============================================================
 let touchMode = false;
-const touch = { stickId: null, sx: 0, sy: 0, x: 0, y: 0, mx: 0, my: 0, aimId: null, crouch: false };
+const touch = { menuId: null, menuY: 0, menuX: 0, menuMoved: 0, stickId: null, sx: 0, sy: 0, x: 0, y: 0, mx: 0, my: 0, aimId: null, crouch: false };
 function touchButtons() {
   if (state !== 'play') return [];
   const r = VW < 500 ? 26 : 30, x = VW - r - 16;
@@ -161,10 +171,12 @@ cv.addEventListener('touchstart', e => {
   touchMode = true;
   for (const t of e.changedTouches) {
     if (state !== 'play') {
+      // menus: a tap clicks (on release), a drag scrolls
       touchToMouse(t);
-      cv.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, button: 0 }));
+      touch.menuId = t.identifier; touch.menuY = t.clientY; touch.menuX = t.clientX; touch.menuMoved = 0;
       continue;
     }
+    if (netClient() && t.clientX >= VW * 0.45) { NET.action++; continue; }
     const hitBtn = touchButtons().find(b => dist(b.x, b.y, t.clientX, t.clientY) < b.r + 8);
     if (hitBtn) { hitBtn.fn(); continue; }
     if (t.clientX < VW * 0.45 && touch.stickId === null) {
@@ -177,6 +189,7 @@ cv.addEventListener('touchstart', e => {
 cv.addEventListener('touchmove', e => {
   e.preventDefault();
   for (const t of e.changedTouches) {
+    if (t.identifier === touch.menuId) { const dy = t.clientY - touch.menuY; touch.menuY = t.clientY; touch.menuMoved += Math.abs(dy); scrollMenu(-dy); continue; }
     if (t.identifier === touch.stickId) {
       touch.x = t.clientX; touch.y = t.clientY;
       const dx = touch.x - touch.sx, dy = touch.y - touch.sy, d = Math.hypot(dx, dy), R = 60;
@@ -189,8 +202,13 @@ cv.addEventListener('touchmove', e => {
 function endTouch(e) {
   e.preventDefault();
   for (const t of e.changedTouches) {
+    if (t.identifier === touch.menuId) {
+      touch.menuId = null;
+      if (touch.menuMoved < 10 && e.type === 'touchend') cv.dispatchEvent(new MouseEvent('mousedown', { clientX: touch.menuX, clientY: touch.menuY, button: 0 }));
+      continue;
+    }
     if (t.identifier === touch.stickId) { touch.stickId = null; touch.mx = touch.my = 0; touch.crouch = false; }
-    if (t.identifier === touch.aimId) { touch.aimId = null; if (state === 'play') releaseDraw(); }
+    if (t.identifier === touch.aimId) { touch.aimId = null; if (state === 'play') { if (e.type === 'touchcancel') player.drawing = false; else releaseDraw(); } }
   }
 }
 cv.addEventListener('touchend', endTouch, { passive: false });
@@ -222,6 +240,9 @@ function drawTouchControls() {
 }
 
 function buy(item) {
+  try { buyItem(item); } finally { if (state === 'shop') saveNext(); }
+}
+function buyItem(item) {
   if (item.weapon) {
     if (campaign.weapons[item.weapon]) { campaign.weapon = item.weapon; sfx.grab(); return; }
     if (campaign.cash < priceOf(item)) { sfx.thunk(); return; }

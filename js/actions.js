@@ -121,7 +121,7 @@ function interact() {
   if (nearVan()) { openSteve(); return; }
   if (player.cooler) {
     if (nearTruck()) { G.freezer += player.cooler; popup(player.x, player.y - 30, 'Cooler back in the shed.', '#9ecbff', 1.2); player.cooler = 0; sfx.pickup(); }
-    else popup(player.x, player.y - 30, 'Take the cooler to Steve\'s van (east logging road).', '#ffd166', 1.6);
+    else popup(player.x, player.y - 30, 'Follow the green STEVE arrow to sell that cooler.', '#ffd166', 1.6);
     return;
   }
   if (nearTruck() && G.freezer > 0 && !deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) {
@@ -129,20 +129,10 @@ function interact() {
     G.freezer -= player.cooler;
     sfx.pickup();
     popup(player.x, player.y - 30, `Packed a cooler: ${player.cooler} venison packs. Sell them to Steve!`, '#9ecbff', 2);
-    hint('cooler', 'Coolers are heavy and look suspicious. Carry it to Sketchy Steve\'s van on the far east logging road (arrow points the way), then press E to sell.');
+    hint('cooler', 'Heavy cooler. Very suspicious. Follow the arrow to Steve\'s van, press E to open his menu, then choose Sell.');
     return;
   }
-  if (tryFish()) return;
-  let bestD = 48, bestDeer = null;
-  for (const d of deer) if (d.dead && !d.carried) {
-    const dd = dist(d.x, d.y, player.x, player.y);
-    if (dd < bestD) { bestD = dd; bestDeer = d; }
-  }
-  if (bestDeer) {
-    bestDeer.carried = true; player.carry = bestDeer; sfx.pickup();
-    popup(player.x, player.y - 30, 'Dragging deer — get it to your shed!', '#ffd166', 1.6);
-    if (bestDeer.tracked) { bestDeer.tracked = false; unlock('tracker'); }
-  }
+  tryFish();
 }
 
 function nearTruck() {
@@ -263,7 +253,7 @@ const TUTORIAL = [
   { text: 'HOLD the mouse button to draw your bow. Release when the ring turns GREEN.', done: () => deer.some(d => d.dead) },
   { text: 'Walk to the deer and press E to drag it. Bring it home to your shed (yellow arrow).', done: () => G.delivered > 0 },
   { text: 'At your shed, press E to pack a cooler of venison from the freezer.', done: () => player.cooler > 0 || (G.soldPacks || 0) > 0 },
-  { text: 'Carry the cooler to Sketchy Steve\'s van (green arrow, far east) and press E to sell.', done: () => (G.soldPacks || 0) > 0 },
+  { text: 'Follow the green arrow to Steve\'s van. Press E to open his menu, then choose Sell.', done: () => (G.soldPacks || 0) > 0 },
 ];
 function nearestDeer() {
   let best = null, bd = 1e9;

@@ -50,7 +50,7 @@ const SCENES = {
     ['dale', 'Squirrels. In the trees. Small, fast, loud. Great.'],
   ],
   after2: [
-    ['earl', 'Best chili I\'ve made in years. Don\'t tell the health department.'],
+    ['earl', 'One day this chili\'s gonna win a ribbon. Or a visit from the health department.'],
     ['henderson', '(shouting from his porch) MARTHA! I\'M STAYING UP TONIGHT! I\'LL CATCH HIM MYSELF!'],
     ['dale', 'Who\'s Martha?'],
     ['tyler', '(text) nobody knows. also mom has grandpa\'s old longbow in the garage. she said she\'s "keeping it as leverage"'],
@@ -61,12 +61,12 @@ const SCENES = {
     ['dale', 'Grandpa\'s longbow. Hand-carved hickory. Quiet as a whisper. And it\'s hanging in Darlene\'s garage next to her Peloton.'],
     ['tyler', '(text) side door of the garage is unlocked. i didnt tell u that. mom walks past it like every 30 seconds'],
     ['gary', '(at the HOA meeting) Motion to make "Orange Menace" the official villain of the newsletter?'],
-    ['linda', 'Seconded. Unanimous. Also: the Pruitt Woods auction is in five days. Phase 2 is HAPPENING, people.'],
+    ['linda', 'Seconded. Unanimous. The Pruitt Woods auction is right after deer season. Phase 2 is HAPPENING, people.'],
   ],
   after3: [
-    ['narrator', 'Dale turns Grandpa\'s longbow over in his hands. His initials are still carved under the grip. Next to them: "T.P." Tyler\'s, carved when he was six.'],
+    ['narrator', 'Tyler texts a photo of Grandpa\'s longbow. Dale\'s initials are carved under the grip. Next to them: "T.P." Tyler\'s, carved when he was six.'],
     ['dale', 'Huh.'],
-    ['darlene', '(knocking on the shed) Dale. I know you took the bow. I\'m... not going to say anything. This time.'],
+    ['darlene', '(knocking on the shed) Dale. I know what that bow means to you. I\'m... willing to talk about it. This time.'],
     ['darlene', 'Tyler told me about the auction. Don\'t make me regret this.'],
   ],
   intro4: [
@@ -77,8 +77,8 @@ const SCENES = {
     ['dale', 'The clubhouse pond. North woods. If I catch a tagged koi, that\'s proof Linda\'s been skimming the HOA.'],
   ],
   after4: [
-    ['narrator', 'The tagged koi swims in a cooler of pond water on the shed floor. Its tag reads "PROPERTY OF WHISPERING PINES HOA. $1,200."'],
-    ['tyler', '(text) i sent the pic to the HOA group chat. its chaos. gary is "investigating." linda left the chat'],
+    ['narrator', 'Tyler digs up the HOA\'s koi invoice. One fish: $1,200. Suddenly the dues make sense.'],
+    ['tyler', '(text) i sent the koi bill to the HOA group chat. its chaos. gary is "investigating." linda says its complicated'],
     ['earl', 'Last night of the season tomorrow. They say Old Hosta\'s been seen by the creek. Fourteen points. Every hunter in the county has missed him.'],
     ['dale', 'Grandpa never missed him. Grandpa never shot him either. Said some deer you just let be.'],
     ['dale', '...I could really use the money though.'],
@@ -103,11 +103,11 @@ const SCENES = {
 
 // Optional story objectives, one per night (reward is cash, plus story flags).
 const OBJECTIVES = {
-  1: { id: 'sell', text: 'Sell venison to Sketchy Steve (east logging road)', reward: 50, need: 1 },
+  1: { id: 'sell', text: 'Sell a pack to Sketchy Steve (east logging road)', reward: 50, need: 1 },
   2: { id: 'squirrels', text: 'Bag 3 squirrels for Earl\'s chili', reward: 90, need: 3 },
   3: { id: 'longbow', text: 'Take Grandpa\'s Longbow back from Darlene\'s garage', reward: 0, need: 1, place: 'garage' },
   4: { id: 'koi', text: 'Catch a tagged koi at the HOA clubhouse pond (north woods)', reward: 100, need: 1, place: 'koi' },
-  5: { id: 'hosta', text: 'Bag Old Hosta, the legendary buck', reward: 250, need: 1 },
+  5: { id: 'hosta', text: 'Bring Old Hosta back to the shed', reward: 250, need: 1 },
 };
 
 // The ending depends on how the season went.

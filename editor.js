@@ -16,6 +16,7 @@ let spec = blankSpec();
 const history = [];
 let drag = null;
 
+let signText = 'MAPLE ST';
 function blankSpec() {
   return { format: 'hunter-sub-map', version: 1, name: 'My Neighborhood', author: '', intro: '', seed: 9001,
     roads: [{ x: M, y: 1200, w: W - 2 * M, h: ROAD, vert: false }], bulbs: [], houses: [], ponds: [], pools: [], hedges: [], woods: [],
@@ -82,7 +83,18 @@ function dragRect() {
 }
 
 // ---------------------------------------------------------------- editing
-function save() { history.push(JSON.stringify(spec)); if (history.length > 60) history.shift(); try { localStorage.setItem('hs_editor_draft', JSON.stringify(spec)); } catch (e) {} }
+// save() = take an undo snapshot before a change. persist() = keep the current map as the draft.
+function save() { history.push(JSON.stringify(spec)); if (history.length > 60) history.shift(); }
+function persist() { try { localStorage.setItem('hs_editor_draft', JSON.stringify(spec)); } catch (e) { /* storage blocked */ } }
+// Fill in anything missing or broken (imported files, old drafts), so the editor can't get stuck.
+function normalize(s) {
+  const out = Object.assign(blankSpec(), s && typeof s === 'object' && !Array.isArray(s) ? s : {});
+  const base = blankSpec();
+  for (const k in base) if (Array.isArray(base[k]) && !Array.isArray(out[k])) out[k] = [];
+  for (const k of ['shed', 'van', 'clubhouse']) if (out[k] && (typeof out[k] !== 'object' || !isFinite(out[k].x) || !isFinite(out[k].y))) out[k] = null;
+  for (const k of ['name', 'author', 'intro']) out[k] = String(out[k] == null ? '' : out[k]);
+  return out;
+}
 function hitTest(p) {
   const inR = (o, w, h) => p.x >= o.x && p.x <= o.x + (o.w || w) && p.y >= o.y && p.y <= o.y + (o.h || h);
   const lists = [['signs', o => Math.hypot(o.x - p.x, o.y - p.y) < 60], ['bushes', o => Math.hypot(o.x - p.x, o.y - p.y) < 40], ['trees', o => Math.hypot(o.x - p.x, o.y - p.y) < 40],
@@ -101,7 +113,7 @@ function click(p) {
   else if (tool === 'shed') spec.shed = { x: p.x - 50, y: p.y - 35 };
   else if (tool === 'van') spec.van = { x: p.x - 58, y: p.y - 28 };
   else if (tool === 'club') spec.clubhouse = { x: p.x - 90, y: p.y - 55 };
-  else if (tool === 'sign') { const t = prompt('Sign text?', 'MAPLE ST'); if (t) spec.signs.push({ x: p.x, y: p.y, text: t.slice(0, 40) }); else history.pop(); }
+  else if (tool === 'sign') { const t = (signText || 'MAPLE ST').trim(); if (t) spec.signs.push({ x: p.x, y: p.y, text: t.slice(0, 40) }); else history.pop(); }
   else if (tool === 'erase') { const del = hitTest(p); if (del) del(); else history.pop(); }
   else history.pop();
   validate(); draw();
@@ -109,7 +121,7 @@ function click(p) {
 function finishDrag() {
   const r = dragRect();
   if (tool === 'bulb') { const rr = Math.round(Math.hypot(drag.cur.x - drag.a.x, drag.cur.y - drag.a.y)); if (rr > 60) { save(); spec.bulbs.push({ x: drag.a.x, y: drag.a.y, r: Math.min(400, rr) }); } }
-  else if (r.w > 20 && r.h > 10) {
+  else if (Math.max(r.w, r.h) > 20 && Math.min(r.w, r.h) >= 10) {
     save();
     const k = { road: 'roads', pond: 'ponds', pool: 'pools', hedge: 'hedges', woods: 'woods' }[tool];
     if (k) spec[k].push(tool === 'pond' ? Object.assign(r, { name: '' }) : r);
@@ -125,12 +137,13 @@ cv.addEventListener('pointermove', e => { if (drag) { drag.cur = toWorld(e); dra
 cv.addEventListener('pointerup', () => { if (drag) { finishDrag(); drag = null; draw(); } });
 
 function validate() {
+  persist();
   const errs = [];
   if (!spec.houses.length) errs.push('Add at least one house.');
   if (!spec.roads.length) errs.push('Add at least one road.');
   const hasEx = spec.houses.some(h => h.ex);
   status.innerHTML = errs.length ? `<span class="bad">${errs.join(' ')}</span>` :
-    `<span class="ok">Ready to play.</span> ${spec.houses.length} houses · ${spec.roads.length} roads · ${spec.bulbs.length} cul-de-sacs · ${hasEx ? 'Darlene placed' : 'the first house will be Darlene\'s'} · ${spec.shed ? 'shed placed' : 'shed goes behind Darlene\'s'}`;
+    `<span class="ok">Ready to play.</span> ${spec.houses.length} houses · ${spec.roads.length} roads · ${spec.bulbs.length} cul-de-sacs · ${hasEx ? 'Darlene\'s house placed' : 'the first house will be Darlene\'s'} · ${spec.shed ? 'shed placed' : 'shed goes behind Darlene\'s'}`;
   return !errs.length;
 }
 
@@ -138,8 +151,9 @@ function validate() {
 const toolsEl = document.getElementById('tools');
 function buildTools() {
   toolsEl.innerHTML = '';
-  const field = (lab, key) => { const l = document.createElement('label'); l.textContent = lab; const i = document.createElement('input'); i.value = spec[key] || ''; i.oninput = () => { spec[key] = i.value; save(); }; toolsEl.append(l, i); };
+  const field = (lab, key) => { const l = document.createElement('label'); l.textContent = lab; const i = document.createElement('input'); i.value = spec[key] || ''; i.onfocus = () => save(); i.oninput = () => { spec[key] = i.value; persist(); }; toolsEl.append(l, i); };
   field('Map name', 'name'); field('Author', 'author'); field('Intro text', 'intro');
+  { const l = document.createElement('label'); l.textContent = 'Sign text (for the Sign tool)'; const i = document.createElement('input'); i.value = signText; i.maxLength = 40; i.oninput = () => { signText = i.value; }; toolsEl.append(l, i); }
   const l = document.createElement('label'); l.textContent = 'Tools'; toolsEl.append(l);
   for (const [id, name] of TOOLS) { const b = document.createElement('button'); b.textContent = name; b.className = tool === id ? 'on' : ''; b.onclick = () => { tool = id; buildTools(); }; toolsEl.append(b); }
   const f = document.createElement('button'); f.textContent = faceUp ? 'New houses: road ABOVE' : 'New houses: road BELOW'; f.onclick = () => { faceUp = !faceUp; buildTools(); }; toolsEl.append(f);
@@ -151,7 +165,7 @@ document.getElementById('undo').onclick = () => { const h = history.pop(); if (h
 document.getElementById('export').onclick = () => download((spec.name || 'map').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json', JSON.stringify(spec, null, 2));
 document.getElementById('import').onclick = () => {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { try { const s = JSON.parse(t); save(); spec = Object.assign(blankSpec(), s); buildTools(); validate(); draw(); } catch (e) { alert('Not a valid map: ' + e.message); } }); };
+  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { try { const s = normalize(JSON.parse(t)); save(); spec = s; buildTools(); validate(); draw(); } catch (e) { alert('That file isn\'t a Hunter Sub map: ' + e.message); } }); };
   inp.click();
 };
 document.getElementById('play').onclick = () => {
@@ -161,5 +175,5 @@ document.getElementById('play').onclick = () => {
 };
 window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); document.getElementById('undo').click(); } });
 window.addEventListener('resize', resize);
-try { const d = localStorage.getItem('hs_editor_draft'); if (d) spec = Object.assign(blankSpec(), JSON.parse(d)); } catch (e) {}
+try { const d = localStorage.getItem('hs_editor_draft'); if (d) spec = normalize(JSON.parse(d)); } catch (e) { spec = blankSpec(); }
 buildTools(); validate(); resize();

@@ -222,7 +222,7 @@ function drawSettings() {
     { label: `Screen shake: ${settings.shake ? 'On' : 'Off'}`, fn: () => { settings.shake = !settings.shake; saveSettings(); } },
     { label: `Sound: ${pct(settings.sfxVol)}`, fn: () => { settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
     { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
-    { label: `Cones: ${settings.cbCones ? 'Colorblind' : 'Standard'}`, fn: () => { settings.cbCones = !settings.cbCones; saveSettings(); } },
+    { label: `Sight cones: ${settings.cbCones ? 'Colorblind' : 'Standard'}`, fn: () => { settings.cbCones = !settings.cbCones; saveSettings(); } },
     { label: `Flashing: ${settings.flashes ? 'On' : 'Reduced'}`, fn: () => { settings.flashes = !settings.flashes; saveSettings(); } },
     { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => { settings.hints = !settings.hints; saveSettings(); } },
     { label: `Text size: ${settings.bigText ? 'Large' : 'Normal'}`, fn: () => { settings.bigText = !settings.bigText; saveSettings(); } },
@@ -379,7 +379,7 @@ function drawKeys() {
   ctx.textAlign = 'center'; ctx.fillStyle = '#ff7a1a'; fitFont('CONTROLS', 900, 38, VW - 24); ctx.fillText('CONTROLS', cx, Math.max(56, VH * 0.1));
   ctx.fillStyle = keyWait ? '#ffd166' : '#aaa'; ctx.font = '14px system-ui, sans-serif';
   const pending = keyWait && BINDABLE.find(b => b[1] === keyWait);
-  ctx.fillText(pending ? `Press a key for "${pending[0]}" (Esc cancels)` : 'Click an action, then press the key you want. Keys swap if taken.', cx, Math.max(82, VH * 0.1 + 26));
+  wrapText(pending ? `Press a key for "${pending[0]}" (Esc cancels)` : 'Click an action, then press the key you want. Keys swap if taken.', cx, Math.max(82, VH * 0.1 + 26), VW - 28, 17);
   const y = buttonGrid(BINDABLE.map(([name, def]) => ({ label: `${name}: ${keyWait === def ? '…' : keyLabel(boundKey(def))}`, fn: () => { keyWait = def; }, hi: keyWait === def })), Math.max(100, VH * 0.1 + 44), 200, 32, 8);
   buttonGrid([{ label: 'Reset to defaults', fn: () => { resetBinds(); keyWait = null; } }, { label: '◀ Back', fn: () => { state = 'settings'; keyWait = null; }, hi: true }], y + 12, 200, 38);
 }
@@ -405,7 +405,7 @@ function setupTwoPlayer() {
   if (campaign.coop) {
     tyler = { x: world.shed.x + world.shed.w / 2 + 40, y: world.shed.y + world.shed.h + 40, carry: null, moveAng: 0, step: 0, seenT: 0, crouch: false, quipCD: 0 };
     G.tylerHauls = 0;
-    G.banner = { text: 'CO-OP: P1 is Dale (WASD). P2 is Tyler (arrow keys, R-Shift sneak, Enter = drag / drop). Tyler can\'t shoot, but he can haul.', color: '#9be564', t: 6 };
+    G.banner = { text: 'CO-OP: Dale uses WASD. Tyler uses the arrow keys, Right Shift to sneak, and Enter to grab or drop a deer. Press Enter at the shed to deliver. Tyler can\'t shoot.', color: '#9be564', t: 6 };
   }
 }
 function p2Action() {
@@ -646,7 +646,8 @@ function validateMap(raw) {
     houses: rects('houses', HW, HH).map(h => Object.assign(h, { top: !!h.top, ex: !!h.ex })),
     ponds: rects('ponds', 160, 100), pools: rects('pools', 120, 64), hedges: rects('hedges', 14, 140), woods: rects('woods', 300, 300),
     bulbs: (Array.isArray(raw.bulbs) ? raw.bulbs : []).filter(b => inMap(b) && num(b.r) && b.r > 40 && b.r < 600),
-    bushes: (Array.isArray(raw.bushes) ? raw.bushes : []).filter(inMap), trees: (Array.isArray(raw.trees) ? raw.trees : []).filter(inMap),
+    bushes: (Array.isArray(raw.bushes) ? raw.bushes : []).filter(b => inMap(b) && (b.r === undefined || (num(b.r) && b.r >= 8 && b.r <= 120))),
+    trees: (Array.isArray(raw.trees) ? raw.trees : []).filter(t => inMap(t) && (t.r === undefined || (num(t.r) && t.r >= 8 && t.r <= 160))),
     signs: (Array.isArray(raw.signs) ? raw.signs : []).filter(inMap).map(g => ({ x: g.x, y: g.y, text: String(g.text || '').slice(0, 40) })),
     shed: inMap(raw.shed) ? raw.shed : null, van: inMap(raw.van) ? raw.van : null, clubhouse: inMap(raw.clubhouse) ? raw.clubhouse : null,
     vx: Array.isArray(raw.vx) && raw.vx.length === 2 && raw.vx.every(num) ? raw.vx : null,
@@ -951,5 +952,5 @@ function drawShop(now) {
   button(cx - 130, y, 260, 42, `Start Night ${night + 1}  ▶`, () => { night++; startNight(); }, true, true);
   y -= 6;
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(pad.connected ? 'D-pad to choose · A to buy · Start to continue' : touchMode ? 'Tap an item to buy' : 'Click an item (or press 1–9) to buy · Enter to continue', cx, y + 66);
+  ctx.fillText(pad.connected ? 'D-pad ↑/↓ to choose · A to buy or equip · Start to continue' : touchMode ? 'Tap an item to buy' : 'Click an item to buy or equip · keys 1–9 for the first nine · Enter to continue', cx, y + 66);
 }

@@ -102,9 +102,11 @@ function roundRect(c, x, y, w, h, r) {
   c.arcTo(x, y, x + w, y, r);
   c.closePath();
 }
+// previewMode (the trailer and #demo links) plays the game without touching saves, scores or stats.
+let previewMode = location.hash.startsWith('#demo');
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  set(k, v) { if (previewMode) return; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
 };
 
 // ============================================================
@@ -225,7 +227,7 @@ QUIPS.cop.push('Dale, I can see the vest.', 'Hands where I can see \'em, buddy.'
 QUIPS.cam = ['*ding dong* Motion detected.', '📷 *click* Clip saved to the cloud.', 'Ring! Someone is at your front door.'];
 QUIPS.chad = ['Bro. BRO. Are you hunting?', 'Babe! Your ex is in the yard again!', 'Can\'t hear you over the blower, dude!', 'Is that a crossbow? Sick. Also: no.'];
 const NIGHT_INTROS = [
-  'Opening night. Darlene got the house, the dog, and the hunting lease. You got a bow and a grudge. The deer of Whispering Pines have gotten fat on hostas. Fill the freezer before sunrise.',
+  'Opening night. Darlene got the house and the dog. Her lawyer got the hunting lease. You got a bow and a grudge. The deer of Whispering Pines have gotten fat on hostas. Fill the freezer before sunrise.',
   'Word got around. Linda put up "NO HUNTING" signs and recruited Todd from Neighborhood Watch. Stay low.',
   'The HOA called an emergency meeting about "the Orange Menace." There are more of them out tonight.',
   'Darlene\'s new boyfriend installed motion lights. Gary bought night-vision binoculars with HOA dues.',
@@ -250,7 +252,7 @@ const RADIO = ['📻 "Orange vest spotted, over!"', '📻 "Eyes up, people. He\'
 const VOICEMAILS = {
   saw: [
     'Dale. I SAW you. In my hydrangeas. Call me back. Actually, don\'t.',
-    'You know the orange vest is the whole POINT of being seen, right Dale?',
+    'The whole POINT of that orange vest is to be seen, right, Dale?',
     'Officer Kowalski says hi. He says stop it. I also say stop it.',
   ],
   clean: [
@@ -260,7 +262,7 @@ const VOICEMAILS = {
   ],
 };
 const SHOP = [
-  { id: 'ghillie', name: 'Ghillie Suit', price: 150, desc: 'Lose the orange vest. Everyone spots you 20% later.' },
+  { id: 'ghillie', name: 'Ghillie Suit', price: 150, desc: 'Lose the orange vest. Watchers have to get 20% closer to spot you.' },
   { id: 'boots', name: 'Quiet Boots', price: 100, desc: 'Dogs and deer notice you from much closer.' },
   { id: 'sled', name: 'Drag Sled', price: 120, desc: 'Drag deer at 80% speed instead of 60%.' },
   { id: 'truckbed', name: 'Truck Bed Extender', price: 250, desc: 'Deer past your quota ride in the truck (up to 2) and count toward tomorrow.' },
@@ -313,13 +315,13 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
   'Parked cars and hedges block flashlights completely. Hug them.',
   'Steve\'s price changes nightly. ▲ means it went up since last night.',
-  'Sneaking leaves fainter footprints in snow, and plowed roads leave none.',
+  'Sneaking makes your snow tracks fade twice as fast. Plowed roads leave none.',
   'Crows on a lawn are an alarm system. Go around.',
   'Lightning lights up the whole street for a split second. Stay in cover during storms.',
   'Sprinklers soak you, and wet boots squelch loudly for a while.',

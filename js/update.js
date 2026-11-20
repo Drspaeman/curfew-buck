@@ -30,7 +30,7 @@ function update(dt) {
   // Tutorial hints (first season only shows each once)
   if (night === 1 && G.playT > 0.5 && !G.tut) hint('start', 'Sneak (hold Shift) toward a deer. HOLD click to draw your bow, RELEASE to fire. Full draw = deadly.');
   if (G.playT > 35) hint('cone', 'Right-click (or F) throws a pinecone. Watchers walk over to check it out. Use it to clear a path.');
-  if (night === 2 && G.playT > 3) hint('flood', 'New tonight: motion floodlights on back porches. Sneak past them or they click on.');
+  if (night === 2 && G.playT > 3) hint('flood', 'More porch floodlights tonight. Sneak and give them room: get too close and they click on.');
 
   // Crickets
   G.chirpT -= dt;
@@ -250,7 +250,7 @@ function updateWorldEvents(dt) {
     sfx.grab();
     popup(n.x, n.y - 24, n.text + ' (+$30)', '#ffe38a', 3);
     if (G.noticesGot === 3) { G.earned += 50; unlock('paperwork'); banner('All 3 HOA notices collected! +$50 bonus', '#ffe38a'); }
-    hint('notice', 'HOA violation notices are worth cash at Earl\'s. Grab all 3 each night for a bonus.');
+    hint('notice', 'HOA notices pay cash when you pick them up. Grab all 3 tonight for a $50 bonus.');
   }
 }
 
@@ -674,7 +674,7 @@ function updatePlayer(dt) {
     if (a.flying || a.t !== Infinity) continue;
     if (dist(a.x, a.y, player.x, player.y) < 24) { a.t = 0; player.arrows++; sfx.grab(); }
   }
-  if (player.hidden) hint('bush', 'You\'re hidden in a bush. Nobody can see you unless they walk right up. (You can\'t hide while dragging a deer.)');
+  if (player.hidden) hint('bush', 'You\'re in cover. Watchers only spot you up close. (Dragging a deer? You can\'t hide without Earl\'s Camo Tarp.)');
 
   if (player.carry) {
     const d = player.carry;
@@ -1268,6 +1268,8 @@ function updatePolice(dt) {
 }
 
 function endNight(reason) {
+  if (G.settled) return;
+  G.settled = true;
   G.endReason = reason;
   if (!oneNightMode()) campaign.truckDeer = (has('truckbed') && reason !== 'arrested') ? clamp(G.delivered - G.quota, 0, 2) : 0;
   if (reason === 'arrested') rumble(500, 1);
@@ -1287,7 +1289,8 @@ function endNight(reason) {
   player.fishing = null;
   campaign.stars[night - 1] = Math.max(campaign.stars[night - 1] || 0, G.stars);
   campaign.score += G.nightScore;
-  campaign.totalDeer += G.delivered;
+  const newDeer = G.delivered - (G.fromTruck || 0);   // truck-bed deer were counted last night
+  campaign.totalDeer += newDeer;
   if (campaign.score > best) { best = campaign.score; store.set('hs_best', best); }
   if (reason === 'win') {
     if (G.timesSpotted === 0) unlock('ghost');
@@ -1296,7 +1299,7 @@ function endNight(reason) {
   if (G.shots >= 3 && G.hits === G.shots) unlock('robin');
   const life = store.get('hs_life', {});
   const addL = (k, v) => { life[k] = (life[k] || 0) + v; };
-  addL('nights', 1); addL('deer', G.delivered); addL('bucks', G.bucks); addL('arrows', G.shots); addL('hits', G.hits);
+  addL('nights', 1); addL('deer', newDeer); addL('bucks', G.bucks); addL('arrows', G.shots); addL('hits', G.hits);
   addL('sold', G.soldPacks || 0); addL('squirrels', G.squirrels || 0); addL('fish', G.fish || 0); addL('rabbits', G.rabbits || 0);
   addL('cash', G.earned); if (reason === 'arrested') addL('busted', 1); if (G.legendDone) addL('hosta', 1);
   store.set('hs_life', life);
@@ -1309,7 +1312,7 @@ function endNight(reason) {
   player.drawing = false;
   store.set('hs_reached', Math.max(store.get('hs_reached', 1), Math.min(5, night + (reason === 'win' ? 1 : 0))));
   if (night > 5) store.set('hs_endless_best', Math.max(store.get('hs_endless_best', 0), reason === 'win' ? night : night - 1));
-  if (reason === 'win' && night !== 5 && !oneNightMode()) { state = 'nightdone'; sfx.win(); }
+  if (reason === 'win' && night !== 5 && !oneNightMode()) { state = 'nightdone'; sfx.win(); saveNext(); }
   else {
     if (reason === 'arrested' && night < 5 && !oneNightMode() && !campaign.courtUsed) {
       // First arrest of the season: you get your day in court.
@@ -1326,8 +1329,7 @@ function endNight(reason) {
     if (campaign.daily) { const dd = store.get('hs_daily', {}); dd[campaign.daily] = Math.max(dd[campaign.daily] || 0, campaign.score); store.set('hs_daily', dd); unlock('daily'); restoreRandom(); }
     if (campaign.map === 'golf') { store.set('hs_golf_best', Math.max(store.get('hs_golf_best', 0), campaign.score)); if (reason !== 'arrested') unlock('golfer'); }
     if (campaign.map === 'cul' || campaign.map === 'random') store.set('hs_' + campaign.map + '_best', Math.max(store.get('hs_' + campaign.map + '_best', 0), campaign.score));
-    if (!oneNightMode()) recordScore();
-    clearSave();
+    if (!oneNightMode()) { recordScore(); clearSave(); }
     state = 'over'; reason === 'win' ? sfx.win() : sfx.lose();
     if (reason === 'win' && night === 5) {
       if (campaign.cash >= CABIN_GOAL) unlock('cabin');
@@ -1337,7 +1339,9 @@ function endNight(reason) {
 }
 
 function saveGame() { if (oneNightMode()) return; store.set('hs_save', { night, campaign }); }
-function clearSave() { try { localStorage.removeItem('hs_save'); } catch (e) { /* no storage */ } }
+// Between nights (results and Earl's shop): Continue starts the next night with everything kept.
+function saveNext() { if (oneNightMode()) return; store.set('hs_save', { night: night + 1, campaign }); }
+function clearSave() { if (previewMode) return; try { localStorage.removeItem('hs_save'); } catch (e) { /* no storage */ } }
 function loadGame() {
   restoreRandom();
   const s = store.get('hs_save', null);

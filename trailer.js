@@ -1,4 +1,5 @@
 'use strict';
+previewMode = true;   // the trailer plays real nights but never saves
 // Hunter Sub trailer: a scripted ~60-second sequence played live in the real game engine,
 // with title cards. Open trailer.html, press Play (or Record to save a .webm video).
 (function trailer() {
@@ -86,8 +87,11 @@
   // Controls
   const bar = document.getElementById('trailer-bar');
   const btn = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; bar.appendChild(b); return b; };
-  btn('▶ Play trailer', () => { unlockAudio && unlockAudio(); start(); });
-  btn('● Record .webm', () => {
+  // while recording, both buttons are off so a second start can't strand the recorder
+  const playBtn = btn('▶ Play trailer', () => { if (recording) return; unlockAudio && unlockAudio(); start(); });
+  let recording = false;
+  const recBtn = btn('● Record .webm', () => {
+    if (recording) return;
     if (!cv.captureStream || typeof MediaRecorder === 'undefined') { alert('This browser can\'t record the canvas. Use a screen recorder instead.'); return; }
     const stream = cv.captureStream(30);
     const rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' });
@@ -95,7 +99,8 @@
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     rec.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = 'hunter-sub-trailer.webm'; a.click(); };
     rec.start(250);
-    start(() => setTimeout(() => rec.stop(), 300));
+    recording = true; playBtn.disabled = recBtn.disabled = true; recBtn.textContent = '● Recording…';
+    start(() => setTimeout(() => { rec.stop(); recording = false; playBtn.disabled = recBtn.disabled = false; recBtn.textContent = '● Record .webm'; }, 300));
   });
   const info = document.createElement('span'); info.textContent = ` ${SHOTS.length} shots · ${total}s`; bar.appendChild(info);
   window.hunterTrailer = { start, SHOTS, get playing() { return playing; }, get shot() { return cur; } };

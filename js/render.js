@@ -1182,9 +1182,13 @@ function drawHUD(now) {
   ctx.textAlign = 'left';
   ctx.font = '12px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  if (!touchMode) ctx.fillText(pad.connected
-    ? '🎮 L-stick move · R-stick aim · hold RT draw · LB sneak · A drag · B pinecone · X grunt · Y leave/decline call · Start pause'
-    : 'WASD move · X sprint · HOLD click draw, release shoot · R look ahead · Right-click/F pinecone · Shift sneak · E use · V beer · G grunt · N goggles · J jerky · Tab map · Q end night · P pause' + (muted ? ' (muted)' : ''), 16, VH - 14);
+  if (!touchMode) {
+    // as many controls as fit on one line; the pause screen lists them all
+    const parts = pad.connected
+      ? ['🎮 L-stick move', 'R-stick aim', 'hold RT to draw', 'LB sneak', 'A drag', 'B pinecone', 'X grunt', 'Y leave / decline call', 'Start pause']
+      : ['WASD move', 'Shift sneak', 'hold click to draw, release to shoot', 'E use', 'F pinecone', 'X sprint', 'R look ahead', 'G grunt', 'V beer', 'N goggles', 'J jerky', 'Tab map', 'Q end night', 'P pause'];
+    ctx.fillText(fitParts(parts, VW - 32 - (muted ? 60 : 0), ' · ', ' · P pause: all keys') + (muted ? '  (muted)' : ''), 16, VH - 14);
+  }
 }
 
 function drawTruckPointer(t = world.shed, label = 'SHED', color = '#ffd166') {
@@ -1270,6 +1274,17 @@ function fitText(text, maxW) {
   return t + '…';
 }
 
+// Joins as many parts as fit in maxW; if some are left out, ends with `more`.
+function fitParts(parts, maxW, sep, more) {
+  let out = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    const next = out + sep + parts[i];
+    const rest = i < parts.length - 1 ? more : '';
+    if (ctx.measureText(next + rest).width > maxW) return ctx.measureText(out + more).width <= maxW ? out + more : out;
+    out = next;
+  }
+  return out;
+}
 function wrapText(text, x, y, maxW, lh) {
   const words = text.split(' ');
   let line = '';
@@ -1282,11 +1297,35 @@ function wrapText(text, x, y, maxW, lh) {
   return y;
 }
 
+// Menu screens scroll when they are taller than the window (phones, landscape): wheel, drag, arrow keys.
+let menuScroll = 0, menuMax = 0, menuBottom = 0, menuState = null, drawScroll = 0;
+function scrollMenu(dy) { if (state !== 'play' && menuMax > 0) menuScroll = clamp(menuScroll + dy, 0, menuMax); }
 function drawScreens(now) {
   uiButtons = [];
-  if (state === 'play') return;
+  if (state === 'play') { menuState = null; return; }
+  if (state !== menuState) { menuState = state; menuScroll = 0; }
+  menuScroll = clamp(menuScroll, 0, menuMax);
   ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
+  menuBottom = 0; drawScroll = menuScroll;
+  const realFill = ctx.fillText;
+  ctx.fillText = function (t, x, y, m) { if (y > menuBottom) menuBottom = y; return realFill.call(this, t, x, y, m); };
+  ctx.save(); ctx.translate(0, -menuScroll);
+  try { drawScreenBody(now); } finally { ctx.restore(); delete ctx.fillText; drawScroll = 0; }
+  menuMax = Math.max(0, Math.ceil(menuBottom + 28 - VH));
+  if (menuMax > 0) {
+    // scroll bar + hint
+    const trackH = VH - 24, barH = Math.max(40, trackH * VH / (VH + menuMax)), barY = 12 + (trackH - barH) * (menuScroll / menuMax);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; roundRect(ctx, VW - 8, 12, 4, trackH, 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,209,102,0.8)'; roundRect(ctx, VW - 8, barY, 4, barH, 2); ctx.fill();
+    if (menuScroll < menuMax - 4) {
+      ctx.fillStyle = 'rgba(5,8,14,0.85)'; roundRect(ctx, VW / 2 - 70, VH - 26, 140, 20, 10); ctx.fill();
+      ctx.fillStyle = '#ffd166'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(touchMode ? '▼ swipe up for more' : '▼ scroll for more', VW / 2, VH - 12);
+    }
+  }
+}
+function drawScreenBody(now) {
   ctx.textAlign = 'center';
   const cx = VW / 2;
   const maxW = Math.min(620, VW - 48);
@@ -1296,14 +1335,14 @@ function drawScreens(now) {
     ctx.fillText('HUNTER SUB', cx, VH * 0.28);
     ctx.fillStyle = '#666'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('v' + VERSION, cx, VH * 0.28 + 18);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '18px system-ui, sans-serif';
-    wrapText('Fill the freezer. Sell the meat. Save Grandpa\'s woods. Do NOT let your ex see you.', cx, VH * 0.28 + 44, maxW, 24);
+    const tagEnd = wrapText('Fill the freezer. Sell the meat. Save Grandpa\'s woods. Do NOT let your ex see you.', cx, VH * 0.28 + 44, maxW, 24);
     ctx.font = '15px system-ui, sans-serif'; ctx.fillStyle = '#bbb';
     const lines = [
       'Sneak into Whispering Pines Estates before sunrise and bow-hunt the deer eating everyone\'s hostas.',
       'Drag each deer back to your shed (the one behind your ex-wife\'s house), then sell the meat to Sketchy Steve across town.',
       'If Suspicion fills, someone calls 911. Then it\'s a race back to the shed.',
     ];
-    let y = VH * 0.28 + 100;
+    let y = Math.max(VH * 0.28 + 100, tagEnd + 40);   // never overlap a tagline that wrapped
     for (const l of lines) { y = wrapText(l, cx, y, maxW, 21) + 30; }
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 20px system-ui, sans-serif';
     const save = store.get('hs_save', null);
@@ -1313,7 +1352,7 @@ function drawScreens(now) {
         { label: confirmNewAt && performance.now() - confirmNewAt < 3000 ? 'Click again: erase save?' : 'New season', fn: () => { if (confirmNewAt && performance.now() - confirmNewAt < 3000) { confirmNewAt = 0; newCampaign(); } else confirmNewAt = performance.now(); } },
       ], y - 8, 220, 42) - 10;
       ctx.fillStyle = '#e0b83a'; ctx.font = '13px system-ui, sans-serif';
-      ctx.fillText(`Cabin fund $${save.campaign.cash || 0} / $${CABIN_GOAL}  ·  Freezer ${save.campaign.freezer || 0} packs  ·  Night ${save.night} of 5`, cx, y + 16); y += 26;
+      ctx.fillText(`Cabin fund $${save.campaign.cash || 0} / $${CABIN_GOAL}  ·  Freezer ${save.campaign.freezer || 0} packs  ·  ${save.night > 5 ? 'Endless night ' + save.night : 'Night ' + save.night + ' of 5'}`, cx, y + 16); y += 26;
     } else {
       if (Math.floor(now / 600) % 2 === 0) ctx.fillText(touchMode ? 'Tap to start' : 'Click or press Enter to start', cx, y + 20);
       y += 34;
@@ -1328,7 +1367,7 @@ function drawScreens(now) {
       { label: '🎲 Random map', fn: () => startMapMode('random') },
       { label: '🆚 Versus (2P)', fn: () => startTwoPlayer('versus') },
       { label: '🤝 Co-op (2P)', fn: () => startTwoPlayer('coop') },
-      { label: '🌐 Online (Steam)', fn: () => openOnline(), hi: true },
+      { label: '🌐 Online play', fn: () => openOnline(), hi: true },
       { label: '🧩 Custom map', fn: () => customMapMenu() },
       { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; } },
       { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
@@ -1339,7 +1378,8 @@ function drawScreens(now) {
       { label: 'Credits', fn: () => { state = 'credits'; } },
     ], y + 18, 160, 36);
   } else if (state === 'intro') {
-    ctx.fillStyle = '#ff7a1a'; ctx.font = 'bold 40px system-ui, sans-serif';
+    ctx.fillStyle = '#ff7a1a';
+    fitFont(campaign.map === 'random' ? 'RANDOM NEIGHBORHOOD #000000' : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : 'THE COUNTRY CLUB', 'bold', 40, VW - 24);
     ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.map === 'cul' ? 'MAPLE COURT' : campaign.map === 'random' ? `RANDOM NEIGHBORHOOD #${campaign.mapSeed}` : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '17px system-ui, sans-serif';
     let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : campaign.map === 'custom' ? (campaign.customSpec.intro || `A custom neighborhood${campaign.customSpec.author ? ' by ' + campaign.customSpec.author : ''}. Same HOA. Same ex-wife. Good luck.`) : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
@@ -1362,7 +1402,7 @@ function drawScreens(now) {
     y = wrapText(`Watching tonight: ${watchers.map(w => w.label).join(' · ')}`, cx, y + 104, maxW, 20);
     if (deer.some(d => d.legend)) {
       ctx.fillStyle = '#ffd166'; ctx.font = 'bold 15px system-ui, sans-serif';
-      ctx.fillText('Rumor at the bait shop: OLD HOSTA, the legendary 14-pointer, is in the woods tonight.', cx, y + 28);
+      wrapText('Rumor at the bait shop: OLD HOSTA, the legendary 14-pointer, is in the woods tonight.', cx, y + 28, maxW, 20);
       y += 28;
     }
     const gear = SHOP.filter(s => has(s.id)).map(s => s.name);
@@ -1377,10 +1417,8 @@ function drawScreens(now) {
     ctx.fillText('PAUSED', cx, VH * 0.4);
     ctx.font = '16px system-ui, sans-serif'; ctx.fillStyle = '#bbb';
     ctx.fillText('Click or press P to resume', cx, VH * 0.4 + 36);
-    if (G.objective) { ctx.fillStyle = G.objective.done ? '#9be564' : '#7cf'; ctx.fillText((G.objective.done ? '✔ ' : '★ ') + G.objective.text, cx, VH * 0.4 - 60); }
-    ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText(fitText('E: drag / fish / pack cooler / talk to Steve · V: beer · G: grunt · B: corn · F: pinecone · T: decline call · Q: end night at shed', VW - 30), cx, VH * 0.4 + 140);
-    buttonGrid([
+    // (the story objective is already on the HUD chip, so it isn't repeated here)
+    const py = buttonGrid([
       { label: 'Resume', fn: () => { state = 'play'; }, hi: true },
       { label: 'Restart night (R)', fn: () => startNight() },
       { label: `Sound: ${pct(settings.sfxVol)}`, fn: () => { settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
@@ -1389,6 +1427,13 @@ function drawScreens(now) {
       { label: 'Quit to title', fn: () => { state = 'title'; } },
       ...(G.tut ? [{ label: 'Skip tutorial', fn: () => { skipTutorial(); state = 'play'; } }] : []),
     ], VH * 0.4 + 64, 180, 40);
+    // every control, with your own key bindings
+    const k = d => keyLabel(boundKey(d));
+    const all = touchMode ? 'Left stick: move (push lightly to sneak) · Hold the right side: draw, let go: shoot · Buttons: use, pinecone, grunt, map, leave'
+      : `${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')}: move · ${k('ShiftLeft')}: sneak · ${k('KeyX')}: sprint · hold click (or ${k('Space')}): draw, let go: shoot · ${k('KeyE')}: drag deer / fish / pack cooler / talk to Steve · ${k('KeyF')} or right-click: pinecone · ${k('KeyG')}: grunt call · ${k('KeyV')}: beer · ${k('KeyB')}: corn · ${k('KeyN')}: goggles · ${k('KeyJ')}: jerky for dogs · T: decline call · ${k('Tab')}: map · ${k('KeyR')}: look ahead · ${k('KeyQ')}: end night at the shed · ${k('KeyP')}: pause`;
+    ctx.fillStyle = '#9aa'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.fillText('CONTROLS', cx, py + 14);
+    ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
+    wrapText(all, cx, py + 34, Math.min(640, VW - 30), 18);
   } else if (state === 'shop') {
     drawShop(now);
   } else if (state === 'story') {
@@ -1401,6 +1446,8 @@ function drawScreens(now) {
     drawSettings();
   } else if (state === 'online') {
     drawOnline(now);
+  } else if (state === 'netwait') {
+    drawNetWait(now);
   } else if (state === 'scores') {
     drawScores();
   } else if (state === 'keys') {
@@ -1416,9 +1463,11 @@ function drawScreens(now) {
     ctx.fillText('NIGHT SELECT', cx, VH * 0.22);
     const reached = store.get('hs_reached', 1);
     ctx.fillStyle = '#bbb'; ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText('Replay any night you\'ve reached. Later nights start with some cash for gear.', cx, VH * 0.22 + 34);
+    wrapText('Replay any night you\'ve reached. Later nights start with some cash for gear.', cx, VH * 0.22 + 34, maxW, 18);
     const bs = store.get('hs_stars', []);
-    buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n <= reached ? `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}` : '🔒', fn: () => startAtNight(n), enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
+    const sv = store.get('hs_save', null), ask = nightAsk && performance.now() - nightAsk.at < 3000 ? nightAsk.n : 0;
+    buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n > reached ? '🔒' : ask === n ? 'Again: replace save?' : `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}`, fn: () => { if (sv && sv.campaign && ask !== n) { nightAsk = { n, at: performance.now() }; return; } nightAsk = null; startAtNight(n); }, enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
+    if (sv && sv.campaign) { ctx.fillStyle = '#e0b83a'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(`Starting a night here replaces your saved season (Night ${sv.night}).`, cx, VH * 0.22 + 52); }
     const eb = store.get('hs_endless_best', 0);
     if (eb) { ctx.fillStyle = '#9ecbff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(`Endless mode best: night ${eb}`, cx, VH * 0.22 + 150); }
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
@@ -1433,13 +1482,13 @@ function drawScreens(now) {
       home: ['CALLED IT A NIGHT', '#ffd166'],
     };
     const subs = {
-      win: state === 'over' ? 'That\'s the whole season. Your freezer is full, your ex is furious, and Linda is drafting Bylaw 14.4.' : 'You slipped out before the joggers. Linda is drafting a strongly worded email.',
-      arrested: G.caller === 'ex' ? 'Darlene is telling everyone at book club. Officer Kowalski says hi.' : 'The HOA fined you $4,000 and the judge fined you more.',
+      win: state === 'over' ? (oneNightMode() ? 'Quota met. The freezer did its job. The neighborhood group chat will be unbearable.' : 'That\'s the whole season. Your freezer is full, and the whole subdivision is talking about it.') : 'You made quota. Linda is drafting a strongly worded email.',
+      arrested: G.caller === 'ex' ? 'Darlene is telling everyone at book club. Officer Kowalski says hi.' : 'The HOA is already counting imaginary fines. Kowalski has actual paperwork.',
       sunrise: 'The sun is up and the whole subdivision is out jogging. The hunt is over.',
       escaped: 'You dove into the shed and killed the lights. Kowalski knocked for an hour. You missed your quota.',
       home: 'You drove home short of your quota. The freezer hums sadly.',
     };
-    let [title, color] = state === 'over' && r === 'win' ? ['SEASON COMPLETE!', '#9be564'] : (titles[r] || titles.home);
+    let [title, color] = state === 'over' && r === 'win' ? [oneNightMode() ? 'QUOTA MET!' : 'SEASON COMPLETE!', '#9be564'] : (titles[r] || titles.home);
     if (night > 5 && r === 'win') title = `ENDLESS NIGHT ${night} CLEARED`;
     if (!subs[r]) subs[r] = subs.home;
     if (!G.news) G.news = buildNews(r);
@@ -1513,14 +1562,15 @@ function buttonGrid(items, y, w, h, gap = 10) {
 }
 
 function button(x, y, w, h, label, fn, enabled = true, highlight = false) {
-  const hover = mouse.x >= x && mouse.x <= x + w && mouse.y >= y && mouse.y <= y + h;
+  const hover = mouse.x >= x && mouse.x <= x + w && mouse.y + drawScroll >= y && mouse.y + drawScroll <= y + h;
   ctx.fillStyle = !enabled ? 'rgba(60,60,60,0.6)' : highlight ? (hover ? '#ffdf8a' : '#ffd166') : hover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
   roundRect(ctx, x, y, w, h, 8); ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = highlight ? '#111' : enabled ? '#fff' : '#888';
   ctx.font = 'bold 14px system-ui, sans-serif'; ctx.textAlign = 'center';
   ctx.fillText(label, x + w / 2, y + h / 2 + 5);
-  if (enabled) uiButtons.push({ x, y, w, h, fn });
+  if (enabled) uiButtons.push({ x, y: y - drawScroll, w, h, fn });
+  if (y + h > menuBottom) menuBottom = y + h;
 }
 
 const WHOS_WHO = [
@@ -1534,7 +1584,7 @@ const WHOS_WHO = [
   ['Mr. Henderson', 'The insomniac (Night 3+).', 'Stares out his window, then dozes off. Watch for "Zzz".', '#ffe7a0'],
   ['Kyle & the Joggers', 'Dawn crowd.', 'When they show up, you\'re almost out of night.', '#ff4fa3'],
   ['Officer Kowalski & Sarge', 'Night shift + K-9.', 'Kowalski can be bribed with a burrito. So can Sarge.', '#9ecbff'],
-  ['Old Hosta', 'Legendary 14-point buck.', 'Takes two arrows. Smells you from a mile away.', '#c9a26b'],
+  ['Old Hosta', 'Legendary 14-point buck.', 'Takes two arrows (or one from Grandpa\'s Longbow). Smells you a mile away.', '#c9a26b'],
   ['Earl', 'Earl\'s Bait & Tackle.', 'Sells you gear between nights. Asks no questions.', '#e0b83a'],
 ];
 function drawWhosWho() {
@@ -1542,7 +1592,9 @@ function drawWhosWho() {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ff7a1a'; fitFont('WHO\'S WHO IN WHISPERING PINES', 900, 36, VW - 24);
   ctx.fillText('WHO\'S WHO IN WHISPERING PINES', cx, 64);
-  const cols = VW > 820 ? 2 : 1, cw = Math.min(380, (VW - 60) / cols), ch = Math.min(70, (VH - 140) / Math.ceil(WHOS_WHO.length / cols) - 6);
+  const cols = VW > 820 ? 2 : 1, cw = Math.min(380, (VW - 60) / cols);
+  ctx.font = 'italic 12px system-ui, sans-serif';
+  const ch = WHOS_WHO.some(r => ctx.measureText(r[2]).width > cw - 24) ? 84 : 70;   // room for 2-line descriptions on phones
   const x0 = cx - (cols * cw + (cols - 1) * 12) / 2;
   WHOS_WHO.forEach(([name, role, desc, color], i) => {
     const x = x0 + (i % cols) * (cw + 12), y = 92 + Math.floor(i / cols) * (ch + 6);
@@ -1551,10 +1603,10 @@ function drawWhosWho() {
     ctx.textAlign = 'left';
     ctx.fillStyle = color; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText(name, x + 14, y + 22);
     ctx.fillStyle = '#ddd'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(role, x + 14, y + 40);
-    ctx.fillStyle = '#999'; ctx.font = 'italic 12px system-ui, sans-serif'; ctx.fillText(desc, x + 14, y + 57);
+    ctx.fillStyle = '#999'; ctx.font = 'italic 12px system-ui, sans-serif'; wrapText(desc, x + 14, y + 57, cw - 24, 15);
   });
   ctx.textAlign = 'center'; ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
-  ctx.fillText('Click or press Esc to go back', cx, VH - 24);
+  ctx.fillText('Click or press Esc to go back', cx, Math.max(VH - 24, 92 + Math.ceil(WHOS_WHO.length / cols) * (ch + 6) + 22));
 }
 
 function drawSteve() {
@@ -1567,15 +1619,15 @@ function drawSteve() {
   y = wrapText(G.steveLine || pick(STEVE_LINES), cx, y + 36, Math.min(600, VW - 40), 20) + 30;
   const packs = (player.cooler || 0) + (player.bag || 0);
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 17px system-ui, sans-serif';
-  ctx.fillText(`Tonight's price: $${G.price}/pack  ·  You have ${packs} pack${packs === 1 ? '' : 's'} on you  ·  Cash $${campaign.cash + G.earned}`, cx, y);
+  y = wrapText(`Tonight's price: $${G.price}/pack  ·  You have ${packs} pack${packs === 1 ? '' : 's'} on you  ·  Cash $${campaign.cash + G.earned}`, cx, y, Math.min(620, VW - 28), 20);
   y += 24;
   buttonGrid([
     { label: `1. Sell ${packs} packs ($${packs * G.price})`, fn: steveSell, enabled: packs > 0, hi: packs > 0 },
     { label: '2. Beer ($15)', fn: () => steveBuy('beer') },
     { label: '3. Four arrows ($20)', fn: () => steveBuy('arrows') },
     { label: '4. Three pinecones ($10)', fn: () => steveBuy('cones') },
-    { label: G.haggled ? 'Already haggled' : '6. Haggle (risky)', fn: steveHaggle, enabled: !G.haggled },
-    { label: '5. Leave', fn: () => { state = 'play'; } },
+    { label: G.haggled ? 'Already haggled' : '5. Haggle (risky)', fn: steveHaggle, enabled: !G.haggled },
+    { label: '6. Leave', fn: () => { state = 'play'; } },
   ], y, 230, 44);
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif';
   ctx.fillText('Time is frozen while you haggle. (Steve is very fast at haggling.)', cx, VH - 30);
@@ -1754,7 +1806,7 @@ function drawCredits() {
 }
 
 // ---- v0.7 helpers ----
-let confirmNewAt = 0;
+let confirmNewAt = 0, nightAsk = null;
 const realRandom = Math.random;
 function restoreRandom() { Math.random = realRandom; }
 function dailyKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
