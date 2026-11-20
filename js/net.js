@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: online Versus / Co-op.
-// Part 8 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 9 of 10. All parts share one global scope, so load them in order (see index.html).
 //
 // How it works: the HOST runs the real game (P1 = Dale). The CLIENT (P2) sends only its keys,
 // and draws the host's snapshots, about 20 a second. Both sides build the same map from a shared

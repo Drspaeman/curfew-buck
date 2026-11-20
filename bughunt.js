@@ -150,7 +150,7 @@
   const inGame = () => { newCampaign(); night = 3; startNight(); story = null; state = 'play'; update(STEP); };
   screen('Title (no save)', () => { localStorage.removeItem('hs_save'); state = 'title'; });
   screen('Title (with save)', () => { inGame(); saveGame(); state = 'title'; });
-  for (const s of ['settings', 'keys', 'scores', 'online', 'whoswho', 'nights', 'trophies', 'credits']) screen('Menu: ' + s, () => { state = s; });
+  for (const s of ['settings', 'keys', 'scores', 'online', 'whoswho', 'nights', 'trophies', 'credits', 'crypt']) screen('Menu: ' + s, () => { state = s; });
   screen('Intro', () => { inGame(); state = 'intro'; });
   screen('Play HUD night 3', () => { inGame(); });
   screen('Play HUD versus', () => { startTwoPlayer('versus'); story = null; state = 'play'; update(STEP); });

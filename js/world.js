@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: World builder for the subdivision, and per-night game state.
-// Part 2 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 2 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // World
 // ============================================================
@@ -439,6 +439,7 @@ function startNight() {
     if (world.blocked(x, y, 24) || G.gossip.some(n => dist(n.x, n.y, x, y) < 600) || G.notices.some(n => dist(n.x, n.y, x, y) < 200)) continue;
     G.gossip.push({ x, y, idx: left[G.gossip.length], got: false });
   }
+  setupGoth();   // Raven, her hidden trading cards and a band poster (js/goth.js)
   player = {
     x: world.shed.x - 26, y: world.shed.y + 35, ang: 0, crouch: false, carry: null, cd: 0, hidden: false, lit: false, moving: false, step: 0,
     drawing: false, draw: 0, arrows: 8 + (has('quiver') ? 6 : 0), cones: 2 + (has('pouch') ? 3 : 0),

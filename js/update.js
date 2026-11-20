@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Main update: player, deer, critters, fishing, objectives, story, watchers, police.
-// Part 5 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 5 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Update
 // ============================================================
@@ -47,6 +47,7 @@ function update(dt) {
   updateCritters(dt);
   updateFishing(dt);
   updateObjective();
+  updateGoth(dt);
   updateTutorial();
   if (!G.hostaSeen) { const L = deer.find(d => d.legend && !d.dead && inView(d.x, d.y, -80)); if (L) { G.hostaSeen = true; G.slowmo = 1.4; banner('🦌 OLD HOSTA. Fourteen points. Don\'t. Breathe.', '#ffd166'); tone(98, 1.2, 'triangle', 0.08, 73); tone(147, 1.0, 'triangle', 0.05, null, 0.2); } }
   updateAmbience(dt);

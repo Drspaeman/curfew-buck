@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Canvas, utilities, audio synth, names, dialogue and data tables.
-// Part 1 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 1 of 10. All parts share one global scope, so load them in order (see index.html).
 /*
  * HUNTER SUB
  * Sneak through Whispering Pines Estates before sunrise, bag deer with your bow,
@@ -315,7 +315,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',

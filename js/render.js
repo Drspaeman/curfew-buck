@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Drawing the world, characters, HUD and menus.
-// Part 6 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 6 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Rendering
 // ============================================================
@@ -37,6 +37,7 @@ function render(now) {
   drawProps();
   drawNotices(now);
   drawGossip(now);
+  drawGoth(now);
   drawCarvings(now);
   drawCat();
   drawDogs(now);
@@ -624,7 +625,7 @@ function drawPlayer(now, ghost) {
   // body (blaze-orange vest, or ghillie suit once bought)
   const ghillie = has('ghillie');
   drawArms(player.step, player.moving, ghillie ? '#3a4a22' : '#4d5a33');
-  inkBlob(0, 0, 11, 14, ghillie ? '#4a5a2c' : '#ff7a1a', 4);
+  inkBlob(0, 0, 11, 14, ghillie ? '#4a5a2c' : settings.gothVest && gothBinderDone() ? '#1b1320' : '#ff7a1a', 4);
   ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.ellipse(-3, -5, 4, 6, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = ghillie ? '#2f3d1c' : '#4d5a33';
   ctx.beginPath(); ctx.ellipse(-2, 0, 5, 9, 0, 0, TAU); ctx.fill();
@@ -1159,6 +1160,7 @@ function drawHUD(now) {
   else if (player.carry || player.bag > 3 || G.police || G.delivered >= G.quota) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   const op = objectivePlace();
   if (op && !player.carry && !player.cooler && !G.police) drawTruckPointer({ x: op.x, y: op.y, w: 0, h: 0 }, 'GOAL', '#7cf');
+  drawGothPointer();
   // tutorial hint
   if (G.hint) {
     ctx.globalAlpha = clamp(G.hint.t, 0, 1);
@@ -1305,7 +1307,7 @@ function drawScreens(now) {
   if (state === 'play') { menuState = null; return; }
   if (state !== menuState) { menuState = state; menuScroll = 0; }
   menuScroll = clamp(menuScroll, 0, menuMax);
-  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
+  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
   menuBottom = 0; drawScroll = menuScroll;
   const realFill = ctx.fillText;
@@ -1370,6 +1372,7 @@ function drawScreenBody(now) {
       { label: '🌐 Online play', fn: () => openOnline(), hi: true },
       { label: '🧩 Custom map', fn: () => customMapMenu() },
       { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; } },
+      { label: '🦇 Raven\'s Crypt', fn: () => { state = 'crypt'; } },
       { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
       { label: 'Night select', fn: () => { state = 'nights'; } },
       { label: '⚙ Settings', fn: () => { state = 'settings'; } },
@@ -1446,6 +1449,8 @@ function drawScreenBody(now) {
     drawSettings();
   } else if (state === 'online') {
     drawOnline(now);
+  } else if (state === 'crypt') {
+    drawCrypt();
   } else if (state === 'netwait') {
     drawNetWait(now);
   } else if (state === 'scores') {
@@ -1638,6 +1643,7 @@ function contextLabel() {
   if (player.fishing) return player.fishing.bite > 0 ? '[E] REEL IN!' : 'fishing...';
   if (player.carry) return nearTruck() ? '' : '[E] drop deer';
   if (!player.cooler && deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) return '[E] drag deer';
+  if (nearRaven()) return player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
   if (nearVan()) return '[E] talk to Steve';
   if (player.cooler) return nearTruck() ? '[E] put cooler back' : '';
   if (nearTruck() && G.freezer > 0) return '[E] pack a cooler';
@@ -1783,7 +1789,7 @@ function drawTrophies() {
   ctx.fillText('LIFETIME', cx, y); y += 20;
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
   const acc = life.arrows ? Math.round((life.hits || 0) / life.arrows * 100) : 0;
-  y = wrapText(`Nights played ${life.nights || 0} · Deer ${life.deer || 0} (${life.bucks || 0} bucks) · Old Hosta ${life.hosta || 0} · Accuracy ${acc}% · Packs sold ${life.sold || 0} · Squirrels ${life.squirrels || 0} · Rabbits ${life.rabbits || 0} · Fish ${life.fish || 0} · Times busted ${life.busted || 0} · Cash earned $${life.cash || 0} · Gossip notes ${store.get('hs_gossip', []).length}/${GOSSIP.length}`, cx, y, Math.min(700, VW - 30), 18) + 26;
+  y = wrapText(`Nights played ${life.nights || 0} · Deer ${life.deer || 0} (${life.bucks || 0} bucks) · Old Hosta ${life.hosta || 0} · Accuracy ${acc}% · Packs sold ${life.sold || 0} · Squirrels ${life.squirrels || 0} · Rabbits ${life.rabbits || 0} · Fish ${life.fish || 0} · Times busted ${life.busted || 0} · Cash earned $${life.cash || 0} · Gossip notes ${store.get('hs_gossip', []).length}/${GOSSIP.length} · Raven\'s cards ${gothCards().length}/${CARDS.length} · Posters ${gothPosters().length}/${POSTERS.length}`, cx, y, Math.min(700, VW - 30), 18) + 26;
   const scores = store.get('hs_scores', []);
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 14px system-ui, sans-serif'; ctx.fillText('BEST SEASONS', cx, y); y += 20;
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';

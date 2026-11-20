@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Player actions, weapons, pathfinding and the tutorial.
-// Part 4 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 4 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Player actions
 // ============================================================
@@ -117,6 +117,7 @@ function interact() {
       return;
     }
   }
+  if (gothInteract()) return;
   if (G.police && dist(player.x, player.y, world.van.x + world.van.w / 2, world.van.y + world.van.h / 2) < 160) { popup(player.x, player.y - 30, 'Steve: "Cops at the end of the road, man. Come back later!"', '#b5e86a', 2); return; }
   if (nearVan()) { openSteve(); return; }
   if (player.cooler) {

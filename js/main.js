@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Startup and the main loop.
-// Part 9 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 10 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Main loop
 // ============================================================

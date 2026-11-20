@@ -54,6 +54,9 @@ const SCENES = {
     ['henderson', '(shouting from his porch) MARTHA! I\'M STAYING UP TONIGHT! I\'LL CATCH HIM MYSELF!'],
     ['dale', 'Who\'s Martha?'],
     ['tyler', '(text) nobody knows. also mom has grandpa\'s old longbow in the garage. she said she\'s "keeping it as leverage"'],
+    ['tyler', '(text) also garys daughter raven is home from art school. shes goth. she thinks ur a cryptid. shes making TRADING CARDS of u'],
+    ['dale', 'What\'s a cryptid?'],
+    ['tyler', '(text) like bigfoot. but orange'],
   ],
   intro3: [
     ['narrator', 'Rain hammers the shed roof. Perfect cover.'],

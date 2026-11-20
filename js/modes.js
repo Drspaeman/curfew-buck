@@ -1,6 +1,6 @@
 'use strict';
 // Hunter Sub: Game modes: Daily Hunt, Country Club, Maple Court, random and custom maps, two-player.
-// Part 7 of 9. All parts share one global scope, so load them in order (see index.html).
+// Part 7 of 10. All parts share one global scope, so load them in order (see index.html).
 function startDaily() {
   // Same starting layout (deer, critters, notes, weather) for everyone on the same day.
   const key = dailyKey();
@@ -226,6 +226,7 @@ function drawSettings() {
     { label: `Flashing: ${settings.flashes ? 'On' : 'Reduced'}`, fn: () => { settings.flashes = !settings.flashes; saveSettings(); } },
     { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => { settings.hints = !settings.hints; saveSettings(); } },
     { label: `Text size: ${settings.bigText ? 'Large' : 'Normal'}`, fn: () => { settings.bigText = !settings.bigText; saveSettings(); } },
+    ...(gothBinderDone() ? [{ label: `Vest: ${settings.gothVest ? 'Raven\'s black 🦇' : 'Blaze orange'}`, fn: () => { settings.gothVest = !settings.gothVest; saveSettings(); } }] : []),
     { label: '⌨ Controls…', fn: () => { state = 'keys'; keyWait = null; } },
     { label: `Tutorial: ${store.get('hs_tut_done', false) ? 'Done (reset)' : 'Ready'}`, fn: () => { try { localStorage.removeItem('hs_tut_done'); } catch (e) {} } },
     { label: 'Fullscreen', fn: () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) { /* not allowed */ } } },
