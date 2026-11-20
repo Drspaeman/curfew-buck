@@ -669,6 +669,7 @@ function updatePlayer(dt) {
   player.inGrass = world.grass.some(g => dist(g.x, g.y, player.x, player.y) < g.r - 4);
   const canHide = !player.carry || has('tarp');
   if (canHide) for (const b of world.bushes) if (dist(b.x, b.y, player.x, player.y) < b.r - 3) { player.hidden = true; break; }
+  if (player.hidden && !player.moving) { G.bushT = (G.bushT || 0) + dt; if (G.bushT > 20 && !G.spiderSaid) { G.spiderSaid = true; popup(player.x, player.y - 30, 'A spider has started charging you rent.', '#c9c3d1', 2.4); } } else if (player.moving) { G.bushT = 0; G.spiderSaid = false; }
   if (canHide && player.inGrass && player.crouch) player.hidden = true;
   if (player.inGrass && !player.crouch) hint('grass', 'Tall grass: hold Shift (sneak) while standing in it and you\'re hidden.');
   player.shadow = world.houses.some(h => player.x > h.x + 14 && player.x < h.x + h.w + 26 && player.y > h.y + h.h && player.y < h.y + h.h + 52);
@@ -679,7 +680,7 @@ function updatePlayer(dt) {
   // Pick up arrows lying around
   for (const a of arrows) {
     if (a.flying || a.t !== Infinity) continue;
-    if (dist(a.x, a.y, player.x, player.y) < 24) { a.t = 0; player.arrows++; sfx.grab(); }
+    if (dist(a.x, a.y, player.x, player.y) < 24) { a.t = 0; if (player.arrows === 0) popup(player.x, player.y - 30, 'Inventory restocked by Previous Dale.', '#9be564', 1.4); player.arrows++; sfx.grab(); }
   }
   if (player.hidden) hint('bush', 'You\'re in cover. Watchers only spot you up close. (Dragging a deer? You can\'t hide without Earl\'s Camo Tarp.)');
 
@@ -794,7 +795,15 @@ function updateArrows(dt) {
       const t = segCircle(a.x, a.y, x2, y2, c.x, c.y, c.type === 'turkey' ? 12 : 8);
       if (t >= 0 && t < bestT) { bestT = t; hit = { k: 'critter', c }; }
     }
+    // mailboxes at the curb (same spot drawHouses paints them)
+    for (const h of world.houses) {
+      const mb = { x: h.x + h.w - 74, y: (h.top ? h.y - 30 : h.y + h.h + 24) - 5, w: 11, h: 7 };
+      if (Math.abs(mb.x - a.x) > 90 || Math.abs(mb.y - a.y) > 90) continue;
+      const t = segRect(a.x, a.y, x2, y2, mb);
+      if (t >= 0 && t < bestT) { bestT = t; hit = { k: 'wall', mailbox: true }; }
+    }
     a.x += dx * bestT; a.y += dy * bestT;
+    if (hit && hit.mailbox) { popup(a.x, a.y - 20, 'Return to sender.', '#ffe9a8', 1.6); sfx.thunk(); unlock('mail'); }
     if (hit) {
       a.flying = false;
       if (hit.k === 'critter') {
@@ -1337,7 +1346,7 @@ function endNight(reason) {
   if (reason === 'win' && settings.gothVest && gothBinderDone()) unlock('gothdad');
   G.resultAt = performance.now();
   G.news = buildNews(reason);
-  G.voicemail = pick(G.exSaw ? VOICEMAILS.saw : VOICEMAILS.clean);
+  G.voicemail = reason === 'win' && !G.exSaw && G.packedCooler && Math.random() < 0.5 ? 'Dale, if my ice packs are in your cooler, I need them back by lunch. I\'m making potato salad.' : pick(G.exSaw ? VOICEMAILS.saw : VOICEMAILS.clean);
   player.drawing = false;
   if (!oneNightMode()) store.set('hs_reached', Math.max(store.get('hs_reached', 1), Math.min(5, night + (reason === 'win' ? 1 : 0))));
   if (night > 5) store.set('hs_endless_best', Math.max(store.get('hs_endless_best', 0), reason === 'win' ? night : night - 1));

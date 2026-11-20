@@ -70,6 +70,7 @@ const SCANNER = [
 ];
 function tylerLine() {
   if (G.endReason === 'arrested') return 'dad. DAD. mom is SO mad. also kowalski said hi';
+  if ((G.soldPacks || 0) >= 3 && Math.random() < 0.4) return 'dad i made u an invoice. it just says MEAT in 48 point font';
   if (G.stars >= 3) return 'nobody saw u at all?? ur literally a ninja';
   if (G.police) return 'i heard the sirens lol. u ok?';
   if (G.legendDone) return 'OLD HOSTA??? earl is gonna lose his mind';
@@ -333,7 +334,7 @@ function toggleNVG() {
 function feedDog() {
   if (!(campaign.items.jerky > 0)) { popup(player.x, player.y - 30, 'No jerky. (Earl sells it.)', '#aaa', 1.2); return; }
   const g = world.dogs.find(d => !d.quiet && dist(d.ax, d.ay, player.x, player.y) < 140);
-  if (!g) { popup(player.x, player.y - 30, 'No dog close enough.', '#aaa', 1.2); return; }
+  if (!g) { popup(player.x, player.y - 30, world.dogs.some(d => d.quiet && dist(d.ax, d.ay, player.x, player.y) < 140) ? 'The dog has already signed for its jerky.' : 'No dog close enough.', '#aaa', 1.4); return; }
   campaign.items.jerky--; g.quiet = true; g.bark = 0;
   popup(g.x, g.y - 20, `*nom nom* ${g.name} is your best friend now.`, '#ffb36b', 2);
   sfx.grab(); unlock('goodboy');

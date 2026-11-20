@@ -286,7 +286,7 @@ const SHOP = [
   { id: 'broadheads', name: 'Razor Broadheads', price: 120, desc: 'Weaker draws still kill clean (fewer wounded deer).' },
   { id: 'beer', name: 'Lukewarm Beer', price: 12, desc: 'Press V to drink: faster, quicker draw, wobbly aim, loud burps.', consumable: true, max: 6 },
   { id: 'quiver', name: 'Big Quiver', price: 80, desc: '+6 arrows each night.' },
-  { id: 'pouch', name: 'Pinecone Pouch', price: 60, desc: '+3 pinecones each night.' },
+  { id: 'pouch', name: 'Pinecone Pouch', price: 60, desc: '+3 pinecones each night. That bulk-bin feeling.' },
   { id: 'scent', name: 'Scent Blocker Spray', price: 90, desc: 'Deer downwind can barely smell you.' },
   { id: 'trailcam', name: 'Trail Cam Network', price: 110, desc: 'Live deer show up on your minimap.' },
   { id: 'tarp', name: 'Camo Tarp', price: 70, desc: 'Wrap your deer: dragging doesn\'t draw eyes, and you can hide while dragging.' },
@@ -330,7 +330,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
@@ -385,6 +385,7 @@ const ACH = {
   thrifty: ['Thrifty', 'Finish the season without buying anything'],
   collector: ['Neighborhood Gossip', 'Collect every gossip note'],
   oldboot: ['Catch and Re-Lace', 'Reel in an old boot'],
+  mail: ['Return to Sender', 'Put an arrow in somebody\'s mailbox'],
   haggler: ['Art of the Deal', 'Win a haggle with Steve'],
   streak: ['Ghost Streak', 'Deliver 4 deer in a row without being spotted'],
   golfer: ['Members Only', 'Finish a night at the Country Club'],
