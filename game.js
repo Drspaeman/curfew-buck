@@ -822,6 +822,7 @@ function startNight() {
         { speed: 60, fov: 1.3, range: 230, pause: 2, rate: 24, label: 'Volunteer #' + (i + 1) }));
     }
   }
+  setupTwoPlayer();
   cam.shake = 0;
   updateCam(1);
   saveGame();
@@ -974,6 +975,7 @@ window.addEventListener('keydown', e => {
   else if (state === 'intro' && (e.code === 'Enter' || e.code === 'Space')) state = 'play';
   else if (state === 'play') {
     if (e.code === 'KeyE') interact();
+    if ((e.code === 'Enter' || e.code === 'NumpadEnter') && twoP()) p2Action();
     if (e.code === 'KeyQ') tryLeave();
     if (e.code === 'KeyF') throwCone();
     if (e.code === 'KeyG') grunt();
@@ -1624,6 +1626,7 @@ function update(dt) {
   if (G.chirpT <= 0) { G.chirpT = rnd(1.2, 3.5); if (G.weather !== 'rain' && progress() < 0.8) sfx.chirp(); }
 
   updatePlayer(dt);
+  if (tyler) updateTyler(dt);
   updateArrows(dt);
   updateCones(dt);
   for (const d of deer) updateDeer(d, dt);
@@ -2181,13 +2184,14 @@ function dayFactor() { const p = progress(); return 1 + 0.65 * p * p; }
 
 function updatePlayer(dt) {
   let mx = 0, my = 0;
-  if (keys.KeyW || keys.ArrowUp) my -= 1;
-  if (keys.KeyS || keys.ArrowDown) my += 1;
-  if (keys.KeyA || keys.ArrowLeft) mx -= 1;
-  if (keys.KeyD || keys.ArrowRight) mx += 1;
+  const useArrows = !twoP();
+  if (keys.KeyW || (useArrows && keys.ArrowUp)) my -= 1;
+  if (keys.KeyS || (useArrows && keys.ArrowDown)) my += 1;
+  if (keys.KeyA || (useArrows && keys.ArrowLeft)) mx -= 1;
+  if (keys.KeyD || (useArrows && keys.ArrowRight)) mx += 1;
   if (pad.connected) { mx += pad.mx; my += pad.my; }
   if (touch.stickId !== null) { mx += touch.mx; my += touch.my; }
-  player.crouch = !!(keys.ShiftLeft || keys.ShiftRight || keys.KeyC || pad.crouch || touch.crouch);
+  player.crouch = !!(keys.ShiftLeft || (!twoP() && keys.ShiftRight) || keys.KeyC || pad.crouch || touch.crouch);
   let spd = player.crouch ? 85 : 175;
   if (player.carry) spd *= has('sled') ? 0.8 : 0.6;
   if (player.cooler) spd *= 0.85;
@@ -2651,6 +2655,7 @@ function spawnK9() {
 
 function updateWatcher(w, dt) {
   w.quipCD -= dt;
+  if (w.p2) { updateP2Cart(w, dt); return; }
   if (w.type === 'cop') copFoot(w);
   if (w.type === 'cam') { w.ang = w.baseAng + Math.sin(G.playT * 0.5 + w.x) * 0.35; computeCone(w); return; }
   if (w.type === 'drone') { updateDrone(w, dt); return; }
@@ -3024,6 +3029,7 @@ function render(now) {
   drawArrows();
   drawPinecones();
   drawPlayer(now, false);
+  if (tyler) drawTyler(now);
   drawBushes();
   drawGrass(now);
   if (player.hidden) drawPlayer(now, true);
@@ -4017,6 +4023,8 @@ function drawHUD(now) {
   if (player.cans) extras.push(`🥫×${player.cans}`);
   if (has('corn')) extras.push(`Corn ${G.cornLeft}`);
   if (G.tags) extras.push(`Tags B${G.tags.buck} D${G.tags.doe}`);
+  if (campaign.versus) { const pw = watchers.find(q => q.p2); if (pw) extras.push(pw.spotCD > 0 ? `P2 spot ${Math.ceil(pw.spotCD)}s` : 'P2 spot ready'); }
+  if (tyler) extras.push(tyler.carry ? 'Tyler: hauling' : 'Tyler: ready');
   ctx.font = '12px system-ui, sans-serif';
   ctx.fillText(fitText(extras.join('  ·  '), 226), 28, 120);
   ctx.fillStyle = '#9ecbff';
@@ -4280,6 +4288,8 @@ function drawScreens(now) {
       { label: '⛳ Country Club', fn: () => startGolf() },
       { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul') },
       { label: '🎲 Random map', fn: () => startMapMode('random') },
+      { label: '🆚 Versus (2P)', fn: () => startTwoPlayer('versus') },
+      { label: '🤝 Co-op (2P)', fn: () => startTwoPlayer('coop') },
       { label: '🧩 Custom map', fn: () => customMapMenu() },
       { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; } },
       { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
@@ -4411,6 +4421,7 @@ function drawScreens(now) {
       `Deer delivered: ${G.delivered} / ${G.quota}${G.bucks ? ` (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}${G.legendDone ? ' + OLD HOSTA' : ''}`,
       `Arrows fired: ${G.shots}  ·  Accuracy: ${acc}%  ·  Times spotted: ${G.timesSpotted}`,
       `Venison sold to Steve: ${G.soldPacks || 0} packs  ·  Freezer: ${campaign.freezer} packs  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
+      campaign.versus ? (G.endReason === 'win' ? '🏆 Dale (Player 1) wins!' : '🏆 The HOA (Player 2) wins!') : campaign.coop ? `Co-op: ${G.delivered} deer, Tyler hauled ${G.tylerHauls || 0}` :
       campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.map === 'cul' ? `Cul-de-sac best: ${store.get('hs_cul_best', 0)}` : campaign.map === 'random' ? `Random neighborhood best: ${store.get('hs_random_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}: best today ${(store.get('hs_daily', {})[campaign.daily] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
       `Time bonus: ${G.timeBonus || 0}  ·  Ghost bonus: ${G.stealthBonus || 0}  ·  Cash earned: $${G.earned}`,
       `Night score: ${G.nightScore}  ·  Season total: ${campaign.score}  ·  Best: ${best}`,
@@ -5088,7 +5099,108 @@ function drawKeys() {
   const y = buttonGrid(BINDABLE.map(([name, def]) => ({ label: `${name}: ${keyWait === def ? '…' : keyLabel(boundKey(def))}`, fn: () => { keyWait = def; }, hi: keyWait === def })), Math.max(100, VH * 0.1 + 44), 200, 32, 8);
   buttonGrid([{ label: 'Reset to defaults', fn: () => { resetBinds(); keyWait = null; } }, { label: '◀ Back', fn: () => { state = 'settings'; keyWait = null; }, hi: true }], y + 12, 200, 38);
 }
-function oneNightMode() { return !!(campaign && (campaign.daily || ['golf', 'cul', 'random', 'custom'].includes(campaign.map))); }
+function oneNightMode() { return !!(campaign && (campaign.daily || campaign.versus || campaign.coop || ['golf', 'cul', 'random', 'custom'].includes(campaign.map))); }
+// ---------------------------------------------------------------- two players, one keyboard
+let tyler = null;
+function twoP() { return !!(campaign && (campaign.versus || campaign.coop)); }
+function startTwoPlayer(kind) {
+  restoreRandom();
+  campaign = freshCampaign(); campaign[kind] = true;
+  campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
+  night = 3;
+  startNight();
+}
+function setupTwoPlayer() {
+  tyler = null;
+  if (!campaign) return;
+  if (campaign.versus) {
+    const w = watchers.find(q => q.type === 'hoa');
+    if (w) { w.p2 = true; w.label = 'PLAYER 2: Linda\'s cart'; w.baseRange = w.range; w.spot = 0; w.spotCD = 0; }
+    G.banner = { text: 'VERSUS: P1 is Dale (WASD). P2 drives the HOA cart (arrow keys, Enter = spotlight). Fill the freezer, or get him busted!', color: '#ffd166', t: 6 };
+  }
+  if (campaign.coop) {
+    tyler = { x: world.shed.x + world.shed.w / 2 + 40, y: world.shed.y + world.shed.h + 40, carry: null, moveAng: 0, step: 0, seenT: 0, crouch: false, quipCD: 0 };
+    G.tylerHauls = 0;
+    G.banner = { text: 'CO-OP: P1 is Dale (WASD). P2 is Tyler (arrow keys, R-Shift sneak, Enter = drag / drop). Tyler can\'t shoot, but he can haul.', color: '#9be564', t: 6 };
+  }
+}
+function p2Action() {
+  if (state !== 'play') return;
+  if (campaign.versus) {
+    const w = watchers.find(q => q.p2);
+    if (!w || w.spotCD > 0) return;
+    w.spot = 3; w.spotCD = 12; sfx.alert(); popup(w.x, w.y - 30, '🔦 SPOTLIGHT!', '#fff3b0', 1.4);
+    return;
+  }
+  if (!tyler) return;
+  const shed = world.shed, sx = shed.x + shed.w / 2, sy = shed.y + shed.h / 2;
+  if (tyler.carry) {
+    const d = tyler.carry;
+    if (dist(tyler.x, tyler.y, sx, sy) < 140) {
+      const mine = player.carry; player.carry = d; deliver(); player.carry = mine; tyler.carry = null; G.tylerHauls++;
+      popup(tyler.x, tyler.y - 40, 'Tyler: "Dad, this one\'s heavy."', '#9be564', 2);
+    } else { d.carried = false; tyler.carry = null; sfx.thunk(); }
+    return;
+  }
+  const near = deer.find(d => d.dead && !d.carried && dist(d.x, d.y, tyler.x, tyler.y) < 46);
+  if (near) { near.carried = true; tyler.carry = near; sfx.pickup(); popup(tyler.x, tyler.y - 30, 'Tyler grabs the deer', '#9be564', 1.2); }
+}
+function p2Move() {
+  let mx = 0, my = 0;
+  if (keys.ArrowUp) my -= 1; if (keys.ArrowDown) my += 1; if (keys.ArrowLeft) mx -= 1; if (keys.ArrowRight) mx += 1;
+  const len = Math.hypot(mx, my);
+  return len ? { x: mx / len, y: my / len } : null;
+}
+function updateP2Cart(w, dt) {
+  w.spotCD = Math.max(0, w.spotCD - dt);
+  w.spot = Math.max(0, w.spot - dt);
+  w.range = (w.baseRange || 265) * (w.spot > 0 ? 1.45 : 1);
+  const m = p2Move();
+  if (m) {
+    const spd = 125;
+    moveCircle(w, m.x * spd * dt, m.y * spd * dt, 20);
+    w.x = clamp(w.x, 40, W - 40); w.y = clamp(w.y, 40, H - 40);
+    w.moveAng = Math.atan2(m.y, m.x);
+    turnTo(w, w.moveAng, 6 * dt);
+  }
+  computeCone(w);
+}
+function updateTyler(dt) {
+  const t = tyler;
+  t.crouch = !!keys.ShiftRight;
+  t.quipCD -= dt; t.seenT = Math.max(0, t.seenT - dt);
+  const m = p2Move();
+  if (m) {
+    const spd = t.carry ? 85 : t.crouch ? 70 : 150;
+    moveCircle(t, m.x * spd * dt, m.y * spd * dt, PLAYER_R);
+    t.moveAng = Math.atan2(m.y, m.x); t.step += dt * spd * 0.05;
+    if (!t.crouch && Math.random() < dt * 1.5) makeNoise(t.x, t.y, (t.carry ? 140 : 80) * noiseMult(), 'step');
+  }
+  if (t.carry) { const a = t.moveAng + Math.PI; t.carry.x = t.x + Math.cos(a) * 22; t.carry.y = t.y + Math.sin(a) * 22; }
+  // neighbors can spot Tyler too. He raises suspicion more slowly than Dale (he's twelve).
+  for (const w of watchers) {
+    if (w.type === 'drone' || w.type === 'k9' || w.asleep > 0 || !w.poly) continue;
+    const d = dist(w.x, w.y, t.x, t.y);
+    if (d > coneRange(w) * (t.crouch ? 0.65 : 1) * (t.carry ? 1.25 : 1)) continue;
+    if (Math.abs(angDiff(w.ang, Math.atan2(t.y - w.y, t.x - w.x))) > w.fov / 2 && d > 38) continue;
+    if (!los(w.x, w.y, t.x, t.y)) continue;
+    t.seenT = 0.5;
+    if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) callPolice(w); }
+    if (t.quipCD <= 0) { popup(w.x, w.y - 36, pick(['Is that... Tyler?!', 'Tyler, it\'s a school night!', 'Does your mother know you\'re out?']), '#ffe9a8', 2); t.quipCD = 5; }
+  }
+}
+function drawTyler(now) {
+  const t = tyler;
+  if (!inView(t.x, t.y, 40)) return;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(t.x + 3, t.y + 4, 11, 8, 0, 0, TAU); ctx.fill();
+  const bob = Math.sin(t.step * 2) * 1.5;
+  ctx.fillStyle = '#3f8f5a'; ctx.beginPath(); ctx.arc(t.x, t.y + bob * 0.3, t.crouch ? 9 : 11, 0, TAU); ctx.fill(); // hoodie
+  ctx.strokeStyle = 'rgba(190,255,200,0.8)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#e8c39e'; ctx.beginPath(); ctx.arc(t.x + Math.cos(t.moveAng) * 3, t.y + Math.sin(t.moveAng) * 3, 6, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.arc(t.x + Math.cos(t.moveAng) * 1.5, t.y + Math.sin(t.moveAng) * 1.5, 6.5, Math.PI * 0.9 + t.moveAng, Math.PI * 2.1 + t.moveAng); ctx.fill(); // cap
+  ctx.fillStyle = t.seenT > 0 ? '#ff6b6b' : '#9be564'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(t.seenT > 0 ? 'TYLER (seen!)' : 'TYLER (P2)', t.x, t.y - 20);
+}
 function startMapMode(map) {
   restoreRandom();
   campaign = freshCampaign(); campaign.map = map;
