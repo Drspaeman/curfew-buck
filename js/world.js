@@ -502,6 +502,7 @@ function startNight() {
     }
   }
   setupTwoPlayer();
+  if (campaign.halloween) setupHalloween();
   cam.shake = 0;
   updateCam(1);
   state = 'intro';

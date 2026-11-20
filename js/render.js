@@ -788,6 +788,7 @@ function drawLighting(now) {
   if (player) glow(lctx, player.x, player.y, 120, 0.55);
   if (tyler) glow(lctx, tyler.x, tyler.y, netClient() ? 120 : 80, netClient() ? 0.55 : 0.35);   // P2 can see around Tyler too
   if (G && G.goth) { const R = G.goth; if (R.raven) glow(lctx, R.raven.x, R.raven.y, 70, 0.45); if (R.concert) glow(lctx, R.concert.x, R.concert.y, 170, 0.6); }   // Raven's candle, the band's stage light
+  if (G && G.pumpkins) for (const p of G.pumpkins) if (inView(p.x, p.y, 60)) glow(lctx, p.x, p.y, 46, 0.4);   // jack-o'-lanterns
   for (const w of watchers) {
     if (!w.poly || !inView(w.x, w.y, 500)) continue;
     const R = coneRange(w);
@@ -1159,7 +1160,7 @@ function drawHUD(now) {
     for (const wd of words) { const t = line ? line + ' ' + wd : wd; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = wd; } else line = t; }
     lines.push(line);
     const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 30, lh = compact ? 20 : 24;
-    const top = compact ? Math.max(VH * 0.36 - 24, 352) : VH * 0.22 - 24;
+    const top = compact ? Math.max(VH * 0.36 - 24, 352) : Math.max(VH * 0.22 - 24, 256);   // below the HUD panel, the objective chip and the minimap
     panel(VW / 2 - w / 2, top, w, 14 + lines.length * lh);
     ctx.fillStyle = G.banner.color;
     lines.forEach((l, i) => ctx.fillText(l, VW / 2, top + 24 + i * lh));
@@ -1385,6 +1386,7 @@ function drawScreenBody(now) {
       { label: '⛳ Country Club', fn: () => startGolf() },
       { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul') },
       { label: '🎲 Random map', fn: () => startMapMode('random') },
+      { label: '🎃 Halloween night', fn: () => startHalloween() },
       { label: '🆚 Versus (2P)', fn: () => startTwoPlayer('versus') },
       { label: '🤝 Co-op (2P)', fn: () => startTwoPlayer('coop') },
       { label: '🌐 Online play', fn: () => openOnline(), hi: true },
@@ -1401,9 +1403,9 @@ function drawScreenBody(now) {
   } else if (state === 'intro') {
     ctx.fillStyle = '#ff7a1a';
     fitFont(campaign.map === 'random' ? 'RANDOM NEIGHBORHOOD #000000' : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : 'THE COUNTRY CLUB', 'bold', 40, VW - 24);
-    ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.map === 'cul' ? 'MAPLE COURT' : campaign.map === 'random' ? `RANDOM NEIGHBORHOOD #${campaign.mapSeed}` : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
+    ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.map === 'cul' ? 'MAPLE COURT' : campaign.map === 'random' ? `RANDOM NEIGHBORHOOD #${campaign.mapSeed}` : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : campaign.halloween ? '🎃 HALLOWEEN NIGHT' : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '17px system-ui, sans-serif';
-    let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : campaign.map === 'custom' ? (campaign.customSpec.intro || `A custom neighborhood${campaign.customSpec.author ? ' by ' + campaign.customSpec.author : ''}. Same HOA. Same ex-wife. Good luck.`) : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
+    let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : campaign.halloween ? HALLOWEEN_INTRO : campaign.map === 'custom' ? (campaign.customSpec.intro || `A custom neighborhood${campaign.customSpec.author ? ' by ' + campaign.customSpec.author : ''}. Same HOA. Same ex-wife. Good luck.`) : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
     ctx.fillStyle = '#9be564'; ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillText(`Quota: ${G.quota} deer before sunrise`, cx, y + 50);
     ctx.fillStyle = '#9ecbff'; ctx.font = '15px system-ui, sans-serif';
@@ -1667,7 +1669,7 @@ function contextLabel() {
   if (player.fishing) return player.fishing.bite > 0 ? '[E] REEL IN!' : 'fishing...';
   if (player.carry) return nearTruck() ? '' : '[E] drop deer';
   if (!player.cooler && deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) return '[E] drag deer';
-  if (nearRaven()) return player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
+  if (nearRaven()) return (campaign.racks || []).length && G.goth && !G.goth.boughtRack && !oneNightMode() ? '[E] sell Raven an antler rack' : player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
   if (nearVan()) return '[E] talk to Steve';
   if (player.cooler) return nearTruck() ? '[E] put cooler back' : '';
   if (nearTruck() && G.freezer > 0) return '[E] pack a cooler';

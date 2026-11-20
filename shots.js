@@ -10,6 +10,7 @@
   const list = [
     ['title', () => { state = 'title'; }],
     ['play', () => { inGame(); }],
+    ['halloween', () => { startHalloween(); story = null; state = 'play'; const p = G.pumpkins[0]; player.x = p.x + 40; player.y = p.y + 60; for (let i = 0; i < 40; i++) { update(1 / 60); updateCam(1); } }],
     ['intro1', () => { localStorage.removeItem('hs_save'); newCampaign(); night = 1; startNight(); story = null; state = 'intro'; }],
     ['title-fresh', () => { localStorage.removeItem('hs_save'); state = 'title'; }],
     ['pause', () => { inGame(); state = 'pause'; }],

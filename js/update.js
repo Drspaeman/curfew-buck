@@ -1220,7 +1220,7 @@ function detection(dt) {
         G.exNagCD -= dt;
         if (G.exNagCD <= 0) { G.exNagCD = 8; popup(w.x, w.y - 36, pick(['Dale. It\'s 5 AM. Go to bed.', 'Is that a BOW behind your back?', 'Stay on your side of the yard, Dale.', 'Why are you awake?']), '#ff9ad5', 2); }
       }
-      G.sus = Math.min(100, G.sus + rate * close * diff().sus * dt);
+      G.sus = Math.min(100, G.sus + rate * close * diff().sus * dt * (G.halloween ? 0.6 : 1));   // Halloween: "nice costume!"
       if (G.sus >= 100) callPolice(w);
     } else {
       // Neighbors point the cops your way.
@@ -1329,6 +1329,7 @@ function endNight(reason) {
   if (night <= 5 && !oneNightMode()) { const bs = store.get('hs_stars', []); bs[night - 1] = Math.max(bs[night - 1] || 0, G.stars); store.set('hs_stars', bs); }
   if (reason === 'win' && night === 5 && !G.tracked) unlock('snowghost');
   if (reason === 'win' && night >= 7) unlock('nightowl');
+  if (reason === 'win' && campaign.halloween) unlock('halloween');
   if (reason === 'win' && settings.gothVest && gothBinderDone()) unlock('gothdad');
   G.resultAt = performance.now();
   G.news = buildNews(reason);

@@ -95,6 +95,8 @@ const SECRET_CARD = 12;   // Raven's self-portrait: not in the bushes, she hands
 const gothBinderDone = () => { const c = gothCards(); return CARDS.every((_, i) => c.includes(i)); };
 const gothHasSecret = () => gothCards().includes(SECRET_CARD);
 ACH.selfportrait = ['Don\'t Make It Weird', 'Get Raven\'s secret 13th card from Raven herself'];
+ACH.ossuary = ['Suburban Ossuary', 'Sell an antler rack to Raven for her art'];
+ACH.halloween = ['Nice Costume', 'Meet quota on Halloween night'];
 ACH.edgar = ['Nevermore', 'Startle Edgar, Raven\'s crow, into a caw'];
 ACH.openingact = ['Opening Act', 'Bag a deer while Velvet Casket\'s garage show covers your noise'];
 const CONCERT_R = 420;   // how far the band drowns you out
@@ -106,6 +108,57 @@ const CONCERT_LINES = [
 ];
 
 // ---------------------------------------------------------------- each night
+// ---------------------------------------------------------------- Halloween night
+function startHalloween() {
+  restoreRandom();
+  campaign = freshCampaign(); campaign.halloween = true;
+  campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
+  night = 3;
+  startNight();
+}
+const HALLOWEEN_INTRO = 'Halloween. The whole subdivision is out in costumes, so nobody blinks at a man in a blaze-orange vest dragging a deer. Trick-or-treaters scare the deer, though. And Velvet Casket is playing.';
+const KID_LINES = ['Nice costume, mister!', 'Are you a hunter or a traffic cone?', 'TRICK OR TREAT!', 'Is that deer FAKE?? Cool!', 'My mom says you\'re the Orange Menace.'];
+function setupHalloween() {
+  G.halloween = true;
+  // a jack-o'-lantern on most porches
+  G.pumpkins = [];
+  for (const h of world.houses) if (!h.label && Math.random() < 0.7) G.pumpkins.push({ x: h.x + (h.w || HW) * 0.3, y: h.top ? h.y - 10 : h.y + (h.h || HH) + 10, face: Math.floor(Math.random() * 3) });
+  // trick-or-treaters walk the sidewalks (low suspicion, but they spook deer)
+  const ys = (world.hy || []).slice(0, 2);
+  ys.forEach((y, i) => {
+    const sy = y + (i ? ROAD + 26 : -26);
+    const kid = makeWatcher('watch', [{ x: M + 120, y: sy }, { x: W - M - 120, y: sy }], { speed: 55, fov: 1.2, range: 150, pause: 3, rate: 8, label: i ? 'Trick-or-treaters' : 'Trick-or-treaters (sugar rush)' });
+    kid.kids = true;
+    watchers.push(kid);
+  });
+  fixWalkerRoutes();
+  banner('🎃 HALLOWEEN: everyone thinks the vest is a costume (suspicion rises slower). Trick-or-treaters scare the deer.', '#ff9f1a');
+}
+function updateHalloween(dt) {
+  if (!G || !G.halloween) return;
+  for (const w of watchers) {
+    if (!w.kids) continue;
+    w.kidCD = (w.kidCD || 0) - dt;
+    // deer bolt from the noisy kids
+    for (const d of deer) if (!d.dead && d.state !== 'flee' && dist(d.x, d.y, w.x, w.y) < 170) { d.state = 'flee'; d.t = 2.5; d.ang = Math.atan2(d.y - w.y, d.x - w.x); }
+    if (w.seeing && w.kidCD <= 0) { w.kidCD = 6; popup(w.x, w.y - 30, pick(KID_LINES), '#ffb347', 2); }
+  }
+}
+function drawPumpkins(now) {
+  if (!G || !G.pumpkins) return;
+  for (const p of G.pumpkins) {
+    if (!inView(p.x, p.y, 30)) continue;
+    ctx.fillStyle = '#e8741a'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 9, 7.5, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#a24d12'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p.x, p.y - 7); ctx.lineTo(p.x, p.y + 7); ctx.stroke();
+    ctx.fillStyle = '#3b5a1c'; ctx.fillRect(p.x - 1, p.y - 10, 2, 4);
+    const lit = settings.flashes ? 0.75 + 0.25 * Math.sin(now / 120 + p.x) : 0.9;
+    ctx.fillStyle = `rgba(255,214,102,${lit})`;
+    ctx.beginPath(); ctx.moveTo(p.x - 5, p.y - 2); ctx.lineTo(p.x - 2, p.y - 4); ctx.lineTo(p.x - 2, p.y - 1); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(p.x + 5, p.y - 2); ctx.lineTo(p.x + 2, p.y - 4); ctx.lineTo(p.x + 2, p.y - 1); ctx.fill();
+    ctx.fillRect(p.x - 4, p.y + 2, 8, 2);
+  }
+}
+
 function setupGoth() {
   const rand = mulberry32((realRandom() * 2147483647) | 0);
   G.goth = { cards: [], posters: [], raven: null, hint: null, hintT: 0, traded: false, met: false, talkCD: 0, line: 0 };
@@ -135,7 +188,7 @@ function setupGoth() {
       if (world.blocked(x, y, 16) || dist(x, y, world.shed.x, world.shed.y) < 400) continue;
       R.raven = { x, y };
       for (const [dx, dy] of [[-46, -10], [46, -14], [0, -48], [-40, 30]]) if (!world.blocked(x + dx, y + dy, 8)) { R.edgar = { x: x + dx, y: y + dy, flown: false, t: 0 }; break; }
-      if (night >= 3 && rand() < (gothPosters().length >= 3 ? 0.5 : 0.25)) {
+      if (campaign.halloween || (night >= 3 && rand() < (gothPosters().length >= 3 ? 0.5 : 0.25))) {
         // the stage goes on open ground next to her
         let sx = x, sy = y + 60;
         for (const [dx, dy] of [[0, 60], [0, -60], [60, 0], [-60, 0], [50, 50], [-50, 50]]) if (!world.blocked(x + dx, y + dy, 30)) { sx = x + dx; sy = y + dy; break; }
@@ -165,6 +218,15 @@ function gothInteract() {
     banner('🃏 SECRET CARD #13: Raven Pfister, The Artist. Check your binder in Raven\'s Crypt.', RAVEN_COLOR);
     return true;
   }
+  // Raven buys one antler rack a night for her art (a little more than Earl pays)
+  if ((campaign.racks || []).length && !R.boughtRack && !oneNightMode()) {
+    const pts = campaign.racks.shift(), cash = pts * 10;
+    R.boughtRack = true; G.earned += cash; sfx.buy();
+    popup(player.x, player.y - 40, `+$${cash}: Raven bought the ${pts}-point rack`, RAVEN_COLOR, 2.4);
+    ravenSay(pick([`Antlers! For my installation piece, "Suburban Ossuary." Here's $${cash}.`, `${pts} points? It's perfect. It's going on my headboard. $${cash}, final offer.`, `Don't tell Earl. He'd only give you $${pts * 8}.`]), 4.5);
+    unlock('ossuary');
+    return true;
+  }
   const hidden = R.cards.find(c => !c.got);
   if (!R.traded && hidden && player.cones > 0) {
     player.cones--; R.traded = true; R.hint = hidden; R.hintT = 45; sfx.grab(); unlock('offering');
@@ -181,6 +243,7 @@ function gothInteract() {
   return true;
 }
 function updateGoth(dt) {
+  updateHalloween(dt);
   const R = G && G.goth;
   if (!R || !player) return;
   R.talkCD -= dt;
@@ -276,6 +339,7 @@ function drawGoth(now) {
     ctx.fillStyle = '#e8e8e8'; ctx.fillText('🦇', 0, 9);
     ctx.restore();
   }
+  drawPumpkins(now);
   if (R.concert && inView(R.concert.x, R.concert.y, CONCERT_R)) drawConcert(R.concert, now);
   if (R.raven && inView(R.raven.x, R.raven.y, 60)) drawRaven(R.raven.x, R.raven.y, now);
   if (R.edgar && inView(R.edgar.x, R.edgar.y, 120)) drawEdgar(R.edgar, now);

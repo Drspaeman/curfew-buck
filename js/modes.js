@@ -385,7 +385,7 @@ function drawKeys() {
   const y = buttonGrid(BINDABLE.map(([name, def]) => ({ label: `${name}: ${keyWait === def ? '…' : keyLabel(boundKey(def))}`, fn: () => { keyWait = def; }, hi: keyWait === def })), Math.max(100, VH * 0.1 + 44), 200, 32, 8);
   buttonGrid([{ label: 'Reset to defaults', fn: () => { resetBinds(); keyWait = null; } }, { label: '◀ Back', fn: () => { state = 'settings'; keyWait = null; }, hi: true }], y + 12, 200, 38);
 }
-function oneNightMode() { return !!(campaign && (campaign.daily || campaign.versus || campaign.coop || ['golf', 'cul', 'random', 'custom'].includes(campaign.map))); }
+function oneNightMode() { return !!(campaign && (campaign.daily || campaign.versus || campaign.coop || campaign.halloween || ['golf', 'cul', 'random', 'custom'].includes(campaign.map))); }
 // ---------------------------------------------------------------- two players, one keyboard
 let tyler = null;
 function twoP() { return !!(campaign && (campaign.versus || campaign.coop)); }
