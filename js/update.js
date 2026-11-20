@@ -189,7 +189,7 @@ function updateWorldEvents(dt) {
   if (!G.dawnSpawned && progress() > 0.72) { G.dawnSpawned = true; spawnDawnWatchers(); }
   for (const w of watchers) if (w.type === 'paper' && w.state === 'patrol') {
     w.throwT -= dt;
-    if (w.throwT <= 0) { w.throwT = rnd(1.2, 2.5); sfx.paper(); if (inView(w.x, w.y, 0)) popup(w.x, w.y - 26, '*THWAP*', '#ddd', 0.8); }
+    if (w.throwT <= 0) { w.throwT = rnd(1.2, 2.5); sfx.paper(); if (inView(w.x, w.y, 0)) popup(w.x, w.y - 26, player.hidden && dist(w.x, w.y, player.x, player.y) < 260 && Math.random() < 0.3 ? 'Kyle: "Porch, bush. Same subscription."' : '*THWAP*', '#ddd', player.hidden ? 1.8 : 0.8); }
   }
 
   // Mom calls (press T to decline before it rings out loud)

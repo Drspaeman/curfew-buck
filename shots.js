@@ -9,6 +9,7 @@
   const inGame = () => { newCampaign(); night = 3; startNight(); story = null; state = 'play'; for (let i = 0; i < 30; i++) update(STEP); };
   const list = [
     ['title', () => { state = 'title'; }],
+    ['modes', () => { state = 'modes'; }],
     ['play', () => { inGame(); }],
     ['halloween', () => { startHalloween(); story = null; state = 'play'; const k = watchers.find(w => w.kids); player.x = k.x - 80; player.y = k.y + 40; for (let i = 0; i < 40; i++) { update(1 / 60); updateCam(1); } }],
     ['intro1', () => { localStorage.removeItem('hs_save'); newCampaign(); night = 1; startNight(); story = null; state = 'intro'; }],

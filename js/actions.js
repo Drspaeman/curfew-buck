@@ -78,6 +78,7 @@ function updateCones(dt) {
       for (const w of watchers) if (!w.seeing && dist(w.x, w.y, c.tx, c.ty) < NR) lured = true;
       makeNoise(c.tx, c.ty, NR, 'cone');
       if (lured) unlock('decoy');
+      if (lured && c.can) unlock('recycling');
       for (let i = 0; i < 6; i++) particles.push({ x: c.tx, y: c.ty, vx: rnd(-60, 60), vy: rnd(-60, 60), t: 0.4, c: '#8a6a3a' });
     }
   }

@@ -25,7 +25,8 @@ window.addEventListener('keydown', e => {
   if (state === 'court' && !G.court) { if (e.code === 'Digit1') courtPlea(0); if (e.code === 'Digit2') courtPlea(1); if (e.code === 'Digit3') courtPlea(2); }
   if (state === 'play' && e.code === 'KeyV') drinkBeer();
   if (state === 'play' && e.code === 'Tab') G.mapOpen = !G.mapOpen;
-  if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = 'title';
+  if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = ['nights', 'whoswho', 'trophies', 'credits'].includes(state) ? 'extras' : 'title';
+  else if (['modes', 'players', 'extras'].includes(state) && e.code === 'Escape') state = 'title';
   else if (state === 'title' && ['KeyK', 'KeyO', 'KeyI'].includes(e.code)) {
     titleEgg = (titleEgg + e.code.slice(3)).slice(-3);
     if (titleEgg === 'KOI') { titleEgg = ''; toasts.push({ title: 'HOA AQUATICS AUDIT', desc: 'One koi is listed as a gazebo.', t: 4 }); sfx.grab(); }
@@ -140,7 +141,7 @@ function pollPad() {
     if (edge(0)) buy(SHOP[shopSel]);
     if (edge(9)) { night++; startNight(); }
   } else if (edge(0) || edge(9) || edge(1)) {
-    if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt'].includes(state)) state = 'title';
+    if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt', 'modes', 'players', 'extras'].includes(state)) state = 'title';
     else if (edge(1)) { /* B only backs out of sub-menus */ }
     else if (state === 'title') { if (!loadGame()) newCampaign(); }
     else if (state === 'intro' || state === 'pause') state = 'play';

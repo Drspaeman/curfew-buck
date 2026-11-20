@@ -1338,7 +1338,7 @@ function drawScreens(now) {
   if (state === 'play') { menuState = null; return; }
   if (state !== menuState) { menuState = state; menuScroll = 0; }
   menuScroll = clamp(menuScroll, 0, menuMax);
-  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
+  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt', 'modes', 'players', 'extras'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
   menuBottom = 0; drawScroll = menuScroll;
   const realFill = ctx.fillText;
@@ -1395,24 +1395,13 @@ function drawScreenBody(now) {
     const nAch = Object.keys(ACH).filter(k => achievements[k]).length;
     y = wrapText(`Best score: ${best}  ·  Achievements: ${nAch} / ${Object.keys(ACH).length}  ·  ${pad.connected ? '🎮 Gamepad connected (A to start)' : touchMode ? 'Touch controls on' : 'Keyboard + mouse, gamepad, or touch'}`, cx, y + 22, maxW, 18);
     buttonGrid([
-      { label: 'Daily Hunt', fn: () => startDaily(), hi: true },
-      { label: '⛳ Country Club', fn: () => startGolf() },
-      { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul') },
-      { label: '🎲 Random map', fn: () => startMapMode('random') },
-      { label: '🎃 Halloween night', fn: () => startHalloween() },
-      { label: '🆚 Versus (2P)', fn: () => startTwoPlayer('versus') },
-      { label: '🤝 Co-op (2P)', fn: () => startTwoPlayer('coop') },
-      { label: '🌐 Online play', fn: () => openOnline(), hi: true },
-      { label: '🧩 Custom map', fn: () => customMapMenu() },
-      { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; } },
+      { label: '🗺 Play modes ▸', fn: () => { state = 'modes'; }, hi: true },
+      { label: '👥 Two players ▸', fn: () => { state = 'players'; }, hi: true },
       { label: '🦇 Raven\'s Crypt', fn: () => { state = 'crypt'; } },
       { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
-      { label: 'Night select', fn: () => { state = 'nights'; } },
       { label: '⚙ Settings', fn: () => { state = 'settings'; } },
-      { label: 'Who\'s Who', fn: () => { state = 'whoswho'; } },
-      { label: 'Trophy Room', fn: () => { state = 'trophies'; } },
-      { label: 'Credits', fn: () => { state = 'credits'; } },
-    ], y + 18, 160, 36);
+      { label: '📜 Extras ▸', fn: () => { state = 'extras'; } },
+    ], y + 18, 170, 38);
   } else if (state === 'intro') {
     ctx.fillStyle = '#ff7a1a';
     fitFont(campaign.map === 'random' ? 'RANDOM NEIGHBORHOOD #000000' : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : 'THE COUNTRY CLUB', 'bold', 40, VW - 24);
@@ -1486,6 +1475,8 @@ function drawScreenBody(now) {
     drawSettings();
   } else if (state === 'online') {
     drawOnline(now);
+  } else if (state === 'modes' || state === 'players' || state === 'extras') {
+    drawSubmenu(state);
   } else if (state === 'crypt') {
     drawCrypt();
   } else if (state === 'netwait') {
@@ -1593,6 +1584,40 @@ function drawScreenBody(now) {
 }
 
 // Lays out buttons in centered rows that wrap to the screen width. Returns the y below the last row.
+// The title screen's submenus
+const SUBMENUS = {
+  modes: ['🗺 PLAY MODES', 'One-night hunts. They never touch your saved season.', () => [
+    { label: '📅 Daily Hunt', fn: () => startDaily(), hi: true, sub: 'Same map for everyone today' },
+    { label: '🎃 Halloween night', fn: () => startHalloween(), sub: 'Costumes, candy, Velvet Casket' },
+    { label: '⛳ Country Club', fn: () => startGolf(), sub: 'Sand traps and a pro shop' },
+    { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul'), sub: 'Maple Court: three dead ends' },
+    { label: '🎲 Random map', fn: () => startMapMode('random'), sub: 'New streets every time' },
+    { label: '🧩 Custom map', fn: () => customMapMenu(), sub: 'Load a .json map' },
+    { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; }, sub: 'Draw your own' },
+  ]],
+  players: ['👥 TWO PLAYERS', 'Same keyboard, or online (two tabs, or Steam in the desktop app).', () => [
+    { label: '🤝 Co-op (one keyboard)', fn: () => startTwoPlayer('coop'), hi: true },
+    { label: '🆚 Versus (one keyboard)', fn: () => startTwoPlayer('versus') },
+    { label: '🌐 Online play', fn: () => openOnline(), hi: true },
+  ]],
+  extras: ['📜 EXTRAS', 'The rest of Whispering Pines.', () => [
+    { label: 'Night select', fn: () => { state = 'nights'; } },
+    { label: 'Who\'s Who', fn: () => { state = 'whoswho'; } },
+    { label: 'Trophy Room', fn: () => { state = 'trophies'; } },
+    { label: 'Credits', fn: () => { state = 'credits'; } },
+  ]],
+};
+function drawSubmenu(which) {
+  const [title, sub, items] = SUBMENUS[which], cx = VW / 2;
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ff7a1a'; fitFont(title, '900', 34, VW - 24); ctx.fillText(title, cx, Math.max(64, VH * 0.14));
+  ctx.fillStyle = '#bbb'; ctx.font = '14px system-ui, sans-serif';
+  let y = wrapText(sub, cx, Math.max(64, VH * 0.14) + 30, Math.min(560, VW - 30), 19) + 24;
+  for (const it of items()) {
+    y = buttonGrid([it], y, Math.min(320, VW - 40), 42, 6);
+    if (it.sub) { ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(it.sub, cx, y + 6); y += 18; }
+  }
+  buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; } }], y + 14, 160, 38);
+}
 function buttonGrid(items, y, w, h, gap = 10) {
   const perRow = clamp(Math.floor((VW - 24 + gap) / (w + gap)), 1, Math.min(3, items.length));
   const bw = Math.min(w, (VW - 24 - gap * (perRow - 1)) / perRow);
@@ -1770,7 +1795,7 @@ function updateAmbience(dt) {
   // sprinklers
   for (const sp of world.sprinklers) {
     if (sprinklerOn(sp) && dist(sp.x, sp.y, player.x, player.y) < sp.r) {
-      if (!(G.soaked > 0)) { popup(player.x, player.y - 30, 'SOAKED! Your boots squelch now.', '#6fb7ff', 1.8); tone(1800, 0.3, 'sawtooth', 0.02, 900); unlock('soaked'); }
+      if (!(G.soaked > 0)) { popup(player.x, player.y - 30, player.moving ? 'SOAKED! Your boots squelch now.' : 'SOAKED. You just stood there. The sprinkler respects that.', '#6fb7ff', 1.8); tone(1800, 0.3, 'sawtooth', 0.02, 900); unlock('soaked'); }
       G.soaked = 20;
     }
   }
