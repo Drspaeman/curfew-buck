@@ -1,0 +1,163 @@
+{
+  "format": "hunter-sub-map",
+  "version": 1,
+  "name": "Hosta Hills",
+  "author": "Hunter Sub",
+  "intro": "A loop road around the Hosta Hills common. Darlene's sister lives here. So does the HOA secretary.",
+  "seed": 9001,
+  "roads": [
+    {
+      "x": 700,
+      "y": 600,
+      "w": 2200,
+      "h": 120,
+      "vert": false
+    },
+    {
+      "x": 700,
+      "y": 1880,
+      "w": 2200,
+      "h": 120,
+      "vert": false
+    },
+    {
+      "x": 700,
+      "y": 600,
+      "w": 120,
+      "h": 1400,
+      "vert": true
+    },
+    {
+      "x": 2780,
+      "y": 600,
+      "w": 120,
+      "h": 1400,
+      "vert": true
+    },
+    {
+      "x": 260,
+      "y": 1240,
+      "w": 440,
+      "h": 120,
+      "vert": false
+    }
+  ],
+  "bulbs": [],
+  "houses": [
+    {
+      "x": 900,
+      "y": 400,
+      "top": false
+    },
+    {
+      "x": 900,
+      "y": 2040,
+      "top": true
+    },
+    {
+      "x": 1220,
+      "y": 400,
+      "top": false,
+      "ex": true
+    },
+    {
+      "x": 1220,
+      "y": 2040,
+      "top": true
+    },
+    {
+      "x": 1540,
+      "y": 400,
+      "top": false
+    },
+    {
+      "x": 1540,
+      "y": 2040,
+      "top": true
+    },
+    {
+      "x": 1860,
+      "y": 400,
+      "top": false
+    },
+    {
+      "x": 1860,
+      "y": 2040,
+      "top": true
+    },
+    {
+      "x": 2180,
+      "y": 400,
+      "top": false
+    },
+    {
+      "x": 2180,
+      "y": 2040,
+      "top": true
+    },
+    {
+      "x": 2500,
+      "y": 400,
+      "top": false
+    },
+    {
+      "x": 2500,
+      "y": 2040,
+      "top": true
+    },
+    {
+      "x": 1100,
+      "y": 760,
+      "top": true
+    },
+    {
+      "x": 2300,
+      "y": 760,
+      "top": true
+    },
+    {
+      "x": 1100,
+      "y": 1680,
+      "top": false
+    },
+    {
+      "x": 2300,
+      "y": 1680,
+      "top": false
+    }
+  ],
+  "ponds": [
+    {
+      "x": 1600,
+      "y": 1150,
+      "w": 360,
+      "h": 180,
+      "name": "Hosta Pond"
+    }
+  ],
+  "pools": [],
+  "hedges": [],
+  "woods": [
+    {
+      "x": 1450,
+      "y": 1000,
+      "w": 700,
+      "h": 480
+    }
+  ],
+  "bushes": [],
+  "trees": [],
+  "signs": [
+    {
+      "x": 560,
+      "y": 1220,
+      "text": "HOSTA HILLS"
+    }
+  ],
+  "shed": null,
+  "van": null,
+  "clubhouse": {
+    "x": 3000,
+    "y": 1300
+  }
+}

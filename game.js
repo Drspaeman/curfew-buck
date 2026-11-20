@@ -747,7 +747,7 @@ function hint(id, text) {
 }
 
 function startNight() {
-  if (campaign.map === 'golf') buildGolfWorld(); else if (campaign.map === 'cul') buildCulWorld(); else buildWorld();
+  if (campaign.map === 'golf') buildGolfWorld(); else if (campaign.map === 'cul' || campaign.map === 'custom') buildCulWorld(); else buildWorld();
   buildNav();
   const NIGHT = Math.round((330 + night * 15) * diff().time);
   G = {
@@ -801,7 +801,7 @@ function startNight() {
   for (let i = 0; i < 9 + night; i++) spawnDeer(false);
   const legendChance = night >= 5 ? 1 : night >= 3 ? 0.5 : 0;
   if (Math.random() < legendChance) spawnDeer(false, true);
-  if (campaign.map === 'golf') setupGolfWatchers(); else if (campaign.map === 'cul') setupCulWatchers(); else setupWatchers();
+  if (campaign.map === 'golf') setupGolfWatchers(); else if (campaign.map === 'cul') setupCulWatchers(); else if (campaign.map === 'custom') setupSpecWatchers(); else setupWatchers();
   spawnCritters();
   setupObjective();
   G.priceTrend = campaign.lastPrice ? Math.sign(G.price - campaign.lastPrice) : 0;
@@ -4165,6 +4165,7 @@ function drawMinimap(big) {
   for (const b of world.blocks) { ctx.fillStyle = '#365c2e'; ctx.fillRect(b.x * s, b.y * s, b.w * s, b.h * s); }
   ctx.fillStyle = '#555';
   for (const r of world.roads) ctx.fillRect(r.x * s, r.y * s, r.w * s, r.h * s);
+  if (world.bulbs) for (const b of world.bulbs) { ctx.beginPath(); ctx.arc(b.x * s, b.y * s, b.r * s, 0, TAU); ctx.fill(); }
   for (const h of world.houses) { ctx.fillStyle = h.ex ? '#ff9ad5' : '#a89c8a'; ctx.fillRect(h.x * s, h.y * s, h.w * s, h.h * s); }
   const t = world.truck; ctx.fillStyle = '#ff5a3a'; ctx.fillRect(t.x * s - 2, t.y * s - 2, t.w * s + 4, t.h * s + 4);
   const v = world.van; ctx.fillStyle = '#b5e86a'; ctx.fillRect(v.x * s - 2, v.y * s - 2, v.w * s + 4, v.h * s + 4);
@@ -4279,6 +4280,8 @@ function drawScreens(now) {
       { label: '⛳ Country Club', fn: () => startGolf() },
       { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul') },
       { label: '🎲 Random map', fn: () => startMapMode('random') },
+      { label: '🧩 Custom map', fn: () => customMapMenu() },
+      { label: '🛠 Map editor', fn: () => { location.href = 'editor.html'; } },
       { label: '🏅 Leaderboard', fn: () => { state = 'scores'; } },
       { label: 'Night select', fn: () => { state = 'nights'; } },
       { label: '⚙ Settings', fn: () => { state = 'settings'; } },
@@ -4288,9 +4291,9 @@ function drawScreens(now) {
     ], y + 18, 160, 36);
   } else if (state === 'intro') {
     ctx.fillStyle = '#ff7a1a'; ctx.font = 'bold 40px system-ui, sans-serif';
-    ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.map === 'cul' ? 'MAPLE COURT' : campaign.map === 'random' ? `RANDOM NEIGHBORHOOD #${campaign.mapSeed}` : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
+    ctx.fillText(campaign.map === 'golf' ? 'THE COUNTRY CLUB' : campaign.map === 'cul' ? 'MAPLE COURT' : campaign.map === 'random' ? `RANDOM NEIGHBORHOOD #${campaign.mapSeed}` : campaign.map === 'custom' ? String(campaign.customSpec.name).toUpperCase() : campaign.daily ? `DAILY HUNT · ${campaign.daily}` : `NIGHT ${night}`, cx, VH * 0.26);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '17px system-ui, sans-serif';
-    let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
+    let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : campaign.map === 'custom' ? (campaign.customSpec.intro || `A custom neighborhood${campaign.customSpec.author ? ' by ' + campaign.customSpec.author : ''}. Same HOA. Same ex-wife. Good luck.`) : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
     ctx.fillStyle = '#9be564'; ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillText(`Quota: ${G.quota} deer before sunrise`, cx, y + 50);
     ctx.fillStyle = '#9ecbff'; ctx.font = '15px system-ui, sans-serif';
@@ -4845,6 +4848,7 @@ function drawRouteMap(x0, y0, mw) {
   ctx.save(); ctx.translate(x0, y0);
   ctx.fillStyle = '#1b2f1d'; ctx.fillRect(0, 0, mw, mh);
   ctx.fillStyle = '#444'; for (const r of world.roads) ctx.fillRect(r.x * s, r.y * s, r.w * s, r.h * s);
+  if (world.bulbs) for (const b of world.bulbs) { ctx.beginPath(); ctx.arc(b.x * s, b.y * s, b.r * s, 0, TAU); ctx.fill(); }
   ctx.fillStyle = '#6a6458'; for (const h of world.houses) ctx.fillRect(h.x * s, h.y * s, h.w * s, h.h * s);
   ctx.strokeStyle = '#ff7a1a'; ctx.lineWidth = 1.5; ctx.beginPath();
   G.route.forEach((p, i) => i ? ctx.lineTo(p.x * s, p.y * s) : ctx.moveTo(p.x * s, p.y * s)); ctx.stroke();
@@ -5084,7 +5088,7 @@ function drawKeys() {
   const y = buttonGrid(BINDABLE.map(([name, def]) => ({ label: `${name}: ${keyWait === def ? '…' : keyLabel(boundKey(def))}`, fn: () => { keyWait = def; }, hi: keyWait === def })), Math.max(100, VH * 0.1 + 44), 200, 32, 8);
   buttonGrid([{ label: 'Reset to defaults', fn: () => { resetBinds(); keyWait = null; } }, { label: '◀ Back', fn: () => { state = 'settings'; keyWait = null; }, hi: true }], y + 12, 200, 38);
 }
-function oneNightMode() { return !!(campaign && (campaign.daily || campaign.map === 'golf' || campaign.map === 'cul' || campaign.map === 'random')); }
+function oneNightMode() { return !!(campaign && (campaign.daily || ['golf', 'cul', 'random', 'custom'].includes(campaign.map))); }
 function startMapMode(map) {
   restoreRandom();
   campaign = freshCampaign(); campaign.map = map;
@@ -5192,57 +5196,102 @@ function buildGolfWorld() {
 }
 const CUL_INTRO = 'Maple Court, Birch Court and Elm Court: three dead-end streets off Pruitt Parkway. Darlene moved her book club here for the night, so Dale\'s camping in the shed behind her sister\'s place. Every street is a dead end. Plan your way out.';
 const RANDOM_INTRO = 'Same HOA, different streets. Roads, pools and hedges are shuffled every time. Nobody knows this place, including you.';
-function buildCulWorld() {
-  const R = mulberry32(777);
-  const hy0 = M + 1120;
-  const vx = [M + 700, M + 2300], hy = [hy0, hy0];
-  const BR = 200;
-  const roads = [{ x: M, y: hy0, w: W - 2 * M, h: ROAD, vert: false }];
-  const courts = [
-    { name: 'MAPLE CT', x: vx[0], cy: M + 420, north: true },
-    { name: 'BIRCH CT', x: vx[1], cy: M + 420, north: true },
-    { name: 'ELM CT', x: W / 2 - ROAD / 2, cy: H - M - 330, north: false },
-  ];
-  const bulbs = [], houses = [], blocks = [];
-  const roofs = ['#6b4a3a', '#4a5568', '#5a3e36', '#3d4f5c', '#704f3b', '#55606b', '#4f5d45'];
-  const walls = ['#d9cfbf', '#c9d3d9', '#e3d6c4', '#cfc6b8', '#d6dccf', '#e0d0c0'];
-  const mk = (x, y, top, b) => ({ x: Math.round(x), y: Math.round(y), w: HW, h: HH, top, roof: roofs[Math.floor(R() * roofs.length)], wall: walls[Math.floor(R() * walls.length)],
-    lit: [R() < 0.4, R() < 0.4, R() < 0.4], tv: R() < 0.25, ex: false, block: b });
+// ---------------------------------------------------------------------------
+// Maps from JSON. A map spec lists roads, houses, ponds and so on; worldFromSpec fills in
+// everything else (trees, bushes, lights, props, dogs). Maple Court is built this way, and so
+// are custom maps from the level editor (editor.html) and mod files (maps/*.json).
+// ---------------------------------------------------------------------------
+function culSpec() {
+  const hy0 = M + 1120, vx = [M + 700, M + 2300], BR = 200;
+  const spec = { format: 'hunter-sub-map', version: 1, name: 'Maple Court', seed: 777, vx, hy: [hy0, hy0],
+    roads: [{ x: M, y: hy0, w: W - 2 * M, h: ROAD }], bulbs: [], houses: [], ponds: [], pools: [], signs: [],
+    woods: [{ x: vx[0] + ROAD + 420, y: 0, w: vx[1] - vx[0] - ROAD - 840, h: hy0 - 90 },
+      { x: 0, y: hy0 + ROAD + 90, w: W / 2 - 700, h: H - hy0 - ROAD - 90 }, { x: W / 2 + 700, y: hy0 + ROAD + 90, w: W - M - 420 - (W / 2 + 700), h: H - hy0 - ROAD - 90 }] };
+  const courts = [{ name: 'MAPLE CT', x: vx[0], cy: M + 420, north: true }, { name: 'BIRCH CT', x: vx[1], cy: M + 420, north: true }, { name: 'ELM CT', x: W / 2 - ROAD / 2, cy: H - M - 330, north: false }];
   for (const c of courts) {
     const cx = c.x + ROAD / 2, cy = c.cy;
-    if (c.north) roads.push({ x: c.x, y: cy, w: ROAD, h: hy0 - cy, vert: true });
-    else roads.push({ x: c.x, y: hy0 + ROAD, w: ROAD, h: cy - hy0 - ROAD, vert: true });
-    roads.push({ x: cx - 140, y: cy - 140, w: 280, h: 280, vert: false, bulb: true });
-    bulbs.push({ x: cx, y: cy, r: BR, name: c.name });
-    const b = { x: cx - 520, y: c.north ? M - 140 : hy0 + ROAD + 40, w: 1040 + ROAD, h: c.north ? hy0 - M + 120 : H - M - hy0 - ROAD + 100, i: 0, j: 0 };
-    blocks.push(b);
-    // three houses around the far end of the bulb
+    spec.roads.push(c.north ? { x: c.x, y: cy, w: ROAD, h: hy0 - cy, vert: true } : { x: c.x, y: hy0 + ROAD, w: ROAD, h: cy - hy0 - ROAD, vert: true });
+    spec.bulbs.push({ x: cx, y: cy, r: BR, name: c.name });
     const farY = c.north ? cy - BR - 30 - HH : cy + BR + 30;
-    for (let k = -1; k <= 1; k++) houses.push(mk(cx + k * (HW + 40) - HW / 2, farY + (k ? (c.north ? 70 : -70) : 0), !c.north, b));
-    // two houses on each side of the street
+    for (let k = -1; k <= 1; k++) spec.houses.push({ x: cx + k * (HW + 40) - HW / 2, y: farY + (k ? (c.north ? 70 : -70) : 0), top: !c.north });
     for (let k = 0; k < 2; k++) {
       const yy = c.north ? cy + BR + 40 + k * (HH + 60) : cy - BR - 40 - HH - k * (HH + 60);
-      houses.push(mk(c.x - 50 - HW, yy, !c.north, b));
-      houses.push(mk(c.x + ROAD + 50, yy, !c.north, b));
+      spec.houses.push({ x: c.x - 50 - HW, y: yy, top: !c.north }, { x: c.x + ROAD + 50, y: yy, top: !c.north });
     }
+    spec.signs.push({ x: c.x + ROAD + 70, y: hy0 + (c.north ? -24 : ROAD + 24), text: c.name + ' (DEAD END)' });
   }
-  while (blocks.length < 9) blocks.push(blocks[blocks.length % 3]);
-  const exHouse = houses[0 + 1]; // Maple Ct, far end, middle house
+  spec.houses[1].ex = true;
+  spec.ponds.push({ x: 60, y: hy0 - 160, w: 170, h: 130, name: 'Mud Pond' }, { x: W / 2 - 70, y: M + 160, w: 160, h: 100, name: 'Greenbelt Pond' });
+  spec.clubhouse = { x: W - M - 330, y: hy0 + ROAD + 70 };
+  const bf = spec.houses[8];
+  spec.pools.push({ x: bf.x + 30, y: bf.y - 130, w: 120, h: 64 });
+  spec.van = { x: W - 205, y: hy0 + 30 };
+  spec.signs.push({ x: M + 220, y: hy0 - 24, text: 'PRUITT PARKWAY' });
+  return spec;
+}
+// Check a map spec and clean it up. Returns { spec, errors }. Bad entries are dropped, not fatal.
+function validateMap(raw) {
+  const errors = [];
+  if (!raw || typeof raw !== 'object') return { spec: null, errors: ['Not a JSON object'] };
+  const num = v => typeof v === 'number' && isFinite(v);
+  const inMap = o => o && num(o.x) && num(o.y) && o.x >= 0 && o.y >= 0 && o.x <= W && o.y <= H;
+  const rects = (k, defW, defH) => (Array.isArray(raw[k]) ? raw[k] : []).filter(o => {
+    const ok = inMap(o) && (o.w === undefined || (num(o.w) && o.w > 4 && o.w < W)) && (o.h === undefined || (num(o.h) && o.h > 4 && o.h < H));
+    if (!ok) errors.push(`Skipped a bad entry in "${k}"`);
+    return ok;
+  }).map(o => Object.assign({}, o, { x: Math.round(o.x), y: Math.round(o.y), w: Math.round(o.w || defW), h: Math.round(o.h || defH) }));
+  const spec = {
+    format: 'hunter-sub-map', version: 1,
+    name: String(raw.name || 'Custom Neighborhood').slice(0, 40), author: String(raw.author || '').slice(0, 40), intro: String(raw.intro || '').slice(0, 400),
+    seed: num(raw.seed) ? raw.seed | 0 : 9001,
+    roads: rects('roads', ROAD, ROAD).map(r => Object.assign(r, { vert: r.vert !== undefined ? !!r.vert : r.h > r.w })),
+    houses: rects('houses', HW, HH).map(h => Object.assign(h, { top: !!h.top, ex: !!h.ex })),
+    ponds: rects('ponds', 160, 100), pools: rects('pools', 120, 64), hedges: rects('hedges', 14, 140), woods: rects('woods', 300, 300),
+    bulbs: (Array.isArray(raw.bulbs) ? raw.bulbs : []).filter(b => inMap(b) && num(b.r) && b.r > 40 && b.r < 600),
+    bushes: (Array.isArray(raw.bushes) ? raw.bushes : []).filter(inMap), trees: (Array.isArray(raw.trees) ? raw.trees : []).filter(inMap),
+    signs: (Array.isArray(raw.signs) ? raw.signs : []).filter(inMap).map(g => ({ x: g.x, y: g.y, text: String(g.text || '').slice(0, 40) })),
+    shed: inMap(raw.shed) ? raw.shed : null, van: inMap(raw.van) ? raw.van : null, clubhouse: inMap(raw.clubhouse) ? raw.clubhouse : null,
+    vx: Array.isArray(raw.vx) && raw.vx.length === 2 && raw.vx.every(num) ? raw.vx : null,
+    hy: Array.isArray(raw.hy) && raw.hy.length === 2 && raw.hy.every(num) ? raw.hy : null,
+  };
+  if (!spec.houses.length) errors.push('A map needs at least one house (one of them is Darlene\'s).');
+  if (!spec.roads.length) errors.push('A map needs at least one road (the HOA cart and the police drive on them).');
+  if (spec.houses.length && !spec.houses.some(h => h.ex)) spec.houses[0].ex = true;
+  if (spec.houses.filter(h => h.ex).length > 1) { let first = true; for (const h of spec.houses) if (h.ex) { if (!first) h.ex = false; first = false; } }
+  return { spec: errors.some(e => e.startsWith('A map needs')) ? null : spec, errors };
+}
+function worldFromSpec(spec) {
+  const R = mulberry32(spec.seed || 777);
+  const roofs = ['#6b4a3a', '#4a5568', '#5a3e36', '#3d4f5c', '#704f3b', '#55606b', '#4f5d45'];
+  const walls = ['#d9cfbf', '#c9d3d9', '#e3d6c4', '#cfc6b8', '#d6dccf', '#e0d0c0'];
+  const roads = spec.roads.map(r => Object.assign({}, r));
+  const bulbs = (spec.bulbs || []).map(b => Object.assign({}, b));
+  for (const b of bulbs) roads.push({ x: Math.round(b.x - b.r * 0.7), y: Math.round(b.y - b.r * 0.7), w: Math.round(b.r * 1.4), h: Math.round(b.r * 1.4), vert: false, bulb: true });
+  const houses = spec.houses.map(h => ({ x: Math.round(h.x), y: Math.round(h.y), w: h.w || HW, h: h.h || HH, top: !!h.top,
+    roof: roofs[Math.floor(R() * roofs.length)], wall: walls[Math.floor(R() * walls.length)], lit: [R() < 0.4, R() < 0.4, R() < 0.4], tv: R() < 0.25, ex: !!h.ex, block: null }));
+  const exHouse = houses.find(h => h.ex) || houses[0];
   exHouse.ex = true; exHouse.roof = '#a24d7a'; exHouse.wall = '#f2d7e4'; exHouse.lit = [true, true, false];
-  const truck = { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y - 76 - 70, w: 100, h: 70, shed: true };
-  const van = { x: W - 205, y: hy0 + 30, w: 116, h: 56 };
-  const ponds = [{ x: 60, y: hy0 - 160, w: 170, h: 130, pond: true, noLos: true, name: 'Mud Pond' },
-    { x: W / 2 - 70, y: M + 160, w: 160, h: 100, pond: true, noLos: true, name: 'Greenbelt Pond' }];
-  const clubhouse = { x: W - M - 330, y: hy0 + ROAD + 70, w: 180, h: 110, clubhouse: true };
-  const pools = [{ x: clubhouse.x + 200, y: clubhouse.y + 10, w: 150, h: 80, pool: true, noLos: true, hoaPool: true }];
-  const birchFar = houses[8];
-  pools.push({ x: birchFar.x + 30, y: birchFar.y - 130, w: 120, h: 64, pool: true, noLos: true });
+  // vx / hy: two "main" vertical and horizontal road lines, used by police and patrol routes
+  const vRoads = roads.filter(r => r.vert && !r.bulb), hRoads = roads.filter(r => !r.vert && !r.bulb);
+  const vx = spec.vx || (vRoads.length ? [vRoads[0].x, (vRoads[1] || vRoads[0]).x] : [hRoads[0].x + 200, hRoads[0].x + hRoads[0].w - 300]);
+  const hy = spec.hy || (hRoads.length ? [hRoads[0].y, (hRoads[1] || hRoads[0]).y] : [vRoads[0].y + 200, vRoads[0].y + vRoads[0].h - 300]);
+  const blocks = houses.map(h => ({ x: h.x - 200, y: h.y - 150, w: h.w + 400, h: h.h + 300, i: 0, j: 0 }));
+  while (blocks.length < 9) blocks.push(blocks[blocks.length % Math.max(1, houses.length)]);
+  for (const h of houses) h.block = blocks[houses.indexOf(h)];
+  const truck = spec.shed ? { x: Math.round(spec.shed.x), y: Math.round(spec.shed.y), w: 100, h: 70, shed: true }
+    : exHouse.top ? { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y + exHouse.h + 76, w: 100, h: 70, shed: true }
+      : { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y - 146, w: 100, h: 70, shed: true };
+  const van = spec.van ? { x: Math.round(spec.van.x), y: Math.round(spec.van.y), w: 116, h: 56 } : { x: W - 205, y: hy[0] + 30, w: 116, h: 56 };
+  const ponds = (spec.ponds || []).map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, pond: true, noLos: true, name: p.name || '' }));
+  const clubhouse = spec.clubhouse ? { x: Math.round(spec.clubhouse.x), y: Math.round(spec.clubhouse.y), w: 180, h: 110, clubhouse: true } : { x: -999, y: -999, w: 1, h: 1, clubhouse: true };
+  const pools = (spec.pools || []).map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, pool: true, noLos: true }));
+  if (spec.clubhouse) pools.push({ x: clubhouse.x + 200, y: clubhouse.y + 10, w: 150, h: 80, pool: true, noLos: true, hoaPool: true });
   const garage = { x: exHouse.x + exHouse.w + 10, y: exHouse.y + exHouse.h / 2 };
   const carColors = ['#8a2b2b', '#2b4a8a', '#d8d8d0', '#3a3a3a', '#5a7a3a', '#a88a2a'];
   const cars = [];
-  for (const bl of bulbs) for (let k = 0; k < 2; k++) { const a = R() * TAU; cars.push({ x: Math.round(bl.x + Math.cos(a) * 95 - 12), y: Math.round(bl.y + Math.sin(a) * 95 - 22), w: 24, h: 44, car: true, color: carColors[Math.floor(R() * carColors.length)], top: false }); }
-  const hedges = [];
-  houses.forEach((h, i) => { if (i % 4 === 2 && !h.ex) hedges.push({ x: h.x - 26, y: h.y + 10, w: 14, h: HH - 20, hedge: true }); });
+  for (const bl of bulbs) for (let k = 0; k < 2; k++) { const a = R() * TAU; cars.push({ x: Math.round(bl.x + Math.cos(a) * bl.r * 0.48 - 12), y: Math.round(bl.y + Math.sin(a) * bl.r * 0.48 - 22), w: 24, h: 44, car: true, color: carColors[Math.floor(R() * carColors.length)], top: false }); }
+  const hedges = (spec.hedges || []).map(g => ({ x: g.x, y: g.y, w: g.w, h: g.h, hedge: true }));
+  if (!spec.hedges || !spec.hedges.length) houses.forEach((h, i) => { if (i % 4 === 2 && !h.ex) hedges.push({ x: h.x - 26, y: h.y + 10, w: 14, h: h.h - 20, hedge: true }); });
   const sprinklers = houses.filter((h, i) => i % 3 === 1 && !h.ex).map(h => ({ x: h.x + 40, y: h.top ? h.y - 18 : h.y + h.h + 18, r: 70, phase: R() * 26 }));
   const ice = [], puddles = [];
   const wx = weatherFor(night);
@@ -5250,7 +5299,7 @@ function buildCulWorld() {
   if (wx === 'snow') for (let k = 0; k < 7; k++) { const rd = mainRoads[k % mainRoads.length]; const t = 0.15 + (k * 0.27) % 0.7; ice.push(rd.vert ? { x: rd.x + 10, y: rd.y + rd.h * t, w: rd.w - 20, h: 120 } : { x: rd.x + rd.w * t, y: rd.y + 10, w: 150, h: rd.h - 20 }); }
   if (wx === 'rain') for (let k = 0; k < 10; k++) { const rd = mainRoads[k % mainRoads.length]; const t = 0.1 + (k * 0.31) % 0.8; puddles.push(rd.vert ? { x: rd.x + 20 + R() * (rd.w - 40), y: rd.y + rd.h * t, r: 18 + R() * 10 } : { x: rd.x + rd.w * t, y: rd.y + 20 + R() * (rd.h - 40), r: 18 + R() * 10 }); }
   const solids = [...houses, truck, van, clubhouse, ...pools, ...ponds, ...cars, ...hedges];
-  const exZone = { x: exHouse.x - 90, y: exHouse.y - 20, w: exHouse.w + 180, h: exHouse.h + 120 };
+  const exZone = exHouse.top ? { x: exHouse.x - 90, y: exHouse.y - 60, w: exHouse.w + 180, h: exHouse.h + 270 } : { x: exHouse.x - 90, y: exHouse.y - 20, w: exHouse.w + 180, h: exHouse.h + 120 };
   function inRect(x, y, r, m) { return x > r.x - m && x < r.x + r.w + m && y > r.y - m && y < r.y + r.h + m; }
   function blocked(x, y, m) {
     if (x < 30 || y < 30 || x > W - 30 || y > H - 30) return true;
@@ -5262,15 +5311,15 @@ function buildCulWorld() {
     if (dist(x, y, van.x + van.w / 2, van.y + van.h / 2) < 200) return true;
     return false;
   }
-  // woods: the map edges plus the greenbelt between the north courts and the empty lots around Elm Ct
-  const inWoods = (x, y) => x < M || x > W - M || y < M || y > H - M ||
-    (y < hy0 - 90 && x > vx[0] + ROAD + 420 && x < vx[1] - 420) ||
-    (y > hy0 + ROAD + 90 && (x < W / 2 - 700 || (x > W / 2 + 700 && x < W - M - 420)));
+  const woods = spec.woods || [];
+  const inWoods = (x, y) => x < M || x > W - M || y < M || y > H - M || woods.some(z => inRect(x, y, z, 0));
   const trees = [];
   const addTree = (x, y) => { if (trees.some(t => dist(x, y, t.x, t.y) < 60)) return false; trees.push({ x, y, trunk: 13, canopy: 26 + R() * 18, block: 17, hue: R() }); return true; };
+  for (const t of spec.trees || []) if (!blocked(t.x, t.y, 20)) addTree(t.x, t.y);
   for (let k = 0; k < 1400 && trees.length < 300; k++) { const x = R() * W, y = R() * H; if (inWoods(x, y) && !blocked(x, y, 30)) addTree(x, y); }
   const bushes = [];
-  const addBush = (x, y) => { if (trees.some(t => dist(x, y, t.x, t.y) < 55) || bushes.some(q => dist(x, y, q.x, q.y) < 80)) return false; bushes.push({ x, y, r: 30 + R() * 8, seed: R() * 100 }); return true; };
+  const addBush = (x, y, r) => { if (trees.some(t => dist(x, y, t.x, t.y) < 55) || bushes.some(q => dist(x, y, q.x, q.y) < 80)) return false; bushes.push({ x, y, r: r || 30 + R() * 8, seed: R() * 100 }); return true; };
+  for (const b of spec.bushes || []) if (!blocked(b.x, b.y, 20)) addBush(b.x, b.y, b.r);
   for (const h of houses) { let n = 0; for (let k = 0; k < 40 && n < 2; k++) { const x = h.x - 60 + R() * (h.w + 120), y = h.y - 80 + R() * (h.h + 160); if (!blocked(x, y, 36) && addBush(x, y)) n++; } }
   for (let k = 0; k < 600 && bushes.length < 100; k++) { const x = R() * W, y = R() * H; if (inWoods(x, y) && !blocked(x, y, 30)) addBush(x, y); }
   const grass = [];
@@ -5286,17 +5335,66 @@ function buildCulWorld() {
   }
   for (const bl of bulbs) lights.push({ x: bl.x, y: bl.y });
   const dogs = [];
-  for (const idx of [4, 11, 17]) { const h = houses[idx]; if (!h || h.ex) continue; const ax = h.x + h.w / 2, ay = h.top ? h.y + h.h + 40 : h.y - 40; dogs.push({ ax, ay, x: ax, y: ay, ang: 0, bark: 0, cd: 0, name: pick(['Biscuit', 'Duke', 'Pickles', 'Moose']) }); }
-  const signs = courts.map(c => ({ x: c.x + ROAD + 70, y: hy0 + (c.north ? -24 : ROAD + 24), text: c.name + ' (DEAD END)' }));
-  signs.push({ x: M + 220, y: hy0 - 24, text: 'PRUITT PARKWAY' }, { x: clubhouse.x + 90, y: clubhouse.y - 14, text: 'HOA POOL: CLOSED' });
-  const floods = [3, 9, 15].map(i => houses[i]).filter(h => h && !h.ex).map(h => ({ x: h.x + h.w / 2, y: h.top ? h.y + h.h + 4 : h.y - 4, on: 0, house: h }));
+  houses.forEach((h, i) => { if (i % 6 !== 4 || h.ex) return; const ax = h.x + h.w / 2, ay = h.top ? h.y + h.h + 40 : h.y - 40; dogs.push({ ax, ay, x: ax, y: ay, ang: 0, bark: 0, cd: 0, name: pick(['Biscuit', 'Duke', 'Pickles', 'Moose']) }); });
+  const signs = (spec.signs || []).map(g => Object.assign({}, g));
+  if (spec.clubhouse) signs.push({ x: clubhouse.x + 90, y: clubhouse.y - 14, text: 'HOA POOL: CLOSED' });
+  const floods = houses.filter((h, i) => i % 6 === 3 && !h.ex).map(h => ({ x: h.x + h.w / 2, y: h.top ? h.y + h.h + 4 : h.y - 4, on: 0, house: h }));
   const gardens = [], props = [];
   houses.forEach((h, i) => {
-    if (i % 3 === 0 || h.ex) { const g = { x: h.x - 95, y: h.y + 40, w: 80, h: 80, ex: h.ex }; if (!blocked(g.x + 40, g.y + 40, 0) || h.ex) { gardens.push(g); props.push({ x: g.x + 8, y: g.y + 8, kind: 'gnome', down: 0 }); } }
+    if (i % 3 === 0 || h.ex) { const g = { x: h.x - 95, y: h.y + 40, w: 80, h: 80, ex: h.ex }; gardens.push(g); props.push({ x: g.x + 8, y: g.y + 8, kind: 'gnome', down: 0 }); }
     if (i % 2 === 1) props.push({ x: h.x + h.w - 4, y: h.top ? h.y - 22 : h.y + h.h + 22, kind: 'trash', down: 0 });
   });
-  world = { cul: true, roads, bulbs, blocks, houses, fences: [], truck, shed: truck, van, ponds, clubhouse, garage, cars, hedges, sprinklers, ice, puddles, creekGaps: [], clearing: null, phase2: [], pools, grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked };
+  world = { cul: true, custom: !!spec.custom, mapName: spec.name, roads, bulbs, blocks, houses, fences: [], truck, shed: truck, van, ponds, clubhouse, garage, cars, hedges, sprinklers, ice, puddles, creekGaps: [], clearing: null, phase2: [], pools, grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked };
 }
+function buildCulWorld() {
+  if (campaign.map === 'custom' && campaign.customSpec) worldFromSpec(Object.assign({ custom: true }, campaign.customSpec));
+  else worldFromSpec(culSpec());
+}
+function setupSpecWatchers() {
+  // Generic neighbors for custom maps: Darlene at her house, and the HOA cart driving every road.
+  const h = world.exHouse;
+  watchers = [];
+  const pts = h.top ? [{ x: h.x - 45, y: h.y + h.h - 10 }, { x: h.x - 45, y: h.y - 14 }, { x: h.x + h.w + 45, y: h.y - 14 }, { x: h.x + h.w + 45, y: h.y + h.h - 10 }]
+    : [{ x: h.x - 45, y: h.y + 10 }, { x: h.x - 45, y: h.y + h.h + 14 }, { x: h.x + h.w + 45, y: h.y + h.h + 14 }, { x: h.x + h.w + 45, y: h.y + 10 }];
+  watchers.push(makeWatcher('ex', [pts[0], pts[1], pts[2], pts[3], pts[2], pts[1]], { speed: 50, fov: 1.45, range: 235, pause: 2.6, rate: 32, label: NAMES.ex + ' (ex)' }));
+  const route = [];
+  for (const r of world.roads) { if (r.bulb) continue; if (r.vert) route.push({ x: r.x + r.w / 2, y: r.y + 40 }, { x: r.x + r.w / 2, y: r.y + r.h - 40 }); else route.push({ x: r.x + 40, y: r.y + r.h / 2 }, { x: r.x + r.w - 40, y: r.y + r.h / 2 }); }
+  if (route.length >= 2) watchers.push(makeWatcher('hoa', route.concat(route.slice(1, -1).reverse()), { speed: 105, fov: 1.15, range: 265, pause: 1.4, rate: 22, label: NAMES.hoa + ', HOA Pres.', cart: true }));
+  world.houses.forEach((hh, i) => {
+    if (i % 5 !== 2 || hh.ex) return;
+    const cw = makeWatcher('cam', [{ x: hh.x + 70, y: hh.top ? hh.y - 7 : hh.y + hh.h + 7 }], { speed: 0, fov: 0.9, range: 135, pause: 999, rate: 14, label: 'Doorbell cam', fixed: true });
+    cw.ang = cw.baseAng = hh.top ? -Math.PI / 2 : Math.PI / 2; cw.pi = 0;
+    watchers.push(cw);
+  });
+}
+// Custom maps: load from the level editor (saved in this browser), a .json file, or ?map=maps/name.json
+function startCustomMap(spec) {
+  const v = validateMap(spec);
+  if (!v.spec) { alert('That map can\'t be played:\n' + v.errors.join('\n')); return false; }
+  restoreRandom();
+  campaign = freshCampaign(); campaign.map = 'custom'; campaign.customSpec = v.spec;
+  campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
+  night = 3;
+  startNight();
+  return true;
+}
+function pickMapFile() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = () => { const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const spec = JSON.parse(rd.result); store.set('hs_custom_map', spec); startCustomMap(spec); } catch (e) { alert('Not a valid map file: ' + e.message); } }; rd.readAsText(f); };
+  inp.click();
+}
+function customMapMenu() {
+  const saved = store.get('hs_custom_map', null);
+  if (saved) startCustomMap(saved); else pickMapFile();
+}
+(function loadMapFromUrl() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const m = q.get('map');
+    if (q.get('custom') === '1') { const saved = store.get('hs_custom_map', null); if (saved) setTimeout(() => startCustomMap(saved), 0); }
+    else if (m && /^maps\/[\w-]+\.json$/.test(m)) fetch(m).then(r => r.json()).then(spec => startCustomMap(spec)).catch(() => {});
+  } catch (e) { /* no URL support */ }
+})();
 function setupCulWatchers() {
   const { vx, hy, exHouse: h, bulbs } = world;
   watchers = [];
