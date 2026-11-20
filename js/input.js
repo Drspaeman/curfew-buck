@@ -1,0 +1,318 @@
+'use strict';
+// Hunter Sub: Keyboard, gamepad and touch input.
+// Part 3 of 8. All parts share one global scope, so load them in order (see index.html).
+// ============================================================
+// Input
+// ============================================================
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
+  if (e.code === 'KeyM') { muted = !muted; store.set('hs_muted', muted); }
+  if (e.repeat) return;
+  if (state === 'story') { if (e.code === 'Escape') advanceStory(true); else if (['Enter', 'Space', 'KeyE'].includes(e.code)) advanceStory(); return; }
+  if (state === 'steve') {
+    if (e.code === 'Digit1') steveSell(); else if (e.code === 'Digit2') steveBuy('beer');
+    else if (e.code === 'Digit3') steveBuy('arrows'); else if (e.code === 'Digit4') steveBuy('cones');
+    else if (e.code === 'Digit6') steveHaggle();
+    else if (['Escape', 'KeyE', 'Enter', 'Digit5'].includes(e.code)) state = 'play';
+    return;
+  }
+  if (state === 'court' && !G.court) { if (e.code === 'Digit1') courtPlea(0); if (e.code === 'Digit2') courtPlea(1); if (e.code === 'Digit3') courtPlea(2); }
+  if (state === 'play' && e.code === 'KeyV') drinkBeer();
+  if (state === 'play' && e.code === 'Tab') G.mapOpen = !G.mapOpen;
+  if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = 'title';
+  else if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) { if (!loadGame()) newCampaign(); }
+  else if (state === 'intro' && (e.code === 'Enter' || e.code === 'Space')) state = 'play';
+  else if (state === 'play') {
+    if (e.code === 'KeyE') interact();
+    if ((e.code === 'Enter' || e.code === 'NumpadEnter') && twoP()) p2Action();
+    if (e.code === 'KeyQ') tryLeave();
+    if (e.code === 'KeyF') throwCone();
+    if (e.code === 'KeyG') grunt();
+    if (e.code === 'KeyB') dropCorn();
+    if (e.code === 'KeyN') toggleNVG();
+    if (e.code === 'KeyJ') feedDog();
+    if (e.code === 'KeyT') declineCall();
+    if (e.code === 'Space') startDraw();
+    if (e.code === 'KeyP' || e.code === 'Escape') { player.drawing = false; state = 'pause'; }
+  } else if (state === 'pause') {
+    if (e.code === 'KeyP' || e.code === 'Escape' || e.code === 'Enter') state = 'play';
+    if (e.code === 'KeyR') startNight();
+    if (e.code === 'KeyN') newCampaign();
+  }
+  else if (state === 'nightdone' && (e.code === 'Enter' || e.code === 'Space')) goShop();
+  else if (state === 'shop') {
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= SHOP.length) buy(SHOP[n - 1]);
+    if (e.code === 'Enter' || e.code === 'Space') { night++; startNight(); }
+  }
+  else if (state === 'over' && (e.code === 'Enter' || e.code === 'KeyR')) newCampaign();
+});
+window.addEventListener('keyup', e => {
+  keys[e.code] = false;
+  if (e.code === 'Space' && state === 'play') releaseDraw();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') { player.drawing = false; state = 'pause'; } });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') { player.drawing = false; state = 'pause'; } });
+cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+cv.addEventListener('mousedown', e => {
+  mouse.x = e.clientX; mouse.y = e.clientY;
+  if (state === 'play' && e.button === 2) { throwCone(); return; }
+  if (e.button !== 0) return;
+  for (const b of uiButtons) {
+    if (mouse.x >= b.x && mouse.x <= b.x + b.w && mouse.y >= b.y && mouse.y <= b.y + b.h) { b.fn(); return; }
+  }
+  if (state === 'story') advanceStory();
+  else if (state === 'steve') { /* buttons only */ }
+  else if (state === 'title') { if (!store.get('hs_save', null)) newCampaign(); }
+  else if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = 'title';
+  else if (state === 'intro') state = 'play';
+  else if (state === 'play') startDraw();
+  else if (state === 'pause') state = 'play';
+  else if (state === 'nightdone') goShop();
+  else if (state === 'over') newCampaign();
+});
+window.addEventListener('mouseup', e => { if (e.button === 0 && state === 'play') releaseDraw(); });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+// ============================================================
+// Gamepad (standard mapping: Xbox / PlayStation style)
+// ============================================================
+const pad = { connected: false, prev: [], mx: 0, my: 0, aim: null, crouch: false, draw: false };
+let shopSel = 0;
+function pollPad() {
+  const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+  const gp = gps[0];
+  if (!gp) { pad.connected = false; pad.mx = pad.my = 0; pad.aim = null; pad.crouch = false; return; }
+  pad.connected = true;
+  const b = gp.buttons.map(x => x.pressed);
+  const edge = i => b[i] && !pad.prev[i];
+  const dz = v => Math.abs(v) < 0.25 ? 0 : v;
+  pad.mx = dz(gp.axes[0] || 0); pad.my = dz(gp.axes[1] || 0);
+  const ax = gp.axes[2] || 0, ay = gp.axes[3] || 0;
+  pad.aim = Math.hypot(ax, ay) > 0.35 ? Math.atan2(ay, ax) : null;
+  pad.crouch = !!(b[4] || b[10] || b[6]);
+  pad.look = !!b[5];
+  pad.sprint = !!b[11];
+  if (state === 'play') {
+    if (b[7] && !pad.draw) { pad.draw = true; startDraw(); }
+    if (!b[7] && pad.draw) { pad.draw = false; releaseDraw(); }
+    if (edge(0)) interact();
+    if (edge(1)) throwCone();
+    if (edge(2)) grunt();
+    if (edge(3)) { if (G.mom && G.mom.state === 'buzz') declineCall(); else tryLeave(); }
+    if (edge(9)) { player.drawing = false; state = 'pause'; }
+    if (edge(12)) drinkBeer();
+    if (edge(8)) G.mapOpen = !G.mapOpen;
+    if (edge(13)) toggleNVG();
+    if (edge(14)) feedDog();
+  } else if (state === 'story') {
+    if (edge(0)) advanceStory(); else if (edge(1) || edge(9)) advanceStory(true);
+  } else if (state === 'steve') {
+    if (edge(0)) steveSell(); else if (edge(2)) steveBuy('beer'); else if (edge(3)) steveBuy('arrows'); else if (edge(1) || edge(9)) state = 'play';
+  } else if (state === 'shop') {
+    if (edge(12)) shopSel = (shopSel + SHOP.length - 1) % SHOP.length;
+    if (edge(13)) shopSel = (shopSel + 1) % SHOP.length;
+    if (edge(0)) buy(SHOP[shopSel]);
+    if (edge(9)) { night++; startNight(); }
+  } else if (edge(0) || edge(9) || edge(1)) {
+    if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = 'title';
+    else if (edge(1)) { /* B only backs out of sub-menus */ }
+    else if (state === 'title') { if (!loadGame()) newCampaign(); }
+    else if (state === 'intro' || state === 'pause') state = 'play';
+    else if (state === 'nightdone') goShop();
+    else if (state === 'over') newCampaign();
+  }
+  pad.prev = b;
+}
+
+// ============================================================
+// Touch controls (phones / tablets): left thumb = move stick, right thumb = aim + draw
+// ============================================================
+let touchMode = false;
+const touch = { stickId: null, sx: 0, sy: 0, x: 0, y: 0, mx: 0, my: 0, aimId: null, crouch: false };
+function touchButtons() {
+  if (state !== 'play') return [];
+  const r = VW < 500 ? 26 : 30, x = VW - r - 16;
+  let y = VH - r - 70;
+  const list = [
+    { id: 'drag', label: player.carry ? 'DROP' : player.fishing ? 'REEL' : nearVan() ? 'STEVE' : 'USE', fn: interact },
+    { id: 'cone', label: '🌰', fn: throwCone },
+    { id: 'grunt', label: 'CALL', fn: grunt },
+  ];
+  if (has('corn')) list.push({ id: 'corn', label: 'CORN', fn: dropCorn });
+  if (campaign.items.beer) list.push({ id: 'beer', label: '🍺', fn: drinkBeer });
+  if (has('nvg')) list.push({ id: 'nvg', label: 'NVG', fn: toggleNVG, hot: G.nvgOn });
+  if (campaign.items.jerky && world.dogs.some(g => !g.quiet && dist(g.ax, g.ay, player.x, player.y) < 140)) list.push({ id: 'jerky', label: 'JERKY', fn: feedDog, hot: true });
+  if (G.mom && G.mom.state === 'buzz') list.unshift({ id: 'mom', label: '📵', fn: declineCall, hot: true });
+  const out = [];
+  for (const b of list) { out.push(Object.assign({ x, y, r }, b)); y -= r * 2 + 12; }
+  const mmH = Math.max(70, Math.min(220, VW * 0.25, VW - 300)) * H / W;
+  out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
+  out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
+  if (nearTruck()) out.push({ id: 'leave', label: 'LEAVE', fn: tryLeave, x: VW / 2, y: VH - 120, r: 34, hot: true });
+  return out;
+}
+function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  touchMode = true;
+  for (const t of e.changedTouches) {
+    if (state !== 'play') {
+      touchToMouse(t);
+      cv.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, button: 0 }));
+      continue;
+    }
+    const hitBtn = touchButtons().find(b => dist(b.x, b.y, t.clientX, t.clientY) < b.r + 8);
+    if (hitBtn) { hitBtn.fn(); continue; }
+    if (t.clientX < VW * 0.45 && touch.stickId === null) {
+      touch.stickId = t.identifier; touch.sx = touch.x = t.clientX; touch.sy = touch.y = t.clientY; touch.mx = touch.my = 0;
+    } else if (touch.aimId === null) {
+      touch.aimId = t.identifier; touchToMouse(t); startDraw();
+    }
+  }
+}, { passive: false });
+cv.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.stickId) {
+      touch.x = t.clientX; touch.y = t.clientY;
+      const dx = touch.x - touch.sx, dy = touch.y - touch.sy, d = Math.hypot(dx, dy), R = 60;
+      const k = Math.min(1, d / R);
+      touch.mx = d > 6 ? dx / d * k : 0; touch.my = d > 6 ? dy / d * k : 0;
+      touch.crouch = d > 6 && k < 0.6; // light push = sneak
+    } else if (t.identifier === touch.aimId) touchToMouse(t);
+  }
+}, { passive: false });
+function endTouch(e) {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === touch.stickId) { touch.stickId = null; touch.mx = touch.my = 0; touch.crouch = false; }
+    if (t.identifier === touch.aimId) { touch.aimId = null; if (state === 'play') releaseDraw(); }
+  }
+}
+cv.addEventListener('touchend', endTouch, { passive: false });
+cv.addEventListener('touchcancel', endTouch, { passive: false });
+
+function drawTouchControls() {
+  if (!touchMode || state !== 'play') return;
+  // stick
+  if (touch.stickId !== null) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(touch.sx, touch.sy, 60, 0, TAU); ctx.stroke();
+    ctx.fillStyle = touch.crouch ? 'rgba(158,203,255,0.5)' : 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.arc(touch.sx + touch.mx * 60, touch.sy + touch.my * 60, 24, 0, TAU); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('◀ Left thumb: move (light push = sneak)', 16, VH - 34);
+  }
+  for (const b of touchButtons()) {
+    ctx.fillStyle = b.hot ? 'rgba(255,209,102,0.85)' : 'rgba(20,24,30,0.7)';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = b.hot ? '#111' : '#fff'; ctx.font = `bold ${b.r > 24 ? 12 : 11}px system-ui, sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText(b.label, b.x, b.y + 4);
+  }
+  if (touch.aimId === null) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('Right thumb: touch to aim, hold to draw, lift to shoot ▶', 16, VH - 16);
+  }
+}
+
+function buy(item) {
+  if (item.weapon) {
+    if (campaign.weapons[item.weapon]) { campaign.weapon = item.weapon; sfx.grab(); return; }
+    if (campaign.cash < priceOf(item)) { sfx.thunk(); return; }
+    campaign.cash -= priceOf(item); campaign.spent = (campaign.spent || 0) + priceOf(item); if (campaign.spent >= 500) unlock('bigspender');
+    campaign.weapons[item.weapon] = true;
+    campaign.weapon = item.weapon;
+    sfx.buy();
+    return;
+  }
+  if (item.consumable) {
+    if ((campaign.items[item.id] || 0) >= item.max || campaign.cash < priceOf(item)) { sfx.thunk(); return; }
+    campaign.cash -= priceOf(item); campaign.spent = (campaign.spent || 0) + priceOf(item); if (campaign.spent >= 500) unlock('bigspender');
+    campaign.items[item.id] = (campaign.items[item.id] || 0) + 1;
+    sfx.buy();
+    return;
+  }
+  if (has(item.id)) return;
+  if (campaign.cash < priceOf(item)) { sfx.thunk(); return; }
+  campaign.cash -= priceOf(item); campaign.spent = (campaign.spent || 0) + priceOf(item); if (campaign.spent >= 500) unlock('bigspender');
+  campaign.gear[item.id] = true;
+  sfx.buy();
+}
+
+// ---- Sketchy Steve ----
+const STEVE_LINES = [
+  'Steve: "You didn\'t see me, I didn\'t see you. What\'s in the cooler?"',
+  'Steve: "Venison? At this hour? My favorite kind of venison."',
+  'Steve: "Prices are what they are, man. The market is volatile."',
+  'Steve: "Don\'t look at the back of the van. Just... don\'t."',
+  'Steve: "Is that blood or ketchup? Doesn\'t matter. I\'ll take it."',
+];
+function openSteve() {
+  player.drawing = false;
+  G.steveLine = G.steveLine || pick(STEVE_LINES);
+  state = 'steve';
+  hint('steve', 'Steve pays cash for venison and small game. Prices change every night.');
+}
+function steveSell() {
+  const packs = (player.cooler || 0) + (player.bag || 0);
+  if (!packs) { G.steveLine = 'Steve: "Nothin\' to sell? Then why are you breathing on my van?"'; sfx.thunk(); return; }
+  const cash = packs * G.price;
+  G.earned += cash;
+  G.soldPacks = (G.soldPacks || 0) + packs;
+  if (packs >= 10) unlock('fullcooler');
+  player.cooler = 0; player.bag = 0;
+  sfx.buy();
+  G.steveLine = `Steve: "${packs} packs at $${G.price}... that's $${cash}. Pleasure doin' crimes with you."`;
+  objectiveEvent('sell', packs);
+  unlock('dealer');
+}
+function steveBuy(kind) {
+  const prices = { beer: 15, arrows: 20, cones: 10 };
+  const total = campaign.cash + G.earned;
+  if (total < prices[kind]) { G.steveLine = 'Steve: "Cash only, and you ain\'t got it."'; sfx.thunk(); return; }
+  if (kind === 'beer' && (campaign.items.beer || 0) >= 6) { G.steveLine = 'Steve: "Six is the limit. I\'m a businessman, not a monster."'; return; }
+  // spend tonight's earnings first, then savings
+  const fromEarned = Math.min(G.earned, prices[kind]);
+  G.earned -= fromEarned; campaign.cash -= prices[kind] - fromEarned;
+  if (kind === 'beer') campaign.items.beer = (campaign.items.beer || 0) + 1;
+  if (kind === 'arrows') player.arrows += 4;
+  if (kind === 'cones') player.cones += 3;
+  sfx.buy();
+  G.steveLine = kind === 'beer' ? 'Steve: "Lukewarm, just how you like it."' : 'Steve: "Fell off a truck. Several trucks."';
+}
+
+// ---- Beer power-up ----
+function drinkBeer() {
+  if ((campaign.items.beer || 0) <= 0) { popup(player.x, player.y - 30, 'No beer. (Steve and Earl sell it.)', '#aaa', 1.2); return; }
+  if (G.buzz > 3) { popup(player.x, player.y - 30, 'Pace yourself, Dale.', '#ffd166', 1.2); return; }
+  campaign.items.beer--;
+  G.buzz = 25; G.burpT = rnd(3, 6);
+  sfx.grab(); tone(300, 0.2, 'sine', 0.06, 120, 0.1);
+  popup(player.x, player.y - 30, '*crack* *glug glug* LIQUID COURAGE!', '#ffd166', 1.8);
+  hint('beer', 'Buzzed: you run faster and draw quicker for 25s, but your aim wobbles and you burp loudly at random.');
+  unlock('beer');
+  G.beersDrunk = (G.beersDrunk || 0) + 1;
+  player.cans = (player.cans || 0) + 1;
+  hint('can', 'Empty beer can! Once you\'re out of pinecones, F throws cans instead, and they\'re louder.');
+}
+
+function dropCorn() {
+  if (!has('corn')) { popup(player.x, player.y - 30, 'Buy Corn Feeder Bags at Earl\'s', '#aaa', 1.2); return; }
+  if (G.cornLeft <= 0) { popup(player.x, player.y - 30, 'Out of corn tonight', '#ff9f6b', 1.2); return; }
+  G.cornLeft--;
+  G.corn.push({ x: player.x, y: player.y, t: 120 });
+  sfx.grab();
+  popup(player.x, player.y - 30, 'Corn pile dropped. Back off and wait.', '#ffe38a', 1.6);
+}
+
+function declineCall() {
+  if (!G.mom || G.mom.state !== 'buzz') return;
+  G.mom.state = 'done';
+  G.banner = null;
+  popup(player.x, player.y - 30, 'Declined. Sorry, Ma.', '#ff9ad5', 1.6);
+  unlock('callme');
+}
