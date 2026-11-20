@@ -1232,7 +1232,9 @@ function drawTruckPointer(t = world.shed, label = 'SHED', color = '#ffd166') {
   const a = Math.atan2(ty - VH / 2, tx - VW / 2);
   // ride an ellipse near the screen edge, kept clear of the top HUD
   const px = clamp(VW / 2 + Math.cos(a) * (VW / 2 - 50), 40, VW - 40);
-  const py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), VW < 760 ? 240 : 100, VH - 60);   // stay below the HUD panel (it's taller on phones)
+  let py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), VW < 760 ? 240 : 100, VH - 60);   // stay below the HUD panel (it's taller on phones)
+  // desktop: never on top of the stats panel (top left) or the minimap (top right)
+  if (VW >= 760 && ((px < 300 && py < 250) || (px > VW - 250 && py < 200))) py = px < 300 ? 250 : 200;
   ctx.save(); ctx.translate(px, py); ctx.rotate(a);
   ctx.fillStyle = color;
   ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();

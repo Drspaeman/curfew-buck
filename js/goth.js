@@ -519,6 +519,7 @@ function drawSecretCard(x, y, w, h) {
   ctx.fillStyle = '#bbb'; ctx.font = '11px system-ui, sans-serif'; wrapText('Drew this in a mirror at 3 AM. Edgar the crow insisted on being in it.', x + w / 2, y + h * 0.5 + 54, w - 16, 13);
   ctx.fillStyle = '#9aa'; ctx.font = 'bold 10px system-ui, sans-serif'; ctx.fillText(fitText('SPOOKY 11/10 · HOA FINES ∞', w - 10), x + w / 2, y + h - 10);
 }
+let cryptZoom = null;
 function drawCrypt() {
   const cx = VW / 2, cards = gothCards(), posters = gothPosters();
   ctx.textAlign = 'center'; ctx.fillStyle = RAVEN_COLOR; fitFont('🦇 RAVEN\'S CRYPT', '900', 36, VW - 24); ctx.fillText('🦇 RAVEN\'S CRYPT', cx, 56);
@@ -533,7 +534,11 @@ function drawCrypt() {
   const cols = clamp(Math.floor((VW - 20) / 170), 2, 6), gap = 10;
   const w = Math.min(160, (VW - 20 - gap * (cols - 1)) / cols), h = Math.round(w * 1.42);
   const x0 = cx - (cols * w + (cols - 1) * gap) / 2;
-  CARDS.forEach((_, i) => drawCardFace(x0 + (i % cols) * (w + gap), y + Math.floor(i / cols) * (h + gap), w, h, i, cards.includes(i)));
+  CARDS.forEach((_, i) => {
+    const cx0 = x0 + (i % cols) * (w + gap), cy0 = y + Math.floor(i / cols) * (h + gap);
+    drawCardFace(cx0, cy0, w, h, i, cards.includes(i));
+    if (cards.includes(i)) uiButtons.push({ x: cx0, y: cy0 - drawScroll, w, h, fn: () => { cryptZoom = i; } });   // tap to see it big
+  });
   y += Math.ceil(CARDS.length / cols) * (h + gap) + 14;
   drawSecretCard(cx - w / 2, y, w, h); y += h + 22;
   // the posters
@@ -553,4 +558,12 @@ function drawCrypt() {
   y += Math.ceil(POSTERS.length / pc) * (ph + gap) + 12;
   if (gothBinderDone()) { ctx.fillStyle = RAVEN_COLOR; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.fillText('Full binder! Raven painted your vest black. Turn it on in Settings.', cx, y + 4); y += 22; }
   buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; }, hi: true }], y + 6, 160, 38);
+  // a found card, big (tap anywhere to close)
+  if (cryptZoom !== null && cards.includes(cryptZoom)) {
+    ctx.fillStyle = 'rgba(5,8,14,0.85)'; ctx.fillRect(0, drawScroll, VW, VH);
+    const zw = Math.min(320, VW - 40), zh = Math.round(zw * 1.42), zx = (VW - zw) / 2, zy = drawScroll + Math.max(20, (VH - zh) / 2 - 10);
+    drawCardFace(zx, zy, zw, zh, cryptZoom, true);
+    ctx.fillStyle = '#aaa'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Tap anywhere to close', VW / 2, zy + zh + 20);
+    uiButtons.unshift({ x: 0, y: 0, w: VW, h: VH, fn: () => { cryptZoom = null; } });
+  }
 }
