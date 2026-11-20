@@ -649,7 +649,7 @@ function validateMap(raw) {
     seed: num(raw.seed) ? raw.seed | 0 : 9001,
     roads: rects('roads', ROAD, ROAD).map(r => Object.assign(r, { vert: r.vert !== undefined ? !!r.vert : r.h > r.w })),
     houses: rects('houses', HW, HH).map(h => Object.assign(h, { top: !!h.top, ex: !!h.ex })),
-    ponds: rects('ponds', 160, 100), pools: rects('pools', 120, 64), hedges: rects('hedges', 14, 140), woods: rects('woods', 300, 300),
+    ponds: rects('ponds', 160, 100), pools: rects('pools', 120, 64), hedges: raw.hedges === undefined ? undefined : rects('hedges', 14, 140), woods: rects('woods', 300, 300),
     bulbs: (Array.isArray(raw.bulbs) ? raw.bulbs : []).filter(b => inMap(b) && num(b.r) && b.r > 40 && b.r < 600),
     bushes: (Array.isArray(raw.bushes) ? raw.bushes : []).filter(b => inMap(b) && (b.r === undefined || (num(b.r) && b.r >= 8 && b.r <= 120))),
     trees: (Array.isArray(raw.trees) ? raw.trees : []).filter(t => inMap(t) && (t.r === undefined || (num(t.r) && t.r >= 8 && t.r <= 160))),
@@ -696,7 +696,7 @@ function worldFromSpec(spec) {
   const cars = [];
   for (const bl of bulbs) for (let k = 0; k < 2; k++) { const a = R() * TAU; cars.push({ x: Math.round(bl.x + Math.cos(a) * bl.r * 0.48 - 12), y: Math.round(bl.y + Math.sin(a) * bl.r * 0.48 - 22), w: 24, h: 44, car: true, color: carColors[Math.floor(R() * carColors.length)], top: false }); }
   const hedges = (spec.hedges || []).map(g => ({ x: g.x, y: g.y, w: g.w, h: g.h, hedge: true }));
-  if (!spec.hedges || !spec.hedges.length) houses.forEach((h, i) => { if (i % 4 === 2 && !h.ex) hedges.push({ x: h.x - 26, y: h.y + 10, w: 14, h: h.h - 20, hedge: true }); });
+  if (!spec.hedges) houses.forEach((h, i) => { if (i % 4 === 2 && !h.ex) hedges.push({ x: h.x - 26, y: h.y + 10, w: 14, h: h.h - 20, hedge: true }); });
   const sprinklers = houses.filter((h, i) => i % 3 === 1 && !h.ex).map(h => ({ x: h.x + 40, y: h.top ? h.y - 18 : h.y + h.h + 18, r: 70, phase: R() * 26 }));
   const ice = [], puddles = [];
   const wx = weatherFor(night);
@@ -782,6 +782,10 @@ function startCustomMap(spec) {
   campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
   night = 3;
   startNight();
+  const problems = [];
+  if (!deer.length) problems.push('There\'s nowhere for deer to live (water or buildings cover every open spot). Add some open ground or woods.');
+  if (!nearTruck()) problems.push('Dale can\'t reach his shed from where he starts. Move the shed into open ground.');
+  if (problems.length) { story = null; state = 'title'; alert('That map can\'t be played:\n' + problems.join('\n')); return false; }
   return true;
 }
 function pickMapFile() {

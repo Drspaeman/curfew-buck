@@ -99,8 +99,8 @@ function hitTest(p) {
   const inR = (o, w, h) => p.x >= o.x && p.x <= o.x + (o.w || w) && p.y >= o.y && p.y <= o.y + (o.h || h);
   const lists = [['signs', o => Math.hypot(o.x - p.x, o.y - p.y) < 60], ['bushes', o => Math.hypot(o.x - p.x, o.y - p.y) < 40], ['trees', o => Math.hypot(o.x - p.x, o.y - p.y) < 40],
     ['houses', o => inR(o, HW, HH)], ['pools', o => inR(o)], ['ponds', o => inR(o)], ['hedges', o => inR(o)], ['bulbs', o => Math.hypot(o.x - p.x, o.y - p.y) < o.r], ['roads', o => inR(o)], ['woods', o => inR(o)]];
-  for (const [k, f] of lists) { const i = spec[k].findIndex(f); if (i >= 0) return () => spec[k].splice(i, 1); }
   for (const [k, w, h] of [['shed', 100, 70], ['van', 116, 56], ['clubhouse', 360, 110]]) if (spec[k] && inR(spec[k], w, h)) return () => { spec[k] = null; };
+  for (const [k, f] of lists) { for (let i = spec[k].length - 1; i >= 0; i--) if (f(spec[k][i])) return () => spec[k].splice(i, 1); }
   return null;
 }
 function click(p) {
@@ -131,11 +131,13 @@ function finishDrag() {
 }
 cv.addEventListener('pointerdown', e => {
   const p = toWorld(e);
-  if (['road', 'bulb', 'pond', 'pool', 'hedge', 'woods'].includes(tool)) { drag = { a: p, cur: p }; cv.setPointerCapture(e.pointerId); }
+  if (drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  if (['road', 'bulb', 'pond', 'pool', 'hedge', 'woods'].includes(tool)) { drag = { a: p, cur: p, id: e.pointerId }; cv.setPointerCapture(e.pointerId); }
   else click(p);
 });
-cv.addEventListener('pointermove', e => { if (drag) { drag.cur = toWorld(e); draw(); } else { const p = toWorld(e); status.dataset.pos = `${p.x}, ${p.y}`; } });
-cv.addEventListener('pointerup', () => { if (drag) { finishDrag(); drag = null; draw(); } });
+cv.addEventListener('pointermove', e => { if (drag && e.pointerId === drag.id) { drag.cur = toWorld(e); draw(); } else if (drag) { /* another finger */ } else { const p = toWorld(e); status.dataset.pos = `${p.x}, ${p.y}`; } });
+cv.addEventListener('pointerup', e => { if (drag && e.pointerId === drag.id) { drag.cur = toWorld(e); finishDrag(); drag = null; draw(); } });
+for (const ev of ['pointercancel', 'lostpointercapture']) cv.addEventListener(ev, e => { if (drag && e.pointerId === drag.id) { drag = null; draw(); } });
 
 function validate() {
   persist();
