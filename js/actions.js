@@ -35,6 +35,7 @@ function startDraw() {
 function releaseDraw() {
   if (!player.drawing) return;
   player.drawing = false;
+  if (player.carry || player.cooler || player.fishing) return;   // picked something up mid-draw: the arrow stays put
   shoot(player.draw);
 }
 
@@ -112,7 +113,7 @@ function interact() {
     let nd = 48, near = null;
     for (const d of deer) if (d.dead && !d.carried) { const dd = dist(d.x, d.y, player.x, player.y); if (dd < nd) { nd = dd; near = d; } }
     if (near) {
-      near.carried = true; player.carry = near; sfx.pickup();
+      near.carried = true; player.carry = near; player.drawing = false; sfx.pickup();
       popup(player.x, player.y - 30, 'Dragging deer — get it to your shed!', '#ffd166', 1.6);
       if (near.tracked) { near.tracked = false; unlock('tracker'); }
       return;
@@ -128,7 +129,7 @@ function interact() {
     return;
   }
   if (nearTruck() && G.freezer > 0 && !deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) {
-    player.cooler = Math.min(10, G.freezer);
+    player.cooler = Math.min(10, G.freezer); player.drawing = false;
     G.packedCooler = true;
     G.freezer -= player.cooler;
     sfx.pickup();
@@ -146,6 +147,7 @@ function nearTruck() {
 
 function tryLeave() {
   if (!nearTruck()) { popup(player.x, player.y - 30, `Get back to your shed to end the night (${ctl('leave')})`, '#ffd166', 1.4); return; }
+  if (player.carry) deliver();   // the deer you just picked up at the shed counts before the quota check
   if (G.delivered >= G.quota) { endNight('win'); return; }
   if (G.police) { endNight('escaped'); return; }
   const short = G.quota - G.delivered;
@@ -226,6 +228,14 @@ function walkable(x1, y1, x2, y2) {
   for (let i = 0; i <= n; i++) {
     const x = lerp(x1, x2, i / n), y = lerp(y1, y2, i / n);
     if (!cellFree(cellOf(x), cellOf(y))) return false;
+    if (i > 0 && i < n && !clearOf(x, y, 12)) return false;   // the grid is coarse: also keep a body's width from walls
+  }
+  return true;
+}
+function clearOf(x, y, r) {
+  for (const s of gridQuery(x - r, y - r, x + r, y + r, 's')) {
+    const cx = clamp(x, s.x, s.x + s.w), cy = clamp(y, s.y, s.y + s.h);
+    if ((x - cx) ** 2 + (y - cy) ** 2 < r * r) return false;
   }
   return true;
 }
@@ -268,7 +278,7 @@ function findPath(sx, sy, tx, ty, maxNodes = 5000) {
   const cells = [];
   for (let k = goalK; k !== sk; k = came.get(k)) cells.push({ x: (k % navW) * CELL + CELL / 2, y: ((k / navW) | 0) * CELL + CELL / 2 });
   cells.reverse();
-  cells.push({ x: tx, y: ty });
+  if (cellFree(cellOf(tx), cellOf(ty))) cells.push({ x: tx, y: ty });   // a target inside a wall: stop at the nearest open cell
   // string-pull: skip waypoints we can walk past in a straight line
   const out = [];
   let cur = { x: sx, y: sy }, i = 0;
@@ -297,12 +307,12 @@ function ctl(what) {
 // Guided tutorial (first Night 1 only)
 // ============================================================
 const TUTORIAL = [
-  { text: () => `${ctl('sneak')} to sneak. Sneaking is silent and harder to spot.`, done: () => player.crouch && player.moving && (G.tutT += 1 / 60) > 1.2 },
+  { text: () => `${ctl('sneak')} to sneak. Sneaking is silent and harder to spot.`, done: () => { const mv = dist(player.x, player.y, G.tutPX ?? player.x, G.tutPY ?? player.y); G.tutPX = player.x; G.tutPY = player.y; return player.crouch && mv > 0.2 && (G.tutT += mv / 85) > 1.2; } },
   { text: 'Find a deer. The green arrow points to the nearest one.', done: () => deer.some(d => d.dead) || G.delivered > 0 || (nearestDeer() && dist(player.x, player.y, nearestDeer().x, nearestDeer().y) < 320 && los(player.x, player.y, nearestDeer().x, nearestDeer().y)) },
   { text: () => `${ctl('draw')} to draw your bow. ${ctl('release')} when the ring turns GREEN.`, done: () => deer.some(d => d.dead) || G.delivered > 0 },
   { text: () => `Walk to the deer and ${ctl('press')} ${ctl('use')} to drag it. Bring it home to your shed (yellow arrow).`, done: () => G.delivered > 0 },
   { text: () => `At your shed, ${ctl('press')} ${ctl('use')} to pack a cooler of venison from the freezer.`, done: () => player.cooler > 0 || G.packedCooler },
-  { text: () => `Follow the green arrow to Steve's van. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('use')} to open his menu, then choose Sell.`, done: () => (G.soldPacks || 0) > 0 },
+  { text: () => G.police ? `Steve won't open with cops around. Bring the cooler back to your shed and ${ctl('press')} ${ctl('use')} to unpack it. Sell another night.` : `Follow the green arrow to Steve's van. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('use')} to open his menu, then choose Sell.`, done: () => (G.soldPacks || 0) > 0 || (G.police && G.packedCooler && !player.cooler) },
 ];
 function nearestDeer() {
   let best = null, bd = 1e9;

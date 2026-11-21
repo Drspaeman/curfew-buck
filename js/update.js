@@ -37,6 +37,7 @@ function update(dt) {
   if (G.chirpT <= 0) { G.chirpT = rnd(1.2, 3.5); if (G.weather !== 'rain' && progress() < 0.8) sfx.chirp(); }
 
   updatePlayer(dt);
+  if (state !== 'play') return;   // the night ended at the shed this frame: stats are already settled
   if (tyler) updateTyler(dt);
   updateArrows(dt);
   updateCones(dt);
@@ -282,6 +283,7 @@ function updateCritters(dt) {
   const pd = c => dist(c.x, c.y, player.x, player.y);
   for (const c of critters) {
     if (c.dead) {
+      if (!c.settled) { c.settled = true; for (let k = 0; k < 3; k++) moveCircle(c, 0, 0, 10); }
       if (pd(c) < 22) {
         c.gone = true;
         const packs = c.type === 'turkey' ? 2 : 1;
@@ -454,6 +456,7 @@ function tryFish() {
   const p = pondNear();
   if (!p) return false;
   const bx = clamp(player.x, p.x + 14, p.x + p.w - 14), by = clamp(player.y, p.y + 14, p.y + p.h - 14);
+  player.drawing = false;
   player.fishing = { pond: p, t: rnd(2.5, 6), bite: 0, bx: bx + rnd(-10, 10), by: by + rnd(-10, 10) };
   tone(900, 0.08, 'sine', 0.04, 300);
   popup(player.x, player.y - 30, 'Line in the water... wait for the bite (E when you see !)', '#9ecbff', 2);
@@ -473,8 +476,7 @@ function reelIn() {
   player.bag = (player.bag || 0) + packs;
   sfx.deliver();
   popup(player.x, player.y - 30, `You caught ${catchName}${packs ? ` (+${packs} pack${packs > 1 ? 's' : ''})` : ''}`, '#9be564', 2.4);
-  unlock('fisher');
-  G.fish = (G.fish || 0) + 1;
+  if (packs > 0 || catchName.includes('KOI')) { unlock('fisher'); G.fish = (G.fish || 0) + 1; }
 }
 function updateFishing(dt) {
   const f = player.fishing;
@@ -783,7 +785,7 @@ function updateArrows(dt) {
       if (t >= 0 && t < bestT) { bestT = t; hit = { k: 'wall' }; }
     }
     for (const tr of world.trees) {
-      if (Math.abs(tr.x - a.x) > 80 || Math.abs(tr.y - a.y) > 80) continue;
+      if (Math.abs(tr.x - a.x) > 80 + Math.abs(dx) || Math.abs(tr.y - a.y) > 80 + Math.abs(dy)) continue;
       const t = segCircle(a.x, a.y, x2, y2, tr.x, tr.y, tr.trunk + 3);
       if (t >= 0 && t < bestT) { bestT = t; hit = { k: 'wall' }; }
     }
@@ -870,7 +872,7 @@ function updateArrows(dt) {
         popup(w.x, w.y - 36, pick(QUIPS.arrow), '#ff6b6b');
         w.stare = 2; w.lastX = player.x; w.lastY = player.y;
         if (w.type === 'cop') G.arrest = Math.min(1, G.arrest + 0.5);
-        else if (!G.police) { G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); }
+        else if (!G.police) { G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); if (G.sus >= 100) callPolice(w); }
         investigate(w, player.x, player.y);
       } else sfx.thunk();
     } else if (a.life <= 0) a.flying = false;
@@ -943,7 +945,9 @@ function updateDeer(d, dt) {
   let smellR = downwind ? (has('scent') ? spook * 1.15 : spook * 1.8) : 0;
   if (G.stink > 0) smellR = Math.max(smellR, spook * 1.7); // skunked: they smell you from every direction
   // Alert tier: just outside spooking range the deer freezes and stares. Keep moving and it bolts.
-  if (d.state !== 'flee' && !player.hidden && pd >= spook && pd < spook * 1.45) {
+  const sees = pd < spook * 1.45 && los(d.x, d.y, player.x, player.y);
+  if (!sees) spook *= 0.6;   // heard through a wall or fence, not seen
+  if (d.state !== 'flee' && !player.hidden && sees && pd >= spook && pd < spook * 1.45) {
     d.alertT = Math.max(0, (d.alertT || 0) + (player.moving ? (player.crouch ? 0.5 : 1.2) : -0.4) * dt);
     if (d.alertT > 1.5) { d.alertT = 0; fleeFrom(d, player.x, player.y); }
   } else if (d.alertT > 0) d.alertT = Math.max(0, d.alertT - dt);
@@ -981,7 +985,7 @@ function updateDeer(d, dt) {
   }
   else if (d.state === 'lured') {
     const ld = dist(d.x, d.y, d.lure.x, d.lure.y);
-    d.ang = Math.atan2(d.lure.y - d.y, d.lure.x - d.x);
+    if (d.detour > 0) d.detour -= dt; else d.ang = Math.atan2(d.lure.y - d.y, d.lure.x - d.x);
     spd = ld > 150 ? 70 : 0;
     if (ld <= 150 || d.t <= 0) { d.state = 'graze'; d.t = rnd(4, 8); }
   }
@@ -991,7 +995,7 @@ function updateDeer(d, dt) {
     const ox = d.x, oy = d.y;
     moveCircle(d, Math.cos(d.ang) * spd * dt, Math.sin(d.ang) * spd * dt, DEER_R);
     if (dist(ox, oy, d.x, d.y) < spd * dt * 0.35) {
-      if (d.goal) { d.ang += (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2; d.detour = 0.9; }
+      if (d.goal || d.state === 'lured') { d.ang += (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2; d.detour = 0.9; }
       else d.ang += Math.PI * rnd(0.5, 1.5);
     }
   }
@@ -1084,7 +1088,19 @@ function updateK9(w, dt) {
   const d = dist(w.x, w.y, tgt.x, tgt.y);
   const s = w.speed * dt;
   if (d <= s) { w.x = tgt.x; w.y = tgt.y; if (tgt !== player) w.ti++; }
-  else { w.ang = Math.atan2(tgt.y - w.y, tgt.x - w.x); w.x += Math.cos(w.ang) * s; w.y += Math.sin(w.ang) * s; }
+  else {
+    w.ang = Math.atan2(tgt.y - w.y, tgt.x - w.x);
+    const ox = w.x, oy = w.y;
+    moveCircle(w, Math.cos(w.ang) * s, Math.sin(w.ang) * s, 10);   // Sarge goes around houses, not through them
+    if (dist(ox, oy, w.x, w.y) < s * 0.3) {
+      w.stuckT = (w.stuckT || 0) + dt;
+      if (w.stuckT > 0.5) {
+        w.stuckT = 0;
+        const p = tgt !== player && findPath(w.x, w.y, tgt.x, tgt.y);
+        if (p && p.length > 1) G.trail.splice(w.ti, 0, ...p.slice(0, -1)); else if (tgt !== player) w.ti++;
+      }
+    } else w.stuckT = 0;
+  }
   w.barkT -= dt;
   if (Math.random() < dt * 8) particles.push({ x: w.x + Math.cos(w.ang) * 16, y: w.y + Math.sin(w.ang) * 16, vx: rnd(-20, 20), vy: rnd(-20, 20), t: 0.4, c: '#ddd' });
   if (w.barkT <= 0) { w.barkT = rnd(2, 3.5); sfx.bark(); popup(w.x, w.y - 22, pick(['ARF! ARF!', 'AWOOOO!', '*sniff sniff* WOOF!']), '#9ecbff', 1); }
@@ -1096,7 +1112,8 @@ function spawnK9() {
   const start = G.trail[0] || { x: player.x, y: player.y };
   const k = makeWatcher('k9', [start], { speed: 158, fov: 0.01, range: 1, pause: 0, rate: 0, label: 'K-9 Unit "Sarge"' });
   k.x = cop ? cop.x : world.vx[0] + 60; k.y = cop ? cop.y : M + 10; k.ti = 0; k.barkT = 1;
-  G.trail.unshift({ x: k.x, y: k.y });
+  const lead = findPath(k.x, k.y, start.x, start.y);   // from the patrol car to the start of the scent, around buildings
+  G.trail.unshift({ x: k.x, y: k.y }, ...(lead && lead.length > 1 ? lead.slice(0, -1) : []));
   watchers.push(k);
   banner('K-9 UNIT DEPLOYED: Sarge is following your scent. Bushes won\'t help. Get to your shed!', '#9ecbff');
 }
@@ -1156,7 +1173,7 @@ function updateWatcher(w, dt) {
 function coneRange(w) { return w.range * dayFactor() * weatherVis() * (G ? moonFx().range : 1) * (G && G.flash > 0 ? 1.5 : 1) * (w.yawn > 0 ? 0.6 : 1); }
 
 function computeCone(w) {
-  const R = coneRange(w);
+  const R = coneRange(w) * sightMult();
   const rects = [], circles = [];
   for (const s of gridQuery(w.x - R, w.y - R, w.x + R, w.y + R, 's')) {
     if (s.noLos || s.x > w.x + R || s.x + s.w < w.x - R || s.y > w.y + R || s.y + s.h < w.y - R) continue;
@@ -1172,19 +1189,25 @@ function computeCone(w) {
   w.poly = pts;
 }
 
+// How much farther (or nearer) watchers can spot Dale right now. The cones are drawn with it too.
+function sightMult() {
+  if (!player) return 1;
+  let m = 1;
+  if (player.crouch) m *= 0.65;
+  if (player.lit) m *= 1.35;
+  if (player.carry && !has('tarp')) m *= 1.25;
+  if (player.cooler) m *= 1.15;
+  if (G && G.buzz > 0) m *= 1.1;
+  if (has('ghillie')) m *= 0.8;
+  if (player.shadow && !player.lit) m *= 0.75;
+  return m;
+}
 function canSee(w) {
   if (w.type === 'drone') return droneSees(w);
   if (w.type === 'k9') return false;
   if (w.asleep > 0 || w.eating > 0) return false;
   const d = dist(w.x, w.y, player.x, player.y);
-  let range = coneRange(w);
-  if (player.crouch) range *= 0.65;
-  if (player.lit) range *= 1.35;
-  if (player.carry && !has('tarp')) range *= 1.25;
-  if (player.cooler) range *= 1.15;
-  if (G.buzz > 0) range *= 1.1;
-  if (has('ghillie')) range *= 0.8;
-  if (player.shadow && !player.lit) range *= 0.75;
+  const range = coneRange(w) * sightMult();
   if (d > range) return false;
   if (player.hidden && d > 55) return false;
   const a = Math.atan2(player.y - w.y, player.x - w.x);

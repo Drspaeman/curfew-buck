@@ -50,6 +50,15 @@ function buildWorld() {
   exHouse.ex = true; exHouse.roof = '#a24d7a'; exHouse.wall = '#f2d7e4'; exHouse.lit = [true, true, false];
   // Dale's home: the "guest house" (a shed) in Darlene's backyard, per the divorce decree.
   const truck = { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y + exHouse.h + 76, w: 100, h: 70, shed: true };
+  // On short blocks (random maps) the backyard neighbor's house can sit right where the shed door opens:
+  // pull the shed in toward Darlene's house, and if that's still not enough, the neighbor's house is shallower.
+  {
+    const behind = houses.filter(h => h !== exHouse && h.x < truck.x + truck.w + 24 && h.x + h.w > truck.x - 24 && h.y > exHouse.y);
+    const nextTop = Math.min(Infinity, ...behind.map(h => h.y));
+    truck.y = Math.max(exHouse.y + exHouse.h + 16, Math.min(truck.y, nextTop - truck.h - 44));
+    const doorEnd = truck.y + truck.h + 44;
+    for (const h of behind) if (h.y < doorEnd) { const cut = doorEnd - h.y; h.y += cut; h.h -= cut; }
+  }
   // Sketchy Steve's van, parked on the east logging road. He buys venison, no questions asked.
   const van = { x: W - 205, y: hy[0] + 30, w: 116, h: 56 };
   // Backyard swimming pools: you can't walk through them, but you can see (and shoot) across.
@@ -543,6 +552,7 @@ function spawnDeer(woodsOnly, legend) {
   for (let k = 0; k < 300; k++) {
     const x = rnd(40, W - 40), y = rnd(40, H - 40);
     if (world.blocked(x, y, 30)) continue;
+    if (world.trees.some(t => Math.abs(t.x - x) < 40 && Math.abs(t.y - y) < 40 && dist(t.x, t.y, x, y) < t.trunk + DEER_R + 4)) continue;
     if ((woodsOnly || legend) && !world.inWoods(x, y)) continue;
     if (player && dist(x, y, player.x, player.y) < 600) continue;
     if (dist(x, y, 130, world.hy[0] + 60) < (legend ? 1400 : 500)) continue;
