@@ -90,7 +90,7 @@ async function netHostLobby(kind, which) {
   const b = netUse(which);
   netResetSession();
   if (!b || !b.available) { NET.err = which === 'Steam' ? 'Steam isn\'t available here. Open the desktop app with Steam running.' : 'This browser can\'t do local play.'; return; }
-  NET.role = 'host'; NET.kind = kind; NET.live = false; NET.err = '';
+  NET.role = 'host'; NET.kind = kind; NET.live = false; NET.err = ''; NET.runSeed = 0;
   NET.status = 'Creating a lobby…';
   try {
     const r = await b.host(kind);
@@ -149,6 +149,12 @@ function netOnMessage(str) {
       if (m.v && m.v !== VERSION) { netSend({ t: 'refuse', why: `Version mismatch: host has v${VERSION}, you have v${m.v}.` }); if (NET.backend.unpair) NET.backend.unpair(); return; }
       netResetSession(); NET.live = true;
       NET.status = NET.peer + ' joined!';
+      if (G && twoP() && NET.runSeed && NET.runNight === night && !['online', 'title'].includes(state)) {
+        // back after leaving mid-hunt: join the hunt in progress instead of restarting it (snapshots fill in the rest)
+        netSend({ t: 'start', seed: NET.runSeed, night, diff: NET.runDiff, campaign: netCampaign(), hash: worldHash() });
+        banner(`🌐 ONLINE: ${NET.peer} is back.`, '#9be564');
+        return;
+      }
       startTwoPlayer(NET.kind);     // the startNight wrapper below sends 'start'
       banner(`🌐 ONLINE: ${NET.peer} is ${NET.kind === 'versus' ? 'driving the HOA cart' : 'Tyler'}.`, '#9be564');
     } else if (m.t === 'in' && NET.live) {
@@ -183,6 +189,7 @@ startNight = function () {
   const seed = 1 + Math.floor(Math.random() * 2147483646);
   Math.random = mulberry32(seed);
   try { _startNightLocal(); } finally { restoreRandom(); }
+  NET.runSeed = seed; NET.runNight = night; NET.runDiff = settings.difficulty;
   netSend({ t: 'start', seed, night, diff: settings.difficulty, campaign: netCampaign(), hash: worldHash() });
   NET.sendT = 0;
 };
@@ -243,7 +250,7 @@ function netSnapshot() {
   return {
     t: 'snap', st: state, night, G: G ? g : null, player, tyler, deer, watchers, arrows, cones, drops: drops.slice(-200), popups,
     particles: particles.slice(-60), toasts, critters,
-    w: world ? { dogs: world.dogs, floods: world.floods, sprinklers: world.sprinklers, lights: world.lights } : null,
+    w: world ? { dogs: world.dogs, floods: world.floods, sprinklers: world.sprinklers, lights: world.lights, props: world.props } : null,
     campaign: netCampaign(), sfx: NET.sfxQ.splice(0),
   };
 }

@@ -1406,7 +1406,7 @@ function drawScreens(now) {
   }
   if (state !== menuState) { menuState = state; menuScroll = 0; }
   menuScroll = clamp(menuScroll, 0, menuMax);
-  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt', 'modes', 'players', 'extras'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
+  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt', 'modes', 'players', 'extras', 'custom'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
   menuBottom = 0; drawScroll = menuScroll;
   const realFill = ctx.fillText;
@@ -1461,7 +1461,7 @@ function drawScreenBody(now) {
     }
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
     const nAch = Object.keys(ACH).filter(k => achievements[k]).length;
-    y = wrapText(`Best score: ${best}  ·  Achievements: ${nAch} / ${Object.keys(ACH).length}  ·  ${pad.connected ? '🎮 Gamepad connected (A to start)' : touchMode ? 'Touch controls on' : 'Keyboard + mouse, gamepad, or touch'}`, cx, y + 22, maxW, 18);
+    y = wrapText(`Best score: ${best}  ·  Achievements: ${nAch} / ${Object.keys(ACH).length}  ·  ${pad.connected ? '🎮 A: start · D-pad: menus' : touchMode ? 'Touch controls on' : 'Keyboard + mouse, gamepad, or touch'}`, cx, y + 22, maxW, 18);
     buttonGrid([
       { label: '🗺 Play modes ▸', fn: () => { state = 'modes'; }, hi: true },
       { label: '👥 Two players ▸', fn: () => { state = 'players'; }, hi: true },
@@ -1542,7 +1542,7 @@ function drawScreenBody(now) {
     drawSettings();
   } else if (state === 'online') {
     drawOnline(now);
-  } else if (state === 'modes' || state === 'players' || state === 'extras') {
+  } else if (state === 'modes' || state === 'players' || state === 'extras' || state === 'custom') {
     drawSubmenu(state);
   } else if (state === 'crypt') {
     drawCrypt();
@@ -1566,12 +1566,12 @@ function drawScreenBody(now) {
     wrapText('Replay any night you\'ve reached. Later nights start with some cash for gear.', cx, VH * 0.22 + 34, maxW, 18);
     const bs = store.get('hs_stars', []);
     const sv = readSave(), ask = nightAsk && performance.now() - nightAsk.at < 3000 ? nightAsk.n : 0;
-    buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n > reached ? '🔒' : ask === n ? 'Again: replace save?' : `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}`, fn: () => { if (sv && ask !== n) { nightAsk = { n, at: performance.now() }; return; } nightAsk = null; startAtNight(n); }, enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
+    const gy = buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n > reached ? '🔒' : ask === n ? 'Again: replace save?' : `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}`, fn: () => { if (sv && ask !== n) { nightAsk = { n, at: performance.now() }; return; } nightAsk = null; startAtNight(n); }, enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
     if (sv) { ctx.fillStyle = '#e0b83a'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(`Starting a night here replaces your saved season (Night ${sv.night}).`, cx, VH * 0.22 + 52); }
     const eb = store.get('hs_endless_best', 0);
-    if (eb) { ctx.fillStyle = '#9ecbff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(eb > 5 ? `Endless mode: last night cleared ${eb}` : 'Endless mode: no night cleared yet', cx, VH * 0.22 + 150); }
+    if (eb) { ctx.fillStyle = '#9ecbff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(eb > 5 ? `Endless mode: last night cleared ${eb}` : 'Endless mode: no night cleared yet', cx, gy + 16); }
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText('Click anywhere else or press Esc to go back', cx, VH * 0.22 + 180);
+    ctx.fillText('Click anywhere else or press Esc to go back', cx, gy + (eb ? 46 : 20));
   } else if (state === 'nightdone' || state === 'over') {
     const r = G.endReason;
     const titles = {
@@ -1679,6 +1679,13 @@ const SUBMENUS = {
     { label: '🆚 Versus (one keyboard)', fn: () => startTwoPlayer('versus') },
     { label: '🌐 Online play', fn: () => openOnline(), hi: true },
   ]],
+  custom: ['🧩 CUSTOM MAP', 'Play the map you loaded last time, or load a different one.', () => {
+    const saved = store.get('hs_custom_map', null);
+    return [
+      { label: '▶ Play ' + String(saved && saved.name || 'saved map'), fn: () => { if (!saved || !startCustomMap(saved)) pickMapFile(); }, hi: true },
+      { label: '📂 Load a .json map', fn: () => pickMapFile() },
+    ];
+  }],
   extras: ['📜 EXTRAS', 'The rest of Whispering Pines.', () => [
     { label: 'Night select', fn: () => { state = 'nights'; } },
     { label: 'Who\'s Who', fn: () => { state = 'whoswho'; } },
@@ -1695,7 +1702,7 @@ function drawSubmenu(which) {
     y = buttonGrid([it], y, Math.min(320, VW - 40), 42, 6);
     if (it.sub) { ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(it.sub, cx, y + 6); y += 18; }
   }
-  buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; } }], y + 14, 160, 38);
+  buttonGrid([{ label: '◀ Back', fn: () => { state = which === 'custom' ? 'modes' : 'title'; } }], y + 14, 160, 38);
 }
 function buttonGrid(items, y, w, h, gap = 10) {
   const perRow = clamp(Math.floor((VW - 24 + gap) / (w + gap)), 1, Math.min(3, items.length));
@@ -1710,10 +1717,12 @@ function buttonGrid(items, y, w, h, gap = 10) {
 }
 
 function button(x, y, w, h, label, fn, enabled = true, highlight = false) {
-  const hover = mouse.x >= x && mouse.x <= x + w && mouse.y + drawScroll >= y && mouse.y + drawScroll <= y + h;
+  const focused = enabled && pad.connected && padFocus === uiButtons.length && padFocusState === state;
+  const hover = focused || (mouse.x >= x && mouse.x <= x + w && mouse.y + drawScroll >= y && mouse.y + drawScroll <= y + h);
   ctx.fillStyle = !enabled ? 'rgba(60,60,60,0.6)' : highlight ? (hover ? '#ffdf8a' : '#ffd166') : hover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
   roundRect(ctx, x, y, w, h, 8); ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+  if (focused) { ctx.strokeStyle = '#ff7a1a'; ctx.lineWidth = 3; roundRect(ctx, x - 3, y - 3, w + 6, h + 6, 10); ctx.stroke(); }
   ctx.fillStyle = highlight ? '#111' : enabled ? '#fff' : '#888';
   ctx.font = 'bold 14px system-ui, sans-serif'; ctx.textAlign = 'center';
   ctx.fillText(fitText(label, w - 14), x + w / 2, y + h / 2 + 5);   // long labels shrink to fit the button

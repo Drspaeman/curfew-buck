@@ -33,7 +33,7 @@ window.addEventListener('keydown', e => {
   }
   if (state === 'play' && e.code === 'KeyH' && !netLive()) { player.drawing = false; state = 'photo'; unlock('photo'); return; }
   if ((['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt'].includes(state)) && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) state = ['nights', 'whoswho', 'trophies', 'credits'].includes(state) ? 'extras' : 'title';
-  else if (['modes', 'players', 'extras'].includes(state) && e.code === 'Escape') state = 'title';
+  else if (['modes', 'players', 'extras', 'custom'].includes(state) && e.code === 'Escape') state = state === 'custom' ? 'modes' : 'title';
   else if (state === 'title' && ['KeyK', 'KeyO', 'KeyI'].includes(e.code)) {
     titleEgg = (titleEgg + e.code.slice(3)).slice(-3);
     if (titleEgg === 'KOI') { titleEgg = ''; toasts.push({ title: 'HOA AQUATICS AUDIT', desc: 'One koi is listed as a gazebo.', t: 4 }); sfx.grab(); }
@@ -55,7 +55,6 @@ window.addEventListener('keydown', e => {
   } else if (state === 'pause') {
     if (e.code === 'KeyP' || e.code === 'Escape' || e.code === 'Enter') state = 'play';
     if (e.code === 'KeyR') restartNight();
-    if (e.code === 'KeyN') newCampaign();
   }
   else if (state === 'nightdone' && (e.code === 'Enter' || e.code === 'Space')) goShop();
   else if (state === 'shop') {
@@ -71,7 +70,7 @@ window.addEventListener('keyup', e => {
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touch.mx = touch.my = 0; if (netClient()) { NET.lastIn = ''; NET.inT = 0; } if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
-cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; aimBy = 'mouse'; });
 cv.addEventListener('mousedown', e => {
   mouse.x = e.clientX; mouse.y = e.clientY;
   if (state === 'play' && e.button === 2) { throwCone(); return; }
@@ -99,6 +98,40 @@ cv.addEventListener('wheel', e => { if (state !== 'play' && menuMax > 0) { e.pre
 // ============================================================
 const pad = { connected: false, prev: [], mx: 0, my: 0, aim: null, crouch: false, draw: false };
 let shopSel = 0, titleEgg = '';
+// Aiming follows whichever device was used last, so an idle controller can't steal the mouse or touch aim
+let aimBy = 'mouse';
+// Gamepad menu focus: the D-pad moves between the buttons on any menu screen, A presses the focused one
+let padFocus = -1, padFocusState = null;
+function padNeighbor(i, dx, dy) {
+  const c = b => [b.x + b.w / 2, b.y + b.h / 2], [x0, y0] = c(uiButtons[i]);
+  let best = i, bs = Infinity;
+  uiButtons.forEach((b, j) => {
+    if (j === i) return;
+    const [x, y] = c(b), along = (x - x0) * dx + (y - y0) * dy, side = Math.abs((x - x0) * dy) + Math.abs((y - y0) * dx);
+    if (along <= 4) return;
+    if (along + side * 2 < bs) { bs = along + side * 2; best = j; }
+  });
+  return best;
+}
+function padScrollTo(b) { if (!b) return; if (b.y < 50) scrollMenu(b.y - 50); else if (b.y + b.h > VH - 50) scrollMenu(b.y + b.h - VH + 50); }
+function padMenuNav(edge) {
+  if (!uiButtons.length || ['story', 'steve', 'court', 'shop', 'keys', 'play'].includes(state)) return false;
+  const dirs = [[12, 0, -1], [13, 0, 1], [14, -1, 0], [15, 1, 0]];
+  for (const [i, dx, dy] of dirs) if (edge(i)) {
+    padFocus = padFocus < 0 || !uiButtons[padFocus] ? 0 : padNeighbor(padFocus, dx, dy);
+    padScrollTo(uiButtons[padFocus]);
+    return true;
+  }
+  if (edge(0)) {
+    const btn = padFocus >= 0 && uiButtons[padFocus];
+    if (btn) { btn.fn(); return true; }
+    // sub-menus (and the season's last results, which offer Endless) wait for a choice instead of backing out
+    if (['modes', 'players', 'extras', 'custom', 'settings', 'crypt'].includes(state) || (state === 'over' && night === 5 && G && G.endReason === 'win' && !oneNightMode())) {
+      padFocus = 0; padScrollTo(uiButtons[0]); return true;
+    }
+  }
+  return false;
+}
 function pollPad() {
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
   const gp = gps[0];
@@ -121,6 +154,8 @@ function pollPad() {
   pad.crouch = !!(b[4] || b[10] || b[6]);
   pad.look = !!b[5];
   pad.sprint = !!b[11];
+  if (b.some(Boolean) || pad.aim !== null || pad.mx || pad.my) aimBy = 'pad';
+  if (state !== padFocusState) { padFocus = -1; padFocusState = state; }
   if (netClient()) { if (edge(0) || edge(7)) NET.action++; if (edge(9)) netLeave(); }
   else if (state === 'play') {
     if (b[7] && !pad.draw) { pad.draw = true; startDraw(); }
@@ -151,9 +186,14 @@ function pollPad() {
     if (edge(12)) shopSel = (shopSel + SHOP.length - 1) % SHOP.length;
     if (edge(13)) shopSel = (shopSel + 1) % SHOP.length;
     if (edge(0)) buy(SHOP[shopSel]);
+    if (edge(2) && uiButtons[0] && (campaign.freezer > 0 || (campaign.racks || []).length)) uiButtons[0].fn();   // X: sell to Earl
     if (edge(9)) { night++; startNight(); }
+  } else if (padMenuNav(edge)) {
+    /* the D-pad moved the menu focus, or A pressed the focused button */
   } else if (edge(0) || edge(9) || edge(1)) {
-    if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores', 'crypt', 'modes', 'players', 'extras'].includes(state)) state = 'title';
+    if (['whoswho', 'nights', 'trophies', 'credits'].includes(state)) state = 'extras';
+    else if (state === 'custom') state = 'modes';
+    else if (['settings', 'scores', 'crypt', 'modes', 'players', 'extras'].includes(state)) state = 'title';
     else if (edge(1)) { /* B only backs out of sub-menus */ }
     else if (state === 'title') { if (!loadGame()) newCampaign(); }
     else if (state === 'intro' || state === 'pause') state = 'play';
@@ -169,9 +209,9 @@ function pollPad() {
 let touchMode = false;
 const touch = { menuId: null, menuY: 0, menuX: 0, menuMoved: 0, stickId: null, sx: 0, sy: 0, x: 0, y: 0, mx: 0, my: 0, aimId: null, crouch: false };
 function touchButtons() {
-  if (state !== 'play') return [];
-  const r = VW < 500 ? 26 : 30, x = VW - r - 16;
-  let y = VH - r - 70;
+  if (state !== 'play' || netClient()) return [];
+  const r = VW < 500 ? 26 : 30;
+  let x = VW - r - 16, y = VH - r - 70;
   const list = [
     { id: 'drag', label: player.carry ? 'DROP' : player.fishing ? 'REEL' : nearVan() ? 'STEVE' : 'USE', fn: interact },
     { id: 'cone', label: '🌰', fn: throwCone },
@@ -183,8 +223,10 @@ function touchButtons() {
   if (campaign.items.jerky && world.dogs.some(g => !g.quiet && dist(g.ax, g.ay, player.x, player.y) < 140)) list.push({ id: 'jerky', label: 'JERKY', fn: feedDog, hot: true });
   if (G.mom && G.mom.state === 'buzz') list.unshift({ id: 'mom', label: '📵', fn: declineCall, hot: true });
   const out = [];
-  for (const b of list) { out.push(Object.assign({ x, y, r }, b)); y -= r * 2 + 12; }
   const mmH = Math.max(70, Math.min(220, VW * 0.25, VW - 300)) * H / W;
+  // a tall stack wraps into a second column instead of sliding under Pause and Map
+  const topLimit = 16 + mmH + 80 + 18 + r + 10;
+  for (const b of list) { if (y < topLimit) { x -= r * 2 + 12; y = VH - r - 70; } out.push(Object.assign({ x, y, r }, b)); y -= r * 2 + 12; }
   out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
   out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
   if (nearTruck()) out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && G.delivered < G.quota ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: VW / 2, y: VH - 120, r: 34, hot: true });
@@ -193,7 +235,7 @@ function touchButtons() {
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
 cv.addEventListener('touchstart', e => {
   e.preventDefault();
-  touchMode = true;
+  touchMode = true; aimBy = 'mouse';
   const lb = NET.leaveBtn, t0 = e.changedTouches[0];
   if (netClient() && lb && t0 && t0.clientX >= lb.x && t0.clientX <= lb.x + lb.w && t0.clientY >= lb.y && t0.clientY <= lb.y + lb.h) { netLeave(); return; }
   for (const t of e.changedTouches) {
@@ -253,6 +295,7 @@ function drawTouchControls() {
     ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left';
     ctx.fillText('◀ Left thumb: move (light push = sneak)', 16, VH - 34);
   }
+  if (netClient()) { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.fillText('Tap the right side: action ▶', VW - 16, VH - 34); ctx.textAlign = 'left'; }
   for (const b of touchButtons()) {
     ctx.fillStyle = b.hot ? 'rgba(255,209,102,0.85)' : 'rgba(20,24,30,0.7)';
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();

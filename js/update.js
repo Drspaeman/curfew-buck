@@ -661,7 +661,7 @@ function updatePlayer(dt) {
     if (!player.crouch && Math.random() < dt * 10) particles.push({ x: player.x + rnd(-6, 6), y: player.y + rnd(-6, 6), vx: rnd(-15, 15), vy: rnd(-15, 15), t: 0.5, c: world.inWoods(player.x, player.y) ? '#5a4a30' : '#7a7a70' });
     player.moveAng = Math.atan2(my, mx);
   }
-  if (pad.connected && (pad.aim !== null || len > 0)) {
+  if (pad.connected && aimBy === 'pad' && (pad.aim !== null || len > 0)) {
     // Right stick aims; otherwise aim where you're walking. Keep the virtual mouse in sync for pinecones.
     player.ang = pad.aim !== null ? pad.aim : Math.atan2(my, mx);
     mouse.x = player.x - cam.x + Math.cos(player.ang) * 260;

@@ -47,10 +47,11 @@ function drawYotm() {
 
 // Daily records are kept per difficulty, so an Easy score never sits on the Normal board (Normal keeps the plain date key)
 function dailyRecordKey() { return campaign.daily + (settings.difficulty && settings.difficulty !== 'normal' ? ':' + settings.difficulty : ''); }
+function dailySeed(key) { let h = 7; for (const ch of String(key)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
 function startDaily() {
   // Same starting layout (deer, critters, notes, weather) for everyone on the same day.
   const key = dailyKey();
-  let h = 7; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const h = dailySeed(key);
   Math.random = mulberry32(h);
   campaign = freshCampaign(); campaign.daily = key;
   campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
@@ -237,13 +238,14 @@ function courtPlea(i) {
   } else {
     G.court = { ok: false, text: i === 1 ? '"Raccoons don\'t carry compound bows, Mr. Pruitt." Guilty.' : i === 2 ? 'Earl\'s nephew objects to his own client. Guilty.' : '"The freezer is not a legal defense." Guilty. Your season is over.' };
     sfx.lose();
+    recordScore(); G.court.recorded = true;   // on the board now, even if the tab closes before Continue
   }
   // the verdict is final the moment it is read: a reload can't buy a second plea
   if (G.court.ok) saveNext(); else clearSave();
 }
 function finishCourt() {
   if (G.court.ok) { pickSpecial(); state = 'shop'; saveNext(); return; }
-  recordScore();
+  if (!G.court.recorded) recordScore();
   clearSave();
   state = 'over';
 }
@@ -407,6 +409,7 @@ const EARL_LINES = [
   '"Squirrel chili sold out by noon. You\'re basically a supplier now."',
 ];
 
+let shopScrolledFor = -1;
 // ---- Country Club map ----
 const GOLF_INTRO = 'Bonus night: the Whispering Pines Country Club, the HOA\'s crown jewel. The deer have been eating the greens, and Linda would rather die than let you hunt here. Earl lent you his truck. Fill the bed before sunrise.';
 // The local top-10, checked: anything that isn't a list of score rows reads as empty
@@ -414,9 +417,13 @@ function readScores() {
   const raw = store.get('hs_scores', []);
   return Array.isArray(raw) ? raw.filter(r => r && typeof r === 'object' && Number.isFinite(r.score)) : [];
 }
+const DIFF_ORDER = ['easy', 'normal', 'hard'];
+function easierDiff(a, b) { if (!DIFF_ORDER.includes(a)) return b; return DIFF_ORDER.indexOf(a) <= DIFF_ORDER.indexOf(b) ? a : b; }
 function recordScore() {
   const scores = readScores();
-  scores.push({ score: campaign.score, night, cash: campaign.cash, date: new Date().toLocaleDateString(), deer: campaign.totalDeer || 0, diff: settings.difficulty });
+  const row = { score: campaign.score, night, cash: campaign.cash, date: new Date().toLocaleDateString(), deer: campaign.totalDeer || 0, diff: easierDiff(campaign.diffLow, settings.difficulty), sid: campaign.sid };
+  const at = campaign.sid ? scores.findIndex(r => r.sid === campaign.sid) : -1;   // Endless after Night 5: same season, same row
+  if (at >= 0) scores[at] = row; else scores.push(row);
   scores.sort((a, b) => b.score - a.score); store.set('hs_scores', scores.slice(0, 10));
 }
 function drawScores() {
@@ -434,7 +441,7 @@ function drawScores() {
   y += 14;
   ctx.fillStyle = '#9ecbff'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('MODE BESTS', cx, y); y += 24;
   const daily = store.get('hs_daily', {}); const dayBest = Math.max(0, ...Object.values(daily));
-  const rows = [['Daily Hunt (best day)', dayBest], ['Daily Hunt (today)', daily[dailyKey()] || 0], ['⛳ Country Club', store.get('hs_golf_best', 0)],
+  const rows = [['Daily Hunt (best day)', dayBest], [`Daily Hunt (today${settings.difficulty !== 'normal' ? ', ' + settings.difficulty : ''})`, daily[dailyKey() + (settings.difficulty && settings.difficulty !== 'normal' ? ':' + settings.difficulty : '')] || 0], ['⛳ Country Club', store.get('hs_golf_best', 0)],
     ['🏘 Maple Court cul-de-sac', store.get('hs_cul_best', 0)], ['🎲 Random neighborhood', store.get('hs_random_best', 0)], ['🎃 Halloween night', store.get('hs_halloween_best', 0)], ['Endless: last night cleared', store.get('hs_endless_best', 0) > 5 ? store.get('hs_endless_best', 0) : 0]];
   ctx.font = '13px system-ui, sans-serif';
   for (const [k, v] of rows) { ctx.fillStyle = v ? '#e8e8e8' : '#777'; ctx.fillText(`${k}: ${v || '—'}`, cx, y); y += 19; }
@@ -860,7 +867,7 @@ function pickMapFile() {
 }
 function customMapMenu() {
   const saved = store.get('hs_custom_map', null);
-  if (!saved || !startCustomMap(saved)) pickMapFile();
+  if (saved && typeof saved === 'object') state = 'custom'; else pickMapFile();
 }
 (function loadMapFromUrl() {
   try {
@@ -1014,7 +1021,7 @@ function drawShop(now) {
     const hover = selected || (mouse.x >= x && mouse.x <= x + bw && my >= rowY && my <= rowY + rowH);
     panel(x, rowY, bw, rowH);
     if ((hover && !owned && afford) || selected) { ctx.strokeStyle = afford && !owned ? '#ffd166' : '#888'; ctx.lineWidth = 2; roundRect(ctx, x, rowY, bw, rowH, 10); ctx.stroke(); }
-    if (selected && pad.connected) { if (rowY - menuScroll < 70) menuScroll = Math.max(0, rowY - 70); else if (rowY + rowH - menuScroll > VH - 70) menuScroll = rowY + rowH - VH + 70; }
+    if (selected && pad.connected && shopScrolledFor !== shopSel) { shopScrolledFor = shopSel; if (rowY - menuScroll < 70) menuScroll = Math.max(0, rowY - 70); else if (rowY + rowH - menuScroll > VH - 70) menuScroll = rowY + rowH - VH + 70; }
     ctx.textAlign = 'left';
     ctx.fillStyle = owned ? '#9be564' : afford ? '#fff' : '#777';
     ctx.font = `bold ${rowH < 40 ? 13 : 14}px system-ui, sans-serif`;
@@ -1031,5 +1038,5 @@ function drawShop(now) {
   button(cx - 130, y, 260, 42, `Start Night ${night + 1}  ▶`, () => { night++; startNight(); }, true, true);
   y -= 6;
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(pad.connected ? 'D-pad ↑/↓ to choose · A to buy or equip · Start to continue' : touchMode ? 'Tap an item to buy' : 'Click an item to buy or equip · keys 1–9 for the first nine · Enter to continue', cx, y + 66);
+  ctx.fillText(pad.connected ? 'D-pad ↑/↓ to choose · A to buy or equip · X sell to Earl · Start to continue' : touchMode ? 'Tap an item to buy' : 'Click an item to buy or equip · keys 1–9 for the first nine · Enter to continue', cx, y + 66);
 }

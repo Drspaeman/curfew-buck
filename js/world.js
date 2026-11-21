@@ -331,7 +331,10 @@ function remapKeyEvent(e) {
     return;
   }
   // local 2-player: arrows, Right Shift and Enter belong to Player 2, whatever Dale's bindings say
-  if (typeof twoP === 'function' && twoP() && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftRight', 'Enter', 'NumpadEnter'].includes(e.code)) return;
+  const P2_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftRight', 'Enter', 'NumpadEnter'];
+  if (typeof twoP === 'function' && twoP() && P2_KEYS.includes(e.code)) return;
+  // ...and an action Dale moved onto one of those keys works on its default key again while two share the keyboard
+  if (typeof twoP === 'function' && twoP() && binds[e.code] && P2_KEYS.includes(binds[e.code])) return;
   const to = keyTrans[e.code];
   if (!to) {
     // a default key that was moved to another action is now "free": don't let it fire its old action
@@ -369,7 +372,7 @@ function fillTag(d) {
 }
 function freshCampaign() {
   return {
-    totalDeer: 0, score: 0, cash: 0, gear: {}, items: {}, hints: {}, stars: [],
+    totalDeer: 0, score: 0, cash: 0, gear: {}, items: {}, hints: {}, stars: [], sid: Date.now(),
     weapon: 'compound', weapons: { compound: true }, freezer: 0, flags: {}, seen: {}, exSightings: 0, earnedTotal: 0,
   };
 }
@@ -413,6 +416,8 @@ function nextHint() {
 }
 
 function startNight() {
+  if (campaign.daily) Math.random = mulberry32(dailySeed(campaign.daily));   // a Restart rebuilds the same Daily
+  if (!oneNightMode()) campaign.diffLow = easierDiff(campaign.diffLow, settings.difficulty);   // the season's easiest difficulty
   if (campaign.map === 'golf') buildGolfWorld(); else if (campaign.map === 'cul' || campaign.map === 'custom') buildCulWorld(); else buildWorld();
   buildNav();
   const NIGHT = Math.round((330 + night * 15 + (night === 4 || night === 5 ? 30 : 0)) * diff().time);   // 4 and 5 get 30 s extra
@@ -477,6 +482,8 @@ function startNight() {
     }
   }
   deer = []; arrows = []; popups = []; particles = []; cones = []; drops = []; marks = []; flies = []; leaves = [];
+  // collectibles depend on what this profile already found; reseed so deer, watchers and critters don't
+  if (campaign.daily) Math.random = mulberry32(dailySeed(campaign.daily) ^ 0x5bd1e995);
   for (let i = 0; i < 9 + night; i++) spawnDeer(false);
   const legendChance = night >= 5 ? 1 : night >= 3 ? 0.5 : 0;
   if (Math.random() < legendChance && !(campaign.flags && campaign.flags.hostaDone && !oneNightMode())) spawnDeer(false, true);   // once he's in the freezer, he stays there
