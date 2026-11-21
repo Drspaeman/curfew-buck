@@ -427,7 +427,7 @@ function drawRaven(x, y, now) {
   ctx.fillStyle = '#7d3cff'; ctx.fillRect(x - 1.5, y - 2.5, 3, 1.2);                                                 // lips
   ctx.fillStyle = '#111'; ctx.fillRect(x - 3, y - 6.5, 1.6, 1.6); ctx.fillRect(x + 1.4, y - 6.5, 1.6, 1.6);          // eyeliner
   ctx.fillStyle = RAVEN_COLOR; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('RAVEN', x, y - 20);
+  if (state !== 'play' || !nearRaven()) ctx.fillText('RAVEN', x, y - 20);   // the [E] prompt names her when you are close
 }
 // Raven's bust: long black hair with blunt bangs, winged liner, purple lips, a moon choker,
 // her band shirt, and Edgar (a crow) on her shoulder. Drawn at any size.

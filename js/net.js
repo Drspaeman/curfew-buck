@@ -316,7 +316,7 @@ function netClientFrame(dt) {
   const me = netMyChar() || player;
   if (me) {
     const tx = W > VW ? clamp(me.x - VW / 2, 0, W - VW) : (W - VW) / 2;
-    const ty = H > VH ? clamp(me.y - VH / 2, 0, H - VH) : (H - VH) / 2;
+    const ty = camTargetY(me.y);
     const c = Math.min(1, dt * 8);
     cam.x = lerp(cam.x, tx, c); cam.y = lerp(cam.y, ty, c);
     cam.shake = Math.max(0, cam.shake - dt * 20);

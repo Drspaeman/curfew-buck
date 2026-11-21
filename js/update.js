@@ -1429,15 +1429,20 @@ function buildNews(reason) {
   return { headline, lines };
 }
 
+// Camera top edge for a focus point. Phones: the HUD covers the top ~310 px and the hint box the bottom, so
+// the camera may run past the map's top and bottom edges by that much (or Dale hides under them at the edge).
+// Shared with the online guest camera in net.js.
+function camTargetY(y) {
+  const narrow = VW < 760, topPad = narrow ? 320 : 0, botPad = narrow ? (G && G.hint ? 200 : 70) : 0;
+  return H > VH - topPad - botPad ? clamp(y - VH / 2, -topPad, H - VH + botPad) : (H - VH) / 2;
+}
+
 function updateCam(dt) {
   // Hold R (or RB on a gamepad) to look ahead toward your aim
   const look = state === 'play' && (keys.KeyR || pad.look) ? 260 : 0;
   const lx = player.x + Math.cos(player.ang) * look, ly = player.y + Math.sin(player.ang) * look;
   const tx = W > VW ? clamp(lx - VW / 2, 0, W - VW) : (W - VW) / 2;
-  // phones: the HUD covers the top ~310 px and the hint box the bottom, so the camera may run past the
-  // map's top and bottom edges by that much. Otherwise Dale hides under them near the edge of the map.
-  const narrow = VW < 760, topPad = narrow ? 320 : 0, botPad = narrow ? (G && G.hint ? 200 : 70) : 0;
-  const ty = H > VH - topPad - botPad ? clamp(ly - VH / 2, -topPad, H - VH + botPad) : (H - VH) / 2;
+  const ty = camTargetY(ly);
   const k = Math.min(1, dt * 8);
   cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k);
   cam.shake = Math.max(0, cam.shake - dt * 20);
