@@ -249,10 +249,10 @@ function updateWorldEvents(dt) {
     if (n.got || dist(n.x, n.y, player.x, player.y) > 22) continue;
     n.got = true;
     G.noticesGot++;
-    G.earned += 30;
+    G.earned += 15;
     sfx.grab();
-    popup(n.x, n.y - 24, n.text + ' (+$30)', '#ffe38a', 3);
-    if (G.noticesGot === 3) { G.earned += 50; unlock('paperwork'); banner('All 3 HOA notices collected! +$50 bonus', '#ffe38a'); }
+    popup(n.x, n.y - 24, n.text + ' (+$15)', '#ffe38a', 3);
+    if (G.noticesGot === 3) { G.earned += 25; unlock('paperwork'); banner('All 3 HOA notices collected! +$25 bonus', '#ffe38a'); }
     hint('notice', 'HOA notices pay cash when you pick them up. Grab all 3 tonight for a $50 bonus.');
   }
 }
@@ -1380,6 +1380,7 @@ function endNight(reason) {
     if (reason === 'win' && night === 5) {
       // last stop before the auction: Earl buys whatever is left in the freezer, at his usual $12 a pack
       if (!oneNightMode() && campaign.freezer > 0) { campaign.earlLast = { packs: campaign.freezer, cash: campaign.freezer * 12 }; campaign.cash += campaign.earlLast.cash; campaign.freezer = 0; }
+      if (!oneNightMode() && settings.difficulty === 'easy') { campaign.earlChip = 300; campaign.cash += 300; }
       if (campaign.cash >= CABIN_GOAL) unlock('cabin');
       playScene(buildEnding(campaign), () => { state = 'over'; });
     } else if (reason === 'arrested' && night <= 5) playScene(SCENES.busted, () => { state = 'over'; });

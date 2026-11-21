@@ -353,7 +353,7 @@ let achievements = store.get('hs_ach', {});
 let toasts = [];
 let uiButtons = []; // clickable rects on menu screens, rebuilt every frame
 
-function quotaFor(n) { return 2 + n; }
+function quotaFor(n) { return Math.min(2 + n, 14); }   // Endless tops out at 14 (Normal; difficulty shifts it by one)
 // Holiday lights: night 6 of every season, and every night in December.
 function isHolidayNight(n) { if (campaign && campaign.map === 'golf') return false; try { if (new Date().getMonth() === 11) return true; } catch (e) {} return n === 6; }
 // Each deer you take uses a tag. Bucks: 2 a night. Does: quota + 1. No tag = poaching.
@@ -415,7 +415,7 @@ function nextHint() {
 function startNight() {
   if (campaign.map === 'golf') buildGolfWorld(); else if (campaign.map === 'cul' || campaign.map === 'custom') buildCulWorld(); else buildWorld();
   buildNav();
-  const NIGHT = Math.round((330 + night * 15) * diff().time);
+  const NIGHT = Math.round((330 + night * 15 + (night === 4 || night === 5 ? 30 : 0)) * diff().time);   // 4 and 5 get 30 s extra
   G = {
     time: NIGHT, NIGHT, sus: 0, police: false, policeT: 0, copTimer: 0, cops: 0, arrest: 0,
     delivered: 0, bucks: 0, quota: Math.max(1, quotaFor(night) + diff().quota), caller: null, banner: null, unseen: 0,

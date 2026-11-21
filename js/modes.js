@@ -934,7 +934,7 @@ function drawShop(now) {
     ctx.fillStyle = campaign.cash >= CABIN_GOAL ? '#9be564' : '#e0b83a';
     roundRect(ctx, fx, fy, Math.max(10, fw * clamp(campaign.cash / CABIN_GOAL, 0, 1)), 10, 5); ctx.fill();
     ctx.fillStyle = '#bbb'; ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText(fitText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL} (auction after Night 5). Every dollar you spend here comes out of it.`, VW - 30), cx, fy + 26);
+    ctx.fillText(fitText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL} (auction after Night 5${settings.difficulty === 'easy' ? '; Earl chips in $300 on Easy' : ''}). Every dollar you spend here comes out of it.`, VW - 30), cx, fy + 26);
   }
   y = fy + 36;
   if (night < 5 && !campaign.daily) {

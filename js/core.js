@@ -288,7 +288,7 @@ const SHOP = [
   { id: 'ghillie', name: 'Ghillie Suit', price: 150, desc: 'Lose the orange vest. Watchers have to get 20% closer to spot you.' },
   { id: 'boots', name: 'Quiet Boots', price: 100, desc: 'Dogs and deer notice you from much closer.' },
   { id: 'sled', name: 'Drag Sled', price: 120, desc: 'Drag deer at 80% speed instead of 60%.' },
-  { id: 'truckbed', name: 'Truck Bed Extender', price: 250, desc: 'Deer past your quota ride in the truck (up to 2) and count toward tomorrow.' },
+  { id: 'truckbed', name: 'Truck Bed Extender', price: 125, desc: 'Up to 2 deer past tonight\'s quota ride in the truck and count toward tomorrow\'s.' },
   { id: 'recurve', weapon: 'recurve', name: 'Whisper Recurve (weapon)', price: 220, desc: 'Half as loud as your compound. Slower draw.' },
   { id: 'carbon', weapon: 'carbon', name: 'Carbon Compound (weapon)', price: 200, desc: 'Faster arrows, quicker draw, shorter reload.' },
   { id: 'crossbow', weapon: 'crossbow', name: 'Crossbow (weapon)', price: 380, desc: 'Near-instant full draw, deadly, long reload.' },
@@ -339,7 +339,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.8.2';
+const VERSION = '1.8.3';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
