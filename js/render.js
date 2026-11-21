@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Drawing the world, characters, HUD and menus.
+// Curfew Buck: Drawing the world, characters, HUD and menus.
 // Part 6 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Rendering
@@ -1386,11 +1386,11 @@ function shareText() {
   const deerRow = G.delivered ? '🦌'.repeat(Math.min(10, G.delivered)) + (G.delivered > 10 ? '+' : '') : 'no deer';
   const stars = '★'.repeat(G.stars || 0) + '☆'.repeat(3 - (G.stars || 0));
   const how = G.endReason === 'arrested' ? ' 🚔 busted' : G.police ? ' 🚨 escaped the cops' : '';
-  return `Hunter Sub · ${mode} · ${deerRow} ${stars} · ${campaign.score} pts${how}`;
+  return `Curfew Buck · ${mode} · ${deerRow} ${stars} · ${campaign.score} pts${how}`;
 }
 function savePhoto() {
   const hint = photoHint; photoHint = false; render(performance.now()); photoHint = hint;   // a clean frame without the hint
-  try { const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'hunter-sub-photo.png'; a.click(); sfx.grab(); } catch (e) { /* blocked */ }
+  try { const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'curfew-buck-photo.png'; a.click(); sfx.grab(); } catch (e) { /* blocked */ }
 }
 let photoHint = true;
 function drawScreens(now) {
@@ -1435,7 +1435,7 @@ function drawScreenBody(now) {
   if (state === 'title') {
     drawTitleArt(now);
     ctx.fillStyle = '#ff7a1a'; ctx.font = `900 ${Math.min(76, VW / 9)}px system-ui, sans-serif`;
-    ctx.fillText('HUNTER SUB', cx, VH * 0.28);
+    ctx.fillText('CURFEW BUCK', cx, VH * 0.28);
     ctx.fillStyle = '#666'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('v' + VERSION, cx, VH * 0.28 + 18);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '18px system-ui, sans-serif';
     const tagEnd = wrapText('Fill the freezer. Sell the meat. Save Grandpa\'s woods. Do NOT let your ex see you.', cx, VH * 0.28 + 44, maxW, 24);
@@ -1956,9 +1956,9 @@ function drawCredits() {
   let y = Math.max(80, VH * 0.2);
   ctx.textAlign = 'center';
   for (const [h, t] of CREDITS) {
-    ctx.fillStyle = h === 'HUNTER SUB' ? '#ff7a1a' : '#ffd166';
-    ctx.font = h === 'HUNTER SUB' ? '900 40px system-ui, sans-serif' : 'bold 15px system-ui, sans-serif';
-    ctx.fillText(h, cx, y); y += h === 'HUNTER SUB' ? 30 : 22;
+    ctx.fillStyle = h === 'CURFEW BUCK' ? '#ff7a1a' : '#ffd166';
+    ctx.font = h === 'CURFEW BUCK' ? '900 40px system-ui, sans-serif' : 'bold 15px system-ui, sans-serif';
+    ctx.fillText(h, cx, y); y += h === 'CURFEW BUCK' ? 30 : 22;
     ctx.fillStyle = '#ccc'; ctx.font = '15px system-ui, sans-serif';
     y = wrapText(t, cx, y, Math.min(600, VW - 30), 20) + 34;
   }

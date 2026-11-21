@@ -1,8 +1,8 @@
 'use strict';
-// Hunter Sub: Canvas, utilities, audio synth, names, dialogue and data tables.
+// Curfew Buck: Canvas, utilities, audio synth, names, dialogue and data tables.
 // Part 1 of 10. All parts share one global scope, so load them in order (see index.html).
 /*
- * HUNTER SUB
+ * CURFEW BUCK
  * Sneak through Whispering Pines Estates before sunrise, bag deer with your bow,
  * drag them back to your shed (behind your ex-wife's house) — and don't let anyone call the cops.
  */
@@ -339,7 +339,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.8.3';
+const VERSION = '1.9.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
@@ -355,7 +355,7 @@ const TIPS = [
   'Late in the night, tired watchers yawn. Their flashlights droop for a moment.',
 ];
 const CREDITS = [
-  ['HUNTER SUB', 'A game about deer, divorce, and HOA bylaws.'],
+  ['CURFEW BUCK', 'A game about deer, divorce, and HOA bylaws.'],
   ['Engine', 'Plain JavaScript + HTML5 canvas. No libraries.'],
   ['Sound', 'Every beep, bark, burp and banjo-ish bassline is synthesized live.'],
   ['Built with', 'Claude Code, with bug hunts and joke reviews from Codex.'],

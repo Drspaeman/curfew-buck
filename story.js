@@ -1,6 +1,6 @@
 'use strict';
 /*
- * HUNTER SUB: story data. Cutscenes, nightly objectives, and endings.
+ * CURFEW BUCK: story data. Cutscenes, nightly objectives, and endings.
  * Loaded before game.js. Pure data plus a couple of helpers; no game logic.
  *
  * The arc: Dale lives in the shed behind his ex-wife's house (the divorce decree calls it "the guest house").
@@ -199,6 +199,6 @@ function buildEnding(c) {
   } else if (c.flags && c.flags.raven) {
     lines.push(['narrator', 'Raven still thinks you\'re a cryptid. Honestly? Fair.']);
   }
-  lines.push(['narrator', 'THE END. (Thanks for playing Hunter Sub.)']);
+  lines.push(['narrator', 'THE END. (Thanks for playing Curfew Buck.)']);
   return lines;
 }

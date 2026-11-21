@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Player actions, weapons, pathfinding and the tutorial.
+// Curfew Buck: Player actions, weapons, pathfinding and the tutorial.
 // Part 4 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Player actions

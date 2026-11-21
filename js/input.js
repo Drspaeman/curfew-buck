@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Keyboard, gamepad and touch input.
+// Curfew Buck: Keyboard, gamepad and touch input.
 // Part 3 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Input

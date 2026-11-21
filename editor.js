@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub map editor. Builds a map spec (JSON) that the game loads with worldFromSpec().
+// Curfew Buck map editor. Builds a map spec (JSON) that the game loads with worldFromSpec().
 // Same world size and units as game.js.
 const W = 3600, H = 2600, M = 260, ROAD = 120, HW = 230, HH = 160, SNAP = 10;
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -25,7 +25,7 @@ function blankSpec() {
 function sampleSpec() {
   // "Hosta Hills": a loop road with houses inside and out
   const s = blankSpec();
-  s.name = 'Hosta Hills'; s.author = 'Hunter Sub'; s.intro = 'A loop road around the Hosta Hills common. Darlene\'s sister lives here. So does the HOA secretary.';
+  s.name = 'Hosta Hills'; s.author = 'Curfew Buck'; s.intro = 'A loop road around the Hosta Hills common. Darlene\'s sister lives here. So does the HOA secretary.';
   s.roads = [{ x: 700, y: 600, w: 2200, h: ROAD, vert: false }, { x: 700, y: 1880, w: 2200, h: ROAD, vert: false },
     { x: 700, y: 600, w: ROAD, h: 1400, vert: true }, { x: 2780, y: 600, w: ROAD, h: 1400, vert: true }, { x: M, y: 1240, w: 440, h: ROAD, vert: false }];
   for (let i = 0; i < 6; i++) { s.houses.push({ x: 900 + i * 320, y: 400, top: false }); s.houses.push({ x: 900 + i * 320, y: 2040, top: true }); }
@@ -192,7 +192,7 @@ document.getElementById('undo').onclick = () => { drag = null; const h = history
 document.getElementById('export').onclick = () => download((spec.name || 'map').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json', JSON.stringify(spec, null, 2));
 document.getElementById('import').onclick = () => {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { try { const raw = JSON.parse(t); if (!looksLikeMap(raw)) { alert('That file has no Hunter Sub map in it (no roads, houses or other map parts). Your map is unchanged.'); return; } const s = normalize(raw), n = normalize.skipped; drag = null; save(); spec = s; buildTools(); validate(); draw(); if (n) alert(`Imported. ${n} broken or off-map ${n === 1 ? 'entry was' : 'entries were'} left out (the game would drop ${n === 1 ? 'it' : 'them'} too).`); } catch (e) { alert('That file isn\'t a Hunter Sub map: ' + e.message); } }); };
+  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { try { const raw = JSON.parse(t); if (!looksLikeMap(raw)) { alert('That file has no Curfew Buck map in it (no roads, houses or other map parts). Your map is unchanged.'); return; } const s = normalize(raw), n = normalize.skipped; drag = null; save(); spec = s; buildTools(); validate(); draw(); if (n) alert(`Imported. ${n} broken or off-map ${n === 1 ? 'entry was' : 'entries were'} left out (the game would drop ${n === 1 ? 'it' : 'them'} too).`); } catch (e) { alert('That file isn\'t a Curfew Buck map: ' + e.message); } }); };
   inp.click();
 };
 document.getElementById('play').onclick = () => {

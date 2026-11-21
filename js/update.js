@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Main update: player, deer, critters, fishing, objectives, story, watchers, police.
+// Curfew Buck: Main update: player, deer, critters, fishing, objectives, story, watchers, police.
 // Part 5 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Update

@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub bug hunter: plays every mode with random input, draws every screen at phone and
+// Curfew Buck bug hunter: plays every mode with random input, draws every screen at phone and
 // desktop sizes, and reports crashes, NaN/out-of-bounds positions and text that runs off screen.
 // Open http://localhost:8080/bughunt.html (add ?secs=40 for longer fuzz runs).
 (function bugHunt() {
@@ -175,7 +175,7 @@
   state = 'title';
   const list = [...issues.values()].sort((a, b) => (a.kind === 'crash' ? -1 : 0) - (b.kind === 'crash' ? -1 : 0));
   const out = document.getElementById('results');
-  out.textContent = `Hunter Sub bug hunt: ${list.length} issues (${list.filter(i => i.kind === 'crash').length} crashes) in ${((performance.now() - t0) / 1000).toFixed(1)}s\n\n` +
+  out.textContent = `Curfew Buck bug hunt: ${list.length} issues (${list.filter(i => i.kind === 'crash').length} crashes) in ${((performance.now() - t0) / 1000).toFixed(1)}s\n\n` +
     list.map(i => `[${i.kind}] ${i.where}: ${i.detail}${i.count > 1 ? '  (x' + i.count + ')' : ''}`).join('\n');
   document.title = 'BUGHUNT ' + list.length;
 })();

@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Startup and the main loop.
+// Curfew Buck: Startup and the main loop.
 // Part 10 of 10. All parts share one global scope, so load them in order (see index.html).
 // ============================================================
 // Main loop

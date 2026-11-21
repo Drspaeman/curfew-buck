@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Game modes: Daily Hunt, Country Club, Maple Court, random and custom maps, two-player.
+// Curfew Buck: Game modes: Daily Hunt, Country Club, Maple Court, random and custom maps, two-player.
 // Part 7 of 10. All parts share one global scope, so load them in order (see index.html).
 // ---- Yard of the Month ----
 // The HOA plants a "Yard of the Month" sign in one front lawn each night. Dale can steal it (E). It rustles

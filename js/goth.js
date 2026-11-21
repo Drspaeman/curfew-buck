@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: Raven's Crypt.
+// Curfew Buck: Raven's Crypt.
 // Part 8 of 10. All parts share one global scope, so load them in order (see index.html).
 //
 // Raven Pfister (26) is Gary's daughter. She moved back in with him after art school, and she's the only goth in Whispering Pines.

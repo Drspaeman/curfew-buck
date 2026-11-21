@@ -1,5 +1,5 @@
 'use strict';
-// Hunter Sub: online Versus / Co-op.
+// Curfew Buck: online Versus / Co-op.
 // Part 9 of 10. All parts share one global scope, so load them in order (see index.html).
 //
 // How it works: the HOST runs the real game (P1 = Dale). The CLIENT (P2) sends only its keys,
@@ -8,7 +8,7 @@
 //
 // Two ways to connect:
 //   • Steam: the desktop app in steam/ (Electron + steamworks.js) uses Steam lobbies and Steam P2P.
-//     It runs as Steam's free test app, Spacewar (app ID 480), until Hunter Sub has its own app ID.
+//     It runs as Steam's free test app, Spacewar (app ID 480), until Curfew Buck has its own app ID.
 //   • Local: two windows or tabs of the game in the same browser (for testing, or one PC, two screens).
 // ============================================================
 const NET = {
@@ -369,7 +369,7 @@ function drawOnline(now) {
   let y = Math.max(86, VH * 0.1 + 30);
   ctx.font = '14px system-ui, sans-serif';
   ctx.fillStyle = steam && steam.available ? '#9be564' : '#ffb347';
-  const sline = !steam ? 'Steam play needs the Hunter Sub desktop app. For Local, open two tabs of the game in the same browser.'
+  const sline = !steam ? 'Steam play needs the Curfew Buck desktop app. For Local, open two tabs of the game in the same browser.'
     : steam.available ? `Steam: signed in as ${steam.user} (testing as Spacewar, app 480)` : 'Steam: ' + (steam.error || 'not running. Start Steam, then reopen the game.');
   y = wrapText(sline, cx, y, maxW, 19) + 26;
   y = buttonGrid([
@@ -393,7 +393,7 @@ function drawOnline(now) {
     ], y, 170, 36) + 6;
     ctx.fillStyle = '#999'; ctx.font = '12px system-ui, sans-serif';
     y = wrapText(NET.pick === 'Steam'
-      ? 'Easiest: host, then pick your friend in the Steam invite window. They accept the invite in Steam while Hunter Sub is open. Or send them the lobby code.'
+      ? 'Easiest: host, then pick your friend in the Steam invite window. They accept the invite in Steam while Curfew Buck is open. Or send them the lobby code.'
       : 'Local test: open the game in a second window or tab of this browser, host in one and join with the code in the other.', cx, y + 8, maxW, 17);
   } else {
     ctx.fillStyle = '#e8e8e8'; ctx.font = '15px system-ui, sans-serif';

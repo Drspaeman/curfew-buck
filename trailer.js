@@ -1,6 +1,6 @@
 'use strict';
 previewMode = true;   // the trailer plays real nights but never saves
-// Hunter Sub trailer: a scripted ~60-second sequence played live in the real game engine,
+// Curfew Buck trailer: a scripted ~60-second sequence played live in the real game engine,
 // with title cards. Open trailer.html, press Play (or Record to save a .webm video).
 (function trailer() {
   const SHOTS = [];
@@ -56,7 +56,7 @@ previewMode = true;   // the trailer plays real nights but never saves
     const r = G.goth && G.goth.raven;
     if (r) { G.goth.concert = { x: r.x, y: r.y + 60, t: 0, chordT: 0, beat: 0 }; player.x = r.x - 110; player.y = r.y + 40; G.goth.met = true; ravenSay('Relax. I don\'t snitch. Snitching is for people with hope.', 5); }
   }, () => { const r = G.goth && G.goth.raven; if (r) walkTo(r.x - 40, r.y + 40, true); });
-  shot(5, ['HUNTER SUB', 'Free to play in your browser'], () => { clearKeys(); restoreRandom(); campaign = freshCampaign(); state = 'title'; });
+  shot(5, ['CURFEW BUCK', 'Free to play in your browser'], () => { clearKeys(); restoreRandom(); campaign = freshCampaign(); state = 'title'; });
 
   let cur = -1, t = 0, playing = false, onDone = null;
   const total = SHOTS.reduce((a, s) => a + s.dur, 0);
@@ -122,7 +122,7 @@ previewMode = true;   // the trailer plays real nights but never saves
       rec = new MediaRecorder(stream, { mimeType: type });
       const chunks = [];
       rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-      rec.onstop = () => { reset(); if (!chunks.length) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = 'hunter-sub-trailer.webm'; a.click(); };
+      rec.onstop = () => { reset(); if (!chunks.length) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); a.download = 'curfew-buck-trailer.webm'; a.click(); };
       rec.onerror = e => { console.warn('trailer recording failed', e); try { rec.stop(); } catch (x) { reset(); } };
       rec.start(250);
     } catch (e) { reset(); alert('Recording couldn\'t start: ' + e.message); return; }
