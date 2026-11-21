@@ -24,6 +24,7 @@
     ['online', () => { state = 'online'; }],
     ['crypt', () => { localStorage.setItem('hs_cards', '[0,1,3,4,8,11,12]'); localStorage.setItem('hs_posters', '[0,3]'); state = 'crypt'; }],
     ['raven', () => { newCampaign(); night = 2; startNight(); story = null; state = 'play'; const r = G.goth.raven; player.x = r.x - 50; player.y = r.y + 10; G.goth.cards[0].x = r.x + 60; G.goth.cards[0].y = r.y + 40; for (let i = 0; i < 40; i++) { update(1 / 60); updateCam(1); } interact(); update(1 / 60); }],
+    ['cardpop', () => { localStorage.setItem('hs_cards', '[]'); newCampaign(); night = 2; startNight(); story = null; state = 'play'; const c = G.goth.cards[0]; player.x = c.x; player.y = c.y; for (let i = 0; i < 20; i++) { update(1 / 60); updateCam(1); } }],
     ['concert', () => { newCampaign(); night = 3; startNight(); story = null; state = 'play'; const r = G.goth.raven; G.goth.concert = { x: r.x, y: r.y + 60, t: 0, chordT: 0, beat: 0 }; player.x = r.x - 70; player.y = r.y + 30; for (let i = 0; i < 40; i++) { update(1 / 60); updateCam(1); } }],
   ];
   const sizes = (new URLSearchParams(location.search).get('sizes') || '390x844,1280x720').split(',').map(s => s.split('x').map(Number));

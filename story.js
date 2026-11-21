@@ -54,7 +54,7 @@ const SCENES = {
     ['henderson', '(shouting from his porch) MARTHA! I\'M STAYING UP TONIGHT! I\'LL CATCH HIM MYSELF!'],
     ['dale', 'Who\'s Martha?'],
     ['tyler', '(text) nobody knows. also mom has grandpa\'s old longbow in the garage. she said she\'s "keeping it as leverage"'],
-    ['tyler', '(text) also garys daughter raven moved back in with him. shes 26 and goth. she thinks ur a cryptid. shes making TRADING CARDS of u'],
+    ['tyler', '(text) garys daughter raven (26, goth) thinks ur a cryptid. dad. ur on a TRADING CARD'],
     ['dale', 'What\'s a cryptid?'],
     ['tyler', '(text) like bigfoot. but orange'],
   ],
@@ -177,7 +177,7 @@ function buildEnding(c) {
   // Raven's epilogue (js/goth.js): her zine, if you found every card
   const ravenCards = (typeof gothCards === 'function') ? gothCards() : [];
   if (typeof CARDS !== 'undefined' && CARDS.every((_, i) => ravenCards.includes(i))) {
-    lines.push(['narrator', 'Raven\'s zine, "Cryptids of Whispering Pines," sells out at the county fair. The cover is a blurry orange shape dragging a deer. Gary buys ten copies.']);
+    lines.push(['narrator', 'Raven\'s zine, "Cryptids of Whispering Pines," sells out at the county fair. The cover is a blurry orange shape dragging a deer. Gary buys ten copies and files them under Surveillance.']);
   } else if (c.flags && c.flags.raven) {
     lines.push(['narrator', 'Raven still thinks you\'re a cryptid. Honestly? Fair.']);
   }

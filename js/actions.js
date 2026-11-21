@@ -150,7 +150,7 @@ function tryLeave() {
   const short = G.quota - G.delivered;
   if (G.leaveAsk === undefined || G.playT - G.leaveAsk > 3) {
     G.leaveAsk = G.playT;
-    popup(player.x, player.y - 30, `${short} deer short of quota. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} again to end the night anyway.`, '#ff9f6b', 3);
+    popup(player.x, player.y - 30, `${short} deer short. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} again to end the night.`, '#ff9f6b', 3);
     sfx.thunk();
     return;
   }

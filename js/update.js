@@ -1409,7 +1409,7 @@ STEVE_LINES.push('Steve: "My cousin\'s brother-in-law says venison\'s up. Or dow
 function buildNews(reason) {
   let headline;
   if (G.legendDone) headline = 'LEGENDARY BUCK "OLD HOSTA" VANISHES; GARDEN CLUB HOLDS VIGIL';
-  else if (reason === 'arrested') headline = 'LOCAL MAN ARRESTED IN HOSTA BED';
+  else if (reason === 'arrested') headline = 'ORANGE MENACE ARRESTED. GARDEN CLUB REQUESTS DETAILS';
   else if (G.police) headline = 'POLICE CHASE "ORANGE MENACE" THROUGH ESTATES. SUSPECT AT LARGE';
   else if (reason === 'win' && G.shots === 0) headline = 'BOW ACCOMPANIES MAN ON ERRANDS';
   else if (G.noticesGot === 3) headline = 'HOA FORMS MISSING. COMMITTEE FORMED TO DESIGN A REPLACEMENT FORM';

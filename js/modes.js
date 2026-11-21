@@ -122,7 +122,7 @@ function drawWeatherTerrain() {
   }
 }
 function updateWeatherTerrain(dt) {
-  if (G.nvgOn) { G.nvg -= dt; if (G.nvg <= 0) { G.nvg = 0; G.nvgOn = false; popup(player.x, player.y - 30, 'Goggles battery is dead.', '#9be564', 1.6); } }
+  if (G.nvgOn) { G.nvg -= dt; if (G.nvg <= 0) { G.nvg = 0; G.nvgOn = false; popup(player.x, player.y - 30, 'Night-vision battery dead.', '#9be564', 1.6); } }
   if (player.stun > 0) player.stun -= dt;
   G.splashCD = (G.splashCD || 0) - dt;
   if (player.moving && G.splashCD <= 0) for (const p of world.puddles) {
@@ -326,7 +326,7 @@ function drawCreekStones() {
 }
 function toggleNVG() {
   if (!has('nvg')) { popup(player.x, player.y - 30, 'Earl sells night-vision goggles.', '#aaa', 1.2); return; }
-  if (!G.nvgOn && G.nvg <= 0) { popup(player.x, player.y - 30, 'Goggles battery is dead for tonight.', '#ff9f6b', 1.4); return; }
+  if (!G.nvgOn && G.nvg <= 0) { popup(player.x, player.y - 30, 'Night-vision battery dead for tonight.', '#ff9f6b', 1.4); return; }
   G.nvgOn = !G.nvgOn;
   tone(G.nvgOn ? 1800 : 900, 0.12, 'sine', 0.04, G.nvgOn ? 2600 : 500);
   if (G.nvgOn) { unlock('nightvision'); hint('nvg', 'Night vision lets you see in the dark, but the battery only lasts 90 seconds a night. Press N again to save it.'); }

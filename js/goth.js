@@ -16,7 +16,7 @@ const CARDS = [
   ['Old Hosta', 'The Antlered One', '🦌', '#e8dcc0', 'Fourteen points. Zero fear. Has eaten more hostas than the HOA has fined.', 10, 312],
   ['Sketchy Steve', 'The Van Ghoul', '🚐', '#b5e86a', 'Dwells in a van by the logging road. Accepts cash, venison and souls (store credit only).', 6, 41],
   ['Todd', 'The Watch Goblin', '🔦', '#9be564', 'Patrols with a whistle and a flashlight. Has never caught anything. Not even a cold.', 2, 0],
-  ['Mr. Henderson', 'The Sleepless Revenant', '💤', '#ffe7a0', 'Has not slept since 2009. Will doze off in the middle of threatening you.', 5, 3],
+  ['Mr. Henderson', 'The Sleepless Revenant', '💤', '#ffe7a0', 'No full night\'s sleep since 1994. Naps halfway through a warning.', 5, 3],
   ['Officer Kowalski', 'The Siren Knight', '🚔', '#9ecbff', 'Summoned by dialing 911. Banished by a box of donuts left on the curb.', 6, 0],
   ['Darlene', 'The Bathrobe Wraith', '🥀', '#ff9ad5', 'Drifts past windows in curlers. Keeps a sacred longbow "as leverage."', 8, 2],
   ['Tyler', 'The Teen Familiar', '📱', '#7cf', 'Speaks only in lowercase. Loyal to whoever has snacks. Secretly the smartest one here.', 3, 7],
@@ -25,11 +25,11 @@ const CARDS = [
 ];
 // Raven's band. They've played one real show.
 const POSTERS = [
-  ['Live at the HOA Clubhouse', 'CANCELLED: noise complaint (Bylaw 14.1)'],
+  ['Live at the HOA Clubhouse', 'HALTED MID-SET. Bylaw 14.1. All applause must cease.'],
   ['Unplugged in a Storage Unit', 'Bring your own candles. The power is genuinely off.'],
   ['The "Lawn Gnomes Are Watching" Tour', 'One date. It is the garage.'],
   ['Album Release: Hostas Bloom in Darkness', 'CDs $5. Tears free.'],
-  ['Battle of the Bands', 'We were the only band. We still lost.'],
+  ['Battle of the Bands', 'Only band entered. Eliminated on paperwork.'],
   ['The Farewell Tour', 'We are not breaking up. It just sounds cool.'],
 ];
 const RAVEN_LINES = [
@@ -49,8 +49,8 @@ const RAVEN_LINES = [
 function ravenPost() {
   if (G.goth && G.goth.concert) return pick(['VELVET CASKET LIVE: 3 attendees, 1 cryptid. best show of our career.', 'played a garage show. the orange menace was in the crowd. he did not clap. iconic.']);
   if (G.police) return pick(['saw the cops chase the cryptid tonight. he is faster than he looks. sketching it now.', 'sirens at 5 AM. the neighborhood is finally interesting.']);
-  if (G.delivered >= G.quota) return pick(['the cryptid dragged ' + G.delivered + ' deer past my dad\'s house. 10/10 aesthetic.', 'spotted: the orange menace, thriving.']);
-  return pick(['quiet night. the cryptid looked sad. gave it a pinecone. (it gave me the pinecone.)', 'my dad\'s drone hit a tree again. no further questions.']);
+  if (G.delivered >= G.quota) return pick(['freezer report: ' + G.delivered + ' deer. the cryptid is preparing for winter.', 'spotted: the orange menace, thriving.']);
+  return pick(['quiet night. the cryptid lurked. finally, someone who gets it.', 'my dad\'s drone hit a tree again. no further questions.']);
 }
 const RAVEN_COLOR = '#b48cff';
 SHOP.push({ id: 'vccd', name: 'Velvet Casket CD', price: 5, desc: '"Hostas Bloom in Darkness." Swaps the banjo for a gloomy minor key. Signed by Raven.' });
@@ -71,12 +71,12 @@ TIPS.push(
   "Velvet Casket's garage shows drown out your noise. Hunt near the band.",
   "Edgar the crow caws if you walk up to him. Sneak past.");
 NOTICES.push(
-  'Violation #2350: Unpermitted garage concert ("Velvet Casket"). Volume: "ghostly."',
+  'Violation #2350: garage concert ("Velvet Casket") exceeded approved silence.',
   'Violation #2351: Black candles on a porch after 10 PM. Fire code AND vibes.',
   'Violation #2352: Crow perched on HOA property without a permit.');
 GOSSIP.push(
   'Raven Pfister has drawn a trading card of every person in Whispering Pines. Linda\'s has horns.',
-  'Gary tells everyone Raven is "at art school." She has lived in his basement for three years.');
+  'Gary says Raven is "at art school." She\'s been in his basement three years.');
 VOICEMAILS.saw.push('Gary\'s goth daughter says she saw "a cryptid" in my yard. Dale. That was you. In the vest.');
 VOICEMAILS.clean.push('Gary\'s daughter gave me a trading card of myself. "The Bathrobe Wraith." ...It\'s actually a good drawing.');
 if (typeof tylerLine === 'function') {
@@ -86,7 +86,7 @@ if (typeof tylerLine === 'function') {
     return baseTyler();
   };
 }
-WHOS_WHO.push(['Edgar', 'Raven\'s crow.', 'Perches by Raven. Caws at anyone who walks up without sneaking. Judges you silently otherwise.', '#c9c3d1']);
+WHOS_WHO.push(['Edgar', 'Raven\'s crow.', 'Perches by Raven. Caws if you get close, even sneaking. Give him room.', '#c9c3d1']);
 ACH.gothdad = ['Goth Dad', 'Finish a night in Raven\'s black vest'];
 
 const gothCards = () => store.get('hs_cards', []);
@@ -103,7 +103,7 @@ const CONCERT_R = 420;   // how far the band drowns you out
 const HALLOWEEN_LINES = ['Happy Halloween. My favorite day. The one day I look normal.', 'Kids keep asking what I\'m dressed as. I\'m dressed as me.', 'This is the Velvet Casket Halloween Spooktacular. Admission: one pinecone.'];
 const CONCERT_LINES = [
   'This next one is called "Hostas Bloom in Darkness." It\'s about you, Dale.',
-  'We\'re Velvet Casket. We\'ve played one real show. This is the second.',
+  'We\'re Velvet Casket. The HOA shut down our first set. This is the encore.',
   'If my dad complains, tell him it\'s a "neighborhood art event." He loves those.',
   'Thank you, Whispering Pines! (The lawn gnomes are our biggest fans.)',
 ];
@@ -133,7 +133,7 @@ function setupHalloween() {
     watchers.push(kid);
   });
   fixWalkerRoutes();
-  banner('🎃 HALLOWEEN: everyone thinks the vest is a costume (suspicion rises slower). Trick-or-treaters scare the deer.', '#ff9f1a');
+  banner('🎃 HALLOWEEN: the vest passes as a costume (slower suspicion). Trick-or-treaters spook deer.', '#ff9f1a');
 }
 function updateHalloween(dt) {
   if (!G || !G.halloween) return;
@@ -237,7 +237,7 @@ function gothInteract() {
   if (!R.met) { R.met = true; unlock('raven'); campaign.flags.raven = true; }
   if (gothBinderDone() && !gothHasSecret()) {
     const got = gothCards(); got.push(SECRET_CARD); store.set('hs_cards', got); unlock('selfportrait');
-    ravenSay('You found all twelve? ...Okay. Here. It\'s me. I drew it in a mirror at 3 AM. Don\'t make it weird.', 6);
+    ravenSay('All twelve? ...Okay. Here\'s thirteen. It\'s me. Don\'t make it weird.', 6);
     particlesAt(R.raven.x, R.raven.y, RAVEN_COLOR); sfx.grab();
     banner('🃏 SECRET CARD #13: Raven Pfister, The Artist. Check your binder in Raven\'s Crypt.', RAVEN_COLOR);
     return true;
@@ -252,7 +252,11 @@ function gothInteract() {
     return true;
   }
   const hidden = R.cards.find(c => !c.got);
-  if (!R.traded && hidden && player.cones > 0) {
+  if (!R.traded && hidden && gothPosters().length >= POSTERS.length) {
+    // backstage pass: all 6 posters found, so the hint is on the house
+    R.traded = true; R.hint = hidden; R.hintT = 45; sfx.grab();
+    ravenSay('Every poster? Superfan. Backstage pass: free hint. Follow the arrow.', 4.5);
+  } else if (!R.traded && hidden && player.cones > 0) {
     player.cones--; R.traded = true; R.hint = hidden; R.hintT = 45; sfx.grab(); unlock('offering');
     ravenSay('A pinecone. For my altar. ...Fine. Follow the purple arrow. Tell no one.', 4);
   } else if (!R.traded && hidden) {
@@ -292,7 +296,7 @@ function updateGoth(dt) {
   // Raven reacts to what you're up to as you pass (after you've met)
   if (R.raven && R.met && R.talkCD <= 0 && !R.say && dist(R.raven.x, R.raven.y, player.x, player.y) < 150) {
     const l = G.police ? pick(['For the record, I didn\'t call them. I would never.', 'Sirens. How romantic. Run.'])
-      : player.carry ? pick(['Is that... for an altar? Respect.', 'You\'re dragging a whole deer past my dad\'s house. Iconic.'])
+      : player.carry ? pick(['Is that... for an altar? Respect.', 'A whole deer. Finally, someone commits to the macabre.'])
       : player.cooler ? 'Is that a cooler of venison or a portable crypt? Both. It\'s both.'
       : G.buzz > 0 ? 'Are you... drunk? At 4 AM? On a lawn? That\'s my whole aesthetic.'
       : G.soaked > 0 ? 'Your boots squeak in B-flat. Can you do it twice before the chorus?' : null;
@@ -321,7 +325,7 @@ function updateGoth(dt) {
     c.got = true;
     const got = gothCards(); if (!got.includes(c.idx)) got.push(c.idx); store.set('hs_cards', got);
     const [name, title] = CARDS[c.idx];
-    popup(c.x, c.y - 30, `🃏 Trading card! ${name}, ${title} (${got.length}/${CARDS.length})`, RAVEN_COLOR, 4);
+    popup(c.x, c.y - 30, `🃏 ${name} · ${title} (${got.length}/${CARDS.length})`, RAVEN_COLOR, 4);
     sfx.grab(); particlesAt(c.x, c.y, RAVEN_COLOR);
     hint('cards', 'Raven\'s trading cards hide inside bushes. They stay collected across seasons. Open Raven\'s Crypt on the title screen to see your binder.');
     if (got.length >= CARDS.length) { unlock('binder'); banner('🦇 FULL BINDER! Raven painted your vest black. Turn it on in Settings.', RAVEN_COLOR); }
@@ -330,7 +334,7 @@ function updateGoth(dt) {
     if (p.got || dist(p.x, p.y, player.x, player.y) > 34) continue;
     p.got = true;
     const got = gothPosters(); if (!got.includes(p.idx)) got.push(p.idx); store.set('hs_posters', got);
-    popup(p.x, p.y - 30, `🦇 VELVET CASKET: ${POSTERS[p.idx][0]} (${got.length}/${POSTERS.length})`, RAVEN_COLOR, 4);
+    popup(p.x, p.y - 30, `🦇 Poster ${got.length}/${POSTERS.length} · ${POSTERS[p.idx][0]}`, RAVEN_COLOR, 4);
     sfx.pickup();
     if (got.length >= POSTERS.length) unlock('superfan');
   }
@@ -526,7 +530,7 @@ function drawCrypt() {
   { const g = ctx.createRadialGradient(cx, 128, 8, cx, 128, 64); g.addColorStop(0, 'rgba(180,140,255,0.45)'); g.addColorStop(1, 'rgba(180,140,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, 128, 64, 0, TAU); ctx.fill(); }
   drawRavenPortrait(cx, 132, 96, performance.now());
   ctx.textAlign = 'center'; ctx.fillStyle = '#ccc'; ctx.font = '14px system-ui, sans-serif';
-  let y = wrapText('Raven drew a trading card of everyone in the neighborhood and hid them in bushes. Her band\'s gig posters are stapled to streetlight poles. Give her a pinecone for a hint.', cx, 206, Math.min(640, VW - 30), 19) + 26;
+  let y = wrapText('Raven drew a trading card of everyone in the neighborhood and hid them in bushes. Her band\'s gig posters are stapled to streetlight poles. Give her a pinecone for a hint (free once you\x27ve found every poster).', cx, 206, Math.min(640, VW - 30), 19) + 26;
   ctx.fillStyle = '#ffd166'; ctx.font = 'bold 15px system-ui, sans-serif';
   const nCards = CARDS.filter((_, i) => cards.includes(i)).length;
   ctx.fillText(`CARDS ${nCards} / ${CARDS.length}${gothHasSecret() ? ' + #13' : ''}    ·    POSTERS ${posters.length} / ${POSTERS.length}`, cx, y); y += 18;

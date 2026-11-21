@@ -304,12 +304,29 @@ function drawVignette() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
 }
 
-function drawToasts() {
-  // phones: only the two newest, lower down, so they don't cover the suspicion bar
+// Where achievement toasts go. Phones: only the two newest, below the suspicion bar. If that would cover
+// Dale or the popups over his head, they go under his feet instead, as long as they end above the hint box
+// (or Raven's speech box); if only one fits there, only the newest shows.
+function toastLayout() {
   const narrow = VW < 760;
-  let y = narrow ? 300 : 220;
+  let y = narrow ? 300 : 220, show = narrow ? toasts.slice(-2) : toasts;
+  // phone menus and results: just the newest, at the very top, above the screen's title
+  if (narrow && state !== 'play' && state !== 'photo') return { y: 12, show: toasts.slice(-1) };
+  if (narrow && player && (state === 'play' || state === 'photo')) {
+    const py = player.y - cam.y;
+    const floor = G && G.goth && G.goth.say ? VH - 306 : VH - 150;
+    if (py - 110 < y + 60 * show.length && py + 40 > y - 10) {
+      if (py + 40 + 60 * show.length < floor) y = py + 40;
+      else if (py + 40 + 60 < floor) { y = py + 40; show = show.slice(-1); }
+    }
+  }
+  return { y, show };
+}
+
+function drawToasts() {
+  let { y, show } = toastLayout();
   ctx.textAlign = 'left';
-  for (const t of narrow ? toasts.slice(-2) : toasts) {
+  for (const t of show) {
     const w = 280, x = VW - w - 16;
     ctx.globalAlpha = clamp(t.t, 0, 1);
     panel(x, y, w, 52);
@@ -1574,7 +1591,15 @@ function drawScreenBody(now) {
       `Time bonus: ${G.timeBonus || 0}  ·  Ghost bonus: ${G.stealthBonus || 0}  ·  Cash earned: $${G.earned}`,
       `Night score: ${G.nightScore}  ·  Season total: ${campaign.score}  ·  Best: ${best}`,
     ].filter(Boolean);
-    for (const row of rows) { ctx.fillText(fitText(row, VW - 24), cx, y); y += 24; }
+    // phones: a row that doesn't fit breaks at its ' · ' separators instead of losing the end to '…'
+    for (const row of rows) {
+      let line = '';
+      for (const part of row.split('  ·  ')) {
+        const t = line ? line + '  ·  ' + part : part;
+        if (line && ctx.measureText(t).width > VW - 24) { ctx.fillText(line, cx, y); y += 20; line = part; } else line = t;
+      }
+      ctx.fillText(fitText(line, VW - 24), cx, y); y += 24;
+    }
     // newsletter + voicemail (box sized to fit the wrapped text)
     y += 14;
     const bw = Math.min(640, VW - 40);
@@ -1617,7 +1642,7 @@ function drawScreenBody(now) {
 const SUBMENUS = {
   modes: ['🗺 PLAY MODES', 'One-night hunts. They never touch your saved season.', () => [
     { label: '📅 Daily Hunt', fn: () => startDaily(), hi: true, sub: 'Same map for everyone today' },
-    { label: '🎃 Halloween night', fn: () => startHalloween(), sub: 'Costumes, candy, Velvet Casket' },
+    { label: '🎃 Halloween night', fn: () => startHalloween(), sub: 'Trick-or-treaters spook deer. Velvet Casket live.' },
     { label: '⛳ Country Club', fn: () => startGolf(), sub: 'Sand traps and a pro shop' },
     { label: '🏘 Cul-de-sac', fn: () => startMapMode('cul'), sub: 'Maple Court: three dead ends' },
     { label: '🎲 Random map', fn: () => startMapMode('random'), sub: 'New streets every time' },
@@ -1736,7 +1761,7 @@ function contextLabel() {
   if (player.fishing) return player.fishing.bite > 0 ? '[E] REEL IN!' : 'fishing...';
   if (player.carry) return nearTruck() ? '' : '[E] drop deer';
   if (!player.cooler && deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) return '[E] drag deer';
-  if (nearRaven()) return (campaign.racks || []).length && G.goth && !G.goth.boughtRack && !oneNightMode() ? '[E] sell Raven an antler rack' : player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
+  if (nearRaven()) return (campaign.racks || []).length && G.goth && !G.goth.boughtRack && !oneNightMode() ? '[E] sell Raven an antler rack' : G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) && gothPosters().length >= POSTERS.length ? '[E] backstage pass: ask Raven for a hint' : player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
   if (nearVan()) return '[E] talk to Steve';
   if (player.cooler) return nearTruck() ? '[E] put cooler back' : '';
   if (nearTruck() && G.freezer > 0) return '[E] pack a cooler';
