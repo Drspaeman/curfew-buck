@@ -61,7 +61,7 @@ function draw() {
   for (const p of spec.ponds) rect(p, '#2f6f8f');
   for (const p of spec.pools) rect(p, '#5ec8e8');
   for (const g of spec.hedges) rect(g, '#1f4a1c');
-  for (const h of spec.houses) { rect({ x: h.x, y: h.y, w: HW, h: HH }, h.ex ? '#f2a7cc' : '#b8ad9a', '#000'); const fy = h.top ? h.y + 6 : h.y + HH - 6; rect({ x: h.x + HW / 2 - 20, y: fy - 3, w: 40, h: 6 }, '#ff7a1a'); if (h.ex) label('DARLENE', h.x + HW / 2, h.y + HH / 2 + 5, '#111'); }
+  for (const h of spec.houses) { const hw = h.w || HW, hh = h.h || HH; rect({ x: h.x, y: h.y, w: hw, h: hh }, h.ex ? '#f2a7cc' : '#b8ad9a', '#000'); const fy = h.top ? h.y + 6 : h.y + hh - 6; rect({ x: h.x + hw / 2 - 20, y: fy - 3, w: 40, h: 6 }, '#ff7a1a'); if (h.ex) label('DARLENE', h.x + hw / 2, h.y + hh / 2 + 5, '#111'); }
   for (const b of spec.bushes) dot(b, b.r || 32, '#3d7a37');
   for (const t of spec.trees) dot(t, 30, '#1c3d1a');
   if (spec.shed) { rect({ x: spec.shed.x, y: spec.shed.y, w: 100, h: 70 }, '#ff5a3a'); label('SHED', spec.shed.x + 50, spec.shed.y - 8, '#ff9a7a'); }
@@ -70,15 +70,16 @@ function draw() {
   for (const g of spec.signs) label('🪧 ' + g.text, g.x, g.y, '#ffd166');
   if (drag && drag.cur) {
     ctx.strokeStyle = '#ffd166'; ctx.setLineDash([6, 4]);
-    if (tool === 'bulb') { ctx.beginPath(); ctx.arc(ox + drag.a.x * scale, oy + drag.a.y * scale, Math.hypot(drag.cur.x - drag.a.x, drag.cur.y - drag.a.y) * scale, 0, Math.PI * 2); ctx.stroke(); }
+    if (drag.tool === 'bulb') { ctx.beginPath(); ctx.arc(ox + drag.a.x * scale, oy + drag.a.y * scale, Math.hypot(drag.cur.x - drag.a.x, drag.cur.y - drag.a.y) * scale, 0, Math.PI * 2); ctx.stroke(); }
     else { const r = dragRect(); ctx.strokeRect(ox + r.x * scale, oy + r.y * scale, r.w * scale, r.h * scale); }
     ctx.setLineDash([]);
   }
 }
 function dragRect() {
   let r = { x: Math.min(drag.a.x, drag.cur.x), y: Math.min(drag.a.y, drag.cur.y), w: Math.abs(drag.cur.x - drag.a.x), h: Math.abs(drag.cur.y - drag.a.y) };
-  if (tool === 'road') { if (r.w >= r.h) { r.h = ROAD; r.y = drag.a.y - ROAD / 2; r.vert = false; } else { r.w = ROAD; r.x = drag.a.x - ROAD / 2; r.vert = true; } }
-  if (tool === 'hedge') { if (r.w >= r.h) { r.h = 14; } else { r.w = 14; } }
+  const t = drag.tool;   // the tool the drag started with, even if another finger taps a different one
+  if (t === 'road') { if (r.w >= r.h) { r.h = ROAD; r.y = drag.a.y - ROAD / 2; r.vert = false; } else { r.w = ROAD; r.x = drag.a.x - ROAD / 2; r.vert = true; } }
+  if (t === 'hedge') { if (r.w >= r.h) { r.h = 14; } else { r.w = 14; } }
   return r;
 }
 
@@ -86,15 +87,33 @@ function dragRect() {
 // save() = take an undo snapshot before a change. persist() = keep the current map as the draft.
 function save() { history.push(JSON.stringify(spec)); if (history.length > 60) history.shift(); }
 function persist() { try { localStorage.setItem('hs_editor_draft', JSON.stringify(spec)); } catch (e) { /* storage blocked */ } }
-// Fill in anything missing or broken (imported files, old drafts), so the editor can't get stuck.
+// Fill in anything missing or broken (imported files, old drafts), so the editor can't get stuck. Uses the
+// game's own rules (validateMap in js/modes.js): numbers only, inside the map, sensible sizes. Anything the game
+// would drop is dropped here too and counted in normalize.skipped, so "Ready to play" means it all survives.
+const num = v => typeof v === 'number' && isFinite(v);
+const inMap = o => o && typeof o === 'object' && num(o.x) && num(o.y) && o.x >= 0 && o.y >= 0 && o.x <= W && o.y <= H;
+const SIZE_OK = o => (o.w === undefined || (num(o.w) && o.w > 4 && o.w < W)) && (o.h === undefined || (num(o.h) && o.h > 4 && o.h < H));
+const RADIUS_OK = { bulbs: b => num(b.r) && b.r > 40 && b.r < 600, bushes: b => b.r === undefined || (num(b.r) && b.r >= 8 && b.r <= 120), trees: t => t.r === undefined || (num(t.r) && t.r >= 8 && t.r <= 160) };
 function normalize(s) {
-  const out = Object.assign(blankSpec(), s && typeof s === 'object' && !Array.isArray(s) ? s : {});
+  normalize.skipped = 0;
+  const src = s && typeof s === 'object' && !Array.isArray(s) ? s : {};
+  const out = Object.assign(blankSpec(), src);
   const base = blankSpec();
-  for (const k in base) if (Array.isArray(base[k])) out[k] = (Array.isArray(out[k]) ? out[k] : []).filter(o => o && typeof o === 'object' && isFinite(o.x) && isFinite(o.y));
-  for (const k of ['shed', 'van', 'clubhouse']) if (out[k] && (typeof out[k] !== 'object' || !isFinite(out[k].x) || !isFinite(out[k].y))) out[k] = null;
-  for (const k of ['name', 'author', 'intro']) out[k] = String(out[k] == null ? '' : out[k]);
+  for (const k in base) {
+    if (!Array.isArray(base[k])) continue;
+    const list = Array.isArray(src[k]) ? src[k] : k in src ? (normalize.skipped++, []) : base[k];
+    out[k] = list.filter(o => {
+      const ok = inMap(o) && (RADIUS_OK[k] ? RADIUS_OK[k](o) : SIZE_OK(o)) && (k !== 'signs' || typeof o.text === 'string');
+      if (!ok) normalize.skipped++;
+      return ok;
+    }).map(o => k === 'signs' ? { x: o.x, y: o.y, text: o.text.slice(0, 40) } : k === 'houses' ? Object.assign({}, o, { top: !!o.top, ex: !!o.ex }) : Object.assign({}, o));
+  }
+  for (const k of ['shed', 'van', 'clubhouse']) if (out[k] && !inMap(out[k])) { out[k] = null; normalize.skipped++; }
+  for (const k of ['name', 'author', 'intro']) out[k] = typeof out[k] === 'string' ? out[k] : '';
   return out;
 }
+// Does this look like a map at all? (an object with at least one of the map's lists or places)
+const looksLikeMap = s => !!s && typeof s === 'object' && !Array.isArray(s) && ['roads', 'houses', 'bulbs', 'ponds', 'woods', 'shed', 'van'].some(k => k in s);
 function hitTest(p) {
   const tol = Math.max(6, 14 / scale);   // about 14 screen pixels, in map units
   const inR = (o, w, h) => p.x >= o.x - tol && p.x <= o.x + (o.w || w) + tol && p.y >= o.y - tol && p.y <= o.y + (o.h || h) + tol;
@@ -106,22 +125,25 @@ function hitTest(p) {
   return null;
 }
 function click(p) {
+  // erasing empty space or an empty sign changes nothing, so it takes no undo step
+  const del = tool === 'erase' ? hitTest(p) : null, signT = (signText || 'MAPLE ST').trim();
+  if ((tool === 'erase' && !del) || (tool === 'sign' && !signT) || !TOOLS.some(t => t[0] === tool)) return;
   save();
+  const cx = (v, w, lim) => Math.max(0, Math.min(lim - w, v));   // keep the whole thing on the map
   if (tool === 'house' || tool === 'ex') {
     if (tool === 'ex') spec.houses.forEach(h => { h.ex = false; });
-    spec.houses.push({ x: p.x - HW / 2, y: p.y - HH / 2, top: faceUp, ex: tool === 'ex' });
+    spec.houses.push({ x: cx(p.x - HW / 2, HW, W), y: cx(p.y - HH / 2, HH, H), top: faceUp, ex: tool === 'ex' });
   } else if (tool === 'bush') spec.bushes.push({ x: p.x, y: p.y });
   else if (tool === 'tree') spec.trees.push({ x: p.x, y: p.y });
-  else if (tool === 'shed') spec.shed = { x: p.x - 50, y: p.y - 35 };
-  else if (tool === 'van') spec.van = { x: p.x - 58, y: p.y - 28 };
-  else if (tool === 'club') spec.clubhouse = { x: p.x - 90, y: p.y - 55 };
-  else if (tool === 'sign') { const t = (signText || 'MAPLE ST').trim(); if (t) spec.signs.push({ x: p.x, y: p.y, text: t.slice(0, 40) }); else history.pop(); }
-  else if (tool === 'erase') { const del = hitTest(p); if (del) del(); else history.pop(); }
-  else history.pop();
+  else if (tool === 'shed') spec.shed = { x: cx(p.x - 50, 100, W), y: cx(p.y - 35, 70, H) };
+  else if (tool === 'van') spec.van = { x: cx(p.x - 58, 116, W), y: cx(p.y - 28, 56, H) };
+  else if (tool === 'club') spec.clubhouse = { x: cx(p.x - 90, 360, W), y: cx(p.y - 55, 110, H) };
+  else if (tool === 'sign') spec.signs.push({ x: p.x, y: p.y, text: signT.slice(0, 40) });
+  else if (tool === 'erase') del();
   validate(); draw();
 }
 function finishDrag() {
-  const r = dragRect();
+  const r = dragRect(), tool = drag.tool;
   if (tool === 'bulb') { const rr = Math.round(Math.hypot(drag.cur.x - drag.a.x, drag.cur.y - drag.a.y)); if (rr > 60) { save(); spec.bulbs.push({ x: drag.a.x, y: drag.a.y, r: Math.min(400, rr) }); } }
   else if (tool === 'road' && (r.vert ? r.h : r.w) < 200) { /* too short to be a road */ }
   else if (Math.max(r.w, r.h) > 20 && Math.min(r.w, r.h) >= 10) {
@@ -134,7 +156,7 @@ function finishDrag() {
 cv.addEventListener('pointerdown', e => {
   const p = toWorld(e);
   if (drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
-  if (['road', 'bulb', 'pond', 'pool', 'hedge', 'woods'].includes(tool)) { drag = { a: p, cur: p, id: e.pointerId }; cv.setPointerCapture(e.pointerId); }
+  if (['road', 'bulb', 'pond', 'pool', 'hedge', 'woods'].includes(tool)) { drag = { a: p, cur: p, id: e.pointerId, tool }; cv.setPointerCapture(e.pointerId); }
   else click(p);
 });
 cv.addEventListener('pointermove', e => { if (drag && e.pointerId === drag.id) { drag.cur = toWorld(e); draw(); } else if (drag) { /* another finger */ } else { const p = toWorld(e); status.dataset.pos = `${p.x}, ${p.y}`; } });
@@ -156,7 +178,7 @@ function validate() {
 const toolsEl = document.getElementById('tools');
 function buildTools() {
   toolsEl.innerHTML = '';
-  const field = (lab, key) => { const l = document.createElement('label'); l.textContent = lab; const i = document.createElement('input'); i.value = spec[key] || ''; i.onfocus = () => save(); i.oninput = () => { spec[key] = i.value; persist(); }; toolsEl.append(l, i); };
+  const field = (lab, key) => { const l = document.createElement('label'); l.textContent = lab; const i = document.createElement('input'); i.value = spec[key] || ''; let snap = false; i.onfocus = () => { snap = false; }; i.oninput = () => { if (!snap) { save(); snap = true; } spec[key] = i.value; persist(); }; toolsEl.append(l, i); };
   field('Map name', 'name'); field('Author', 'author'); field('Intro text', 'intro');
   { const l = document.createElement('label'); l.textContent = 'Sign text (for the Sign tool)'; const i = document.createElement('input'); i.value = signText; i.maxLength = 40; i.oninput = () => { signText = i.value; }; toolsEl.append(l, i); }
   const l = document.createElement('label'); l.textContent = 'Tools'; toolsEl.append(l);
@@ -164,13 +186,13 @@ function buildTools() {
   const f = document.createElement('button'); f.textContent = faceUp ? 'New houses: road ABOVE' : 'New houses: road BELOW'; f.onclick = () => { faceUp = !faceUp; buildTools(); }; toolsEl.append(f);
 }
 function download(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
-document.getElementById('new').onclick = () => { save(); spec = blankSpec(); buildTools(); validate(); draw(); };
-document.getElementById('sample').onclick = () => { save(); spec = sampleSpec(); buildTools(); validate(); draw(); };
-document.getElementById('undo').onclick = () => { const h = history.pop(); if (h) { spec = JSON.parse(h); buildTools(); validate(); draw(); } };
+document.getElementById('new').onclick = () => { drag = null; save(); spec = blankSpec(); buildTools(); validate(); draw(); };
+document.getElementById('sample').onclick = () => { drag = null; save(); spec = sampleSpec(); buildTools(); validate(); draw(); };
+document.getElementById('undo').onclick = () => { drag = null; const h = history.pop(); if (h) { spec = JSON.parse(h); buildTools(); validate(); draw(); } };
 document.getElementById('export').onclick = () => download((spec.name || 'map').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.json', JSON.stringify(spec, null, 2));
 document.getElementById('import').onclick = () => {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { try { const s = normalize(JSON.parse(t)); save(); spec = s; buildTools(); validate(); draw(); } catch (e) { alert('That file isn\'t a Hunter Sub map: ' + e.message); } }); };
+  inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then(t => { try { const raw = JSON.parse(t); if (!looksLikeMap(raw)) { alert('That file has no Hunter Sub map in it (no roads, houses or other map parts). Your map is unchanged.'); return; } const s = normalize(raw), n = normalize.skipped; drag = null; save(); spec = s; buildTools(); validate(); draw(); if (n) alert(`Imported. ${n} broken or off-map ${n === 1 ? 'entry was' : 'entries were'} left out (the game would drop ${n === 1 ? 'it' : 'them'} too).`); } catch (e) { alert('That file isn\'t a Hunter Sub map: ' + e.message); } }); };
   inp.click();
 };
 document.getElementById('play').onclick = () => {
@@ -183,5 +205,12 @@ window.addEventListener('keydown', e => {
   if (!typing && (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); document.getElementById('undo').click(); }
 });
 window.addEventListener('resize', resize);
+// devicePixelRatio can change with no resize event (another monitor, browser zoom): watch it and redo the layout
+(function watchDpr() {
+  if (!window.matchMedia) return;
+  const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+  const on = () => { resize(); watchDpr(); };
+  if (mq.addEventListener) mq.addEventListener('change', on, { once: true }); else if (mq.addListener) mq.addListener(function h() { mq.removeListener(h); on(); });
+})();
 try { const d = localStorage.getItem('hs_editor_draft'); if (d) spec = normalize(JSON.parse(d)); } catch (e) { spec = blankSpec(); }
 buildTools(); validate(); resize();

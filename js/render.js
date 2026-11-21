@@ -312,6 +312,10 @@ function toastLayout() {
   let y = narrow ? 300 : 220, show = narrow ? toasts.slice(-2) : toasts;
   // phone menus and results: just the newest, at the very top, above the screen's title
   if (narrow && state !== 'play' && state !== 'photo') return { y: 12, show: toasts.slice(-1) };
+  // a phone on its side: menus get one slim line in the top edge; in play, the newest goes under the minimap
+  if (shortLandscape() && state !== 'play' && state !== 'photo') return { y: 4, show: toasts.slice(-1), compact: true };
+  // a phone on its side: just the newest, tucked under the minimap
+  if (shortLandscape() && (state === 'play' || state === 'photo')) { const m = minimapBox(); return { y: m.y + m.h + 8, show: toasts.slice(-1) }; }
   if (narrow && player && (state === 'play' || state === 'photo')) {
     const py = player.y - cam.y;
     const floor = G && G.goth && G.goth.say ? VH - 306 : VH - 150;
@@ -324,11 +328,17 @@ function toastLayout() {
 }
 
 function drawToasts() {
-  let { y, show } = toastLayout();
+  let { y, show, compact } = toastLayout();
   ctx.textAlign = 'left';
   for (const t of show) {
     const w = 280, x = VW - w - 16;
     ctx.globalAlpha = clamp(t.t, 0, 1);
+    if (compact) {
+      panel(x, y, w, 26);
+      ctx.fillStyle = '#ffd166'; ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.fillText(fitText('🏆 ' + t.title, w - 20), x + 10, y + 17);
+      continue;
+    }
     panel(x, y, w, 52);
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 13px system-ui, sans-serif';
     ctx.fillText('🏆 ' + t.title, x + 12, y + 21);
@@ -1084,7 +1094,7 @@ function drawHUD(now) {
   ctx.fillText(`${campaign.halloween ? '🎃 HALLOWEEN' : 'NIGHT ' + night}  ·  ${clockText()}`, 28, 38);
   ctx.font = '13px system-ui, sans-serif';
   ctx.fillStyle = G.delivered >= G.quota ? '#9be564' : '#e8e8e8';
-  ctx.fillText(`Deer in freezer: ${G.delivered} / ${G.quota}${G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 28, 60);
+  ctx.fillText(`Quota: ${G.delivered} / ${G.quota} deer${G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 28, 60);
   ctx.fillStyle = '#e8e8e8';
   ctx.fillText(`Score: ${campaign.score + G.nightScore}   ·   Cash: $${campaign.cash + G.earned}`, 28, 80);
   ctx.fillStyle = player.arrows > 2 ? '#e8e8e8' : (Math.floor(performance.now() / 300) % 2 ? '#ff6b6b' : '#ffd166');
@@ -1148,7 +1158,10 @@ function drawHUD(now) {
 
   // suspicion bar
   const compact = VW < 760;
-  const bw = compact ? VW - 52 : Math.min(380, VW - 320), bx = compact ? 26 : (VW - bw) / 2, by = compact ? 222 : 16;
+  let bw = compact ? VW - 52 : Math.min(380, VW - 320), bx = compact ? 26 : (VW - bw) / 2;
+  const by = compact ? 222 : 16;
+  // centred, unless that would run under the HUD panel (ends at x 264) or the minimap: then it fits between them
+  if (!compact && bx < 284) { bx = 284; bw = Math.min(bw, minimapBox().x - 20 - bx); }
   // story objective
   const o = G.objective;
   if (o) {
@@ -1304,6 +1317,14 @@ function drawMinimap(big) {
   ctx.restore();
 }
 
+// The corner minimap's box on screen (see drawMinimap)
+function minimapBox() {
+  const mw = Math.max(70, Math.min(220, VW * 0.25, VW - 300)), mh = H * mw / W;
+  return { x: VW - mw - 16, y: 16, w: mw, h: mh };
+}
+// Wide but short (a phone on its side): little room above and below Dale
+function shortLandscape() { return VW >= 760 && VH < 500; }
+
 function wrapLines(text, maxW) {
   const lines = [];
   let line = '';
@@ -1422,14 +1443,14 @@ function drawScreenBody(now) {
     let y = Math.max(VH * 0.28 + 100, tagEnd + 40);   // never overlap a tagline that wrapped
     for (const l of lines) { y = wrapText(l, cx, y, maxW, 21) + 30; }
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 20px system-ui, sans-serif';
-    const save = store.get('hs_save', null);
-    if (save && save.campaign) {
+    const save = readSave();
+    if (save) {
       y = buttonGrid([
-        { label: `Continue (Night ${save.night})`, fn: () => loadGame(), hi: true },
+        { label: save.court ? `Continue (court date, Night ${save.night})` : `Continue (Night ${save.night})`, fn: () => loadGame(), hi: true },
         { label: confirmNewAt && performance.now() - confirmNewAt < 3000 ? 'Click again: erase save?' : 'New season', fn: () => { if (confirmNewAt && performance.now() - confirmNewAt < 3000) { confirmNewAt = 0; newCampaign(); } else confirmNewAt = performance.now(); } },
       ], y - 8, 220, 42) - 10;
       ctx.fillStyle = '#e0b83a'; ctx.font = '13px system-ui, sans-serif';
-      ctx.fillText(`Cabin fund $${save.campaign.cash || 0} / $${CABIN_GOAL}  ·  Freezer ${save.campaign.freezer || 0} packs  ·  ${save.night > 5 ? 'Endless night ' + save.night : 'Night ' + save.night + ' of 5'}`, cx, y + 16); y += 26;
+      ctx.fillText(`Cabin fund $${save.campaign.cash || 0} / $${CABIN_GOAL}  ·  Freezer ${packsText(save.campaign.freezer || 0)}  ·  ${save.night > 5 ? 'Endless night ' + save.night : 'Night ' + save.night + ' of 5'}`, cx, y + 16); y += 26;
     } else {
       y = buttonGrid([{ label: '▶ Start the season', fn: () => newCampaign(), hi: true }], y - 4, 240, 44) - 10;
     }
@@ -1462,7 +1483,7 @@ function drawScreenBody(now) {
     }
     if (night <= 5) {
       ctx.fillStyle = '#e0b83a'; ctx.font = '14px system-ui, sans-serif';
-      ctx.fillText(fitText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL}  ·  Freezer: ${G.freezer} packs  ·  Steve pays $${G.price}/pack tonight`, maxW), cx, y + 102);
+      ctx.fillText(fitText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL}  ·  Freezer: ${packsText(G.freezer)}  ·  Steve pays $${G.price}/pack tonight`, maxW), cx, y + 102);
       y += 24;
     }
     if (night === 1 && !oneNightMode()) {
@@ -1540,9 +1561,9 @@ function drawScreenBody(now) {
     ctx.fillStyle = '#bbb'; ctx.font = '14px system-ui, sans-serif';
     wrapText('Replay any night you\'ve reached. Later nights start with some cash for gear.', cx, VH * 0.22 + 34, maxW, 18);
     const bs = store.get('hs_stars', []);
-    const sv = store.get('hs_save', null), ask = nightAsk && performance.now() - nightAsk.at < 3000 ? nightAsk.n : 0;
-    buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n > reached ? '🔒' : ask === n ? 'Again: replace save?' : `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}`, fn: () => { if (sv && sv.campaign && ask !== n) { nightAsk = { n, at: performance.now() }; return; } nightAsk = null; startAtNight(n); }, enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
-    if (sv && sv.campaign) { ctx.fillStyle = '#e0b83a'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(`Starting a night here replaces your saved season (Night ${sv.night}).`, cx, VH * 0.22 + 52); }
+    const sv = readSave(), ask = nightAsk && performance.now() - nightAsk.at < 3000 ? nightAsk.n : 0;
+    buttonGrid([1, 2, 3, 4, 5].map(n => ({ label: n > reached ? '🔒' : ask === n ? 'Again: replace save?' : `Night ${n} ${'★'.repeat(bs[n - 1] || 0)}`, fn: () => { if (sv && ask !== n) { nightAsk = { n, at: performance.now() }; return; } nightAsk = null; startAtNight(n); }, enabled: n <= reached, hi: n === reached })), VH * 0.22 + 64, 106, 50);
+    if (sv) { ctx.fillStyle = '#e0b83a'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(`Starting a night here replaces your saved season (Night ${sv.night}).`, cx, VH * 0.22 + 52); }
     const eb = store.get('hs_endless_best', 0);
     if (eb) { ctx.fillStyle = '#9ecbff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(eb > 5 ? `Endless mode: last night cleared ${eb}` : 'Endless mode: no night cleared yet', cx, VH * 0.22 + 150); }
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
@@ -1585,7 +1606,7 @@ function drawScreenBody(now) {
     const rows = [
       `Deer delivered: ${G.delivered} / ${G.quota}${G.bucks ? ` (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}${G.legendDone ? ' + OLD HOSTA' : ''}`,
       `Arrows fired: ${G.shots}  ·  Accuracy: ${acc}%  ·  Times spotted: ${G.timesSpotted}`,
-      `Venison sold to Steve: ${G.soldPacks || 0} packs  ·  Freezer: ${campaign.freezer} packs  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
+      `Venison sold to Steve: ${packsText(G.soldPacks || 0)}  ·  Freezer: ${packsText(campaign.freezer)}  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
       campaign.versus ? (G.endReason === 'win' ? '🏆 Dale (Player 1) wins!' : '🏆 The HOA (Player 2) wins!') : campaign.coop ? `Co-op: ${G.delivered} deer, Tyler hauled ${G.tylerHauls || 0}` :
       campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.map === 'cul' ? `Cul-de-sac best: ${store.get('hs_cul_best', 0)}` : campaign.map === 'random' ? `Random neighborhood best: ${store.get('hs_random_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}: best today ${(store.get('hs_daily', {})[campaign.daily] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
       `Time bonus: ${G.timeBonus || 0}  ·  Ghost bonus: ${G.stealthBonus || 0}  ·  Cash earned: $${G.earned}`,
@@ -1742,10 +1763,10 @@ function drawSteve() {
   y = wrapText(G.steveLine || pick(STEVE_LINES), cx, y + 36, Math.min(600, VW - 40), 20) + 30;
   const packs = (player.cooler || 0) + (player.bag || 0);
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 17px system-ui, sans-serif';
-  y = wrapText(`Tonight's price: $${G.price}/pack  ·  You have ${packs} pack${packs === 1 ? '' : 's'} on you  ·  Cash $${campaign.cash + G.earned}`, cx, y, Math.min(620, VW - 28), 20);
+  y = wrapText(`Tonight's price: $${G.price}/pack  ·  You have ${packsText(packs)} on you  ·  Cash $${campaign.cash + G.earned}`, cx, y, Math.min(620, VW - 28), 20);
   y += 24;
   buttonGrid([
-    { label: `1. Sell ${packs} packs ($${packs * G.price})`, fn: steveSell, enabled: packs > 0, hi: packs > 0 },
+    { label: `1. Sell ${packsText(packs)} ($${packs * G.price})`, fn: steveSell, enabled: packs > 0, hi: packs > 0 },
     { label: '2. Beer ($15)', fn: () => steveBuy('beer') },
     { label: '3. Four arrows ($20)', fn: () => steveBuy('arrows') },
     { label: '4. Three pinecones ($10)', fn: () => steveBuy('cones') },
@@ -1916,7 +1937,7 @@ function drawTrophies() {
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
   const acc = life.arrows ? Math.round((life.hits || 0) / life.arrows * 100) : 0;
   y = wrapText(`Nights played ${life.nights || 0} · Deer ${life.deer || 0} (${life.bucks || 0} bucks) · Old Hosta ${life.hosta || 0} · Accuracy ${acc}% · Packs sold ${life.sold || 0} · Squirrels ${life.squirrels || 0} · Rabbits ${life.rabbits || 0} · Fish ${life.fish || 0} · Times busted ${life.busted || 0} · Cash earned $${life.cash || 0} · Gossip notes ${store.get('hs_gossip', []).length}/${GOSSIP.length} · Raven\'s cards ${CARDS.filter((_, i) => gothCards().includes(i)).length}/${CARDS.length}${gothHasSecret() ? ' + #13' : ''} · Posters ${gothPosters().length}/${POSTERS.length}`, cx, y, Math.min(700, VW - 30), 18) + 26;
-  const scores = store.get('hs_scores', []);
+  const scores = readScores();
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 14px system-ui, sans-serif'; ctx.fillText('BEST SEASONS', cx, y); y += 20;
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
   if (!scores.length) { ctx.fillText('None yet. Go fill that freezer.', cx, y); }

@@ -82,7 +82,7 @@ cv.addEventListener('mousedown', e => {
   }
   if (state === 'story') advanceStory();
   else if (state === 'steve') { /* buttons only */ }
-  else if (state === 'title') { if (!store.get('hs_save', null)) newCampaign(); }
+  else if (state === 'title') { if (!readSave()) newCampaign(); }
   else if (['whoswho', 'nights', 'trophies', 'credits', 'settings', 'scores'].includes(state)) state = ['nights', 'whoswho', 'trophies', 'credits'].includes(state) ? 'extras' : 'title';
   else if (state === 'intro') state = 'play';
   else if (state === 'play') startDraw();
@@ -106,11 +106,16 @@ function pollPad() {
     if (pad.draw && player) player.drawing = false;
     pad.connected = false; pad.mx = pad.my = 0; pad.aim = null; pad.crouch = false; pad.draw = false; pad.look = false; pad.sprint = false; return;
   }
+  // a different controller took over (pad one unplugged): forget the old one's buttons and any draw it started
+  if (pad.index !== undefined && pad.index !== gp.index) { if (pad.draw && player) player.drawing = false; pad.prev = []; pad.draw = false; }
+  pad.index = gp.index;
   pad.connected = true;
   const b = gp.buttons.map(x => x.pressed);
   const edge = i => b[i] && !pad.prev[i];
-  const dz = v => Math.abs(v) < 0.25 ? 0 : v;
-  pad.mx = dz(gp.axes[0] || 0); pad.my = dz(gp.axes[1] || 0);
+  // radial deadzone, rescaled so the edge of the deadzone is 0 and full tilt is 1 (a drifting stick stays still)
+  const sx = gp.axes[0] || 0, sy = gp.axes[1] || 0, sm = Math.hypot(sx, sy);
+  const k = sm < 0.25 ? 0 : Math.min(1, (sm - 0.25) / 0.7) / sm;
+  pad.mx = sx * k; pad.my = sy * k;
   const ax = gp.axes[2] || 0, ay = gp.axes[3] || 0;
   pad.aim = Math.hypot(ax, ay) > 0.35 ? Math.atan2(ay, ax) : null;
   pad.crouch = !!(b[4] || b[10] || b[6]);
@@ -311,7 +316,7 @@ function steveSell() {
   if (packs >= 10) unlock('fullcooler');
   player.cooler = 0; player.bag = 0;
   sfx.buy();
-  G.steveLine = packs >= 10 ? `Steve: "${packs} packs?! $${cash}. Next time bring a receipt that says BAKE SALE."` : `Steve: "${packs} packs at $${G.price}... that's $${cash}. Pleasure doin' crimes with you."`;
+  G.steveLine = packs >= 10 ? `Steve: "${packs} packs?! $${cash}. Next time bring a receipt that says BAKE SALE."` : `Steve: "${packsText(packs)} at $${G.price}... that's $${cash}. Pleasure doin' crimes with you."`;
   objectiveEvent('sell', packs);
   unlock('dealer');
 }

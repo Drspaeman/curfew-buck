@@ -182,6 +182,8 @@ function courtPlea(i) {
     G.court = { ok: false, text: i === 1 ? '"Raccoons don\'t carry compound bows, Mr. Pruitt." Guilty.' : i === 2 ? 'Earl\'s nephew objects to his own client. Guilty.' : '"The freezer is not a legal defense." Guilty. Your season is over.' };
     sfx.lose();
   }
+  // the verdict is final the moment it is read: a reload can't buy a second plea
+  if (G.court.ok) saveNext(); else clearSave();
 }
 function finishCourt() {
   if (G.court.ok) { pickSpecial(); state = 'shop'; saveNext(); return; }
@@ -351,8 +353,13 @@ const EARL_LINES = [
 
 // ---- Country Club map ----
 const GOLF_INTRO = 'Bonus night: the Whispering Pines Country Club, the HOA\'s crown jewel. The deer have been eating the greens, and Linda would rather die than let you hunt here. Earl lent you his truck. Fill the bed before sunrise.';
+// The local top-10, checked: anything that isn't a list of score rows reads as empty
+function readScores() {
+  const raw = store.get('hs_scores', []);
+  return Array.isArray(raw) ? raw.filter(r => r && typeof r === 'object' && Number.isFinite(r.score)) : [];
+}
 function recordScore() {
-  const scores = store.get('hs_scores', []);
+  const scores = readScores();
   scores.push({ score: campaign.score, night, cash: campaign.cash, date: new Date().toLocaleDateString(), deer: campaign.totalDeer || 0, diff: settings.difficulty });
   scores.sort((a, b) => b.score - a.score); store.set('hs_scores', scores.slice(0, 10));
 }
@@ -361,7 +368,7 @@ function drawScores() {
   ctx.textAlign = 'center'; ctx.fillStyle = '#ff7a1a'; fitFont('🏅 LEADERBOARD', 900, 38, VW - 24); ctx.fillText('🏅 LEADERBOARD', cx, Math.max(60, VH * 0.11));
   let y = Math.max(96, VH * 0.11 + 40);
   ctx.fillStyle = '#9be564'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.fillText('TOP 10 SEASONS', cx, y); y += 24;
-  const scores = store.get('hs_scores', []);
+  const scores = readScores();
   ctx.font = '13px system-ui, sans-serif';
   if (!scores.length) { ctx.fillStyle = '#ccc'; ctx.fillText('No finished seasons yet. Go fill that freezer.', cx, y); y += 20; }
   scores.slice(0, 10).forEach((r, i) => {
@@ -930,7 +937,7 @@ function drawShop(now) {
   }
   // Earl buys leftover freezer meat (cheap)
   if (campaign.freezer > 0) {
-    y = buttonGrid([{ label: `Sell ${campaign.freezer} freezer packs to Earl ($12 each)`, fn: () => { campaign.cash += campaign.freezer * 12; campaign.freezer = 0; sfx.buy(); saveNext(); toasts.push({ title: 'Earl', desc: 'Goin\' in the freezer marked BAIT. That freezer has range.', t: 3.5 }); } }], y, 340, 34) + 2;
+    y = buttonGrid([{ label: `Sell ${packsText(campaign.freezer)} of venison to Earl ($12 each)`, fn: () => { campaign.cash += campaign.freezer * 12; campaign.freezer = 0; sfx.buy(); saveNext(); toasts.push({ title: 'Earl', desc: 'Goin\' in the freezer marked BAIT. That freezer has range.', t: 3.5 }); } }], y, 340, 34) + 2;
   } else y += 8;
   const cols = VW >= 1100 ? 2 : 1;
   const bw = cols === 2 ? Math.min(520, (VW - 60) / 2) : Math.min(620, VW - 24);

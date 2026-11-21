@@ -23,6 +23,13 @@ function resize() {
   lightCv.width = cv.width; lightCv.height = cv.height;
 }
 window.addEventListener('resize', resize);
+// devicePixelRatio can change with no resize event (another monitor, browser zoom): watch it and redo the layout
+(function watchDpr() {
+  if (!window.matchMedia) return;
+  const mq = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+  const on = () => { resize(); watchDpr(); };
+  if (mq.addEventListener) mq.addEventListener('change', on, { once: true }); else if (mq.addListener) mq.addListener(function h() { mq.removeListener(h); on(); });
+})();
 resize();
 // Phones keep audio locked until the first touch: unlock it on any tap or click.
 function unlockAudio() {
@@ -102,12 +109,14 @@ function roundRect(c, x, y, w, h, r) {
   c.arcTo(x, y, x + w, y, r);
   c.closePath();
 }
+// "1 pack", "3 packs": one formatter for every sale, receipt and freezer line
+const packsText = n => `${n} pack${n === 1 ? '' : 's'}`;
+
 // previewMode (the trailer and #demo links) plays the game without touching saves, scores or stats.
 let previewMode = location.hash.startsWith('#demo');
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { if (previewMode) return; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
-  del(k) { if (previewMode) return; try { localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } },
+  set(k, v) { if (previewMode) return true; try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },   // false: full or blocked
   del(k) { if (previewMode) return; try { localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } },
 };
 
@@ -330,7 +339,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.8.1';
+const VERSION = '1.8.2';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',

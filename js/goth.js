@@ -470,7 +470,12 @@ function drawRavenSpeech(now) {
   ctx.save();
   ctx.globalAlpha = clamp(say.t * 3, 0, 1);
   // top center under the suspicion bar (below the HUD panel on narrow screens), clear of hints at the bottom
-  const w = Math.min(460, VW - 24), h = 86, x = (VW - w) / 2, y = VW < 760 ? VH - h - 210 : 72;   // phones: above the hint box, below the achievement pop-ups
+  let w = Math.min(460, VW - 24), h = 86, x = (VW - w) / 2, y = VW < 760 ? VH - h - 210 : 72;   // phones: above the hint box, below the achievement pop-ups
+  if (shortLandscape()) {
+    // a phone on its side: between the HUD panel and the minimap, just under the suspicion bar, as tall as the text
+    const m = minimapBox(); x = 274; w = Math.max(240, m.x - 8 - x); y = G.police ? 92 : 66;   // under the suspicion bar (taller during a 911 call)
+    ctx.font = '14px system-ui, sans-serif'; h = Math.max(86, 34 + wrapLines(say.text, w - 100).length * 18);
+  }
   ctx.fillStyle = 'rgba(12,8,18,0.92)'; roundRect(ctx, x, y, w, h, 10); ctx.fill();
   ctx.strokeStyle = RAVEN_COLOR; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.save(); roundRect(ctx, x + 6, y + 6, 74, 74, 8); ctx.clip();

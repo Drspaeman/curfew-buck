@@ -628,6 +628,9 @@ function updatePlayer(dt) {
   }
   const len = Math.hypot(mx, my);
   player.moving = len > 0;
+  // a gamepad stick walks as fast as it's tilted (keyboard and touch stay full speed)
+  const onlyPad = pad.connected && touch.stickId === null && !(keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || (useArrows && (keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight)));
+  if (onlyPad) { spd *= Math.min(1, len); if (len < 0.08) player.moving = false; }   // a hair past the deadzone is not a step
   // Ice: momentum carries you, and running can make you slip
   const onIce = world.ice.some(r => player.x > r.x && player.x < r.x + r.w && player.y > r.y && player.y < r.y + r.h);
   const wantX = len > 0 ? mx / len * spd : 0, wantY = len > 0 ? my / len * spd : 0;
@@ -1354,8 +1357,9 @@ function endNight(reason) {
   if (reason === 'win' && night !== 5 && !oneNightMode()) { state = 'nightdone'; sfx.win(); saveNext(); }
   else {
     if (reason === 'arrested' && night < 5 && !oneNightMode() && !campaign.courtUsed) {
-      // First arrest of the season: you get your day in court.
+      // First arrest of the season: you get your day in court. The save remembers, so a reload goes to court too.
       state = 'over'; sfx.lose();
+      saveOk(store.set('hs_save', { night, campaign, court: true }));
       playScene(SCENES.busted, () => { G.court = null; state = 'court'; });
       story.jail = true;
       return;
@@ -1378,17 +1382,40 @@ function endNight(reason) {
   }
 }
 
-function saveGame() { if (oneNightMode()) return; store.set('hs_save', { night, campaign }); }
+function saveGame() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night, campaign })); }
 // Between nights (results and Earl's shop): Continue starts the next night with everything kept.
-function saveNext() { if (oneNightMode()) return; store.set('hs_save', { night: night + 1, campaign }); }
+function saveNext() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night: night + 1, campaign })); }
+// Storage full or blocked (private mode, quota): say so once, instead of losing the season silently on reload
+let saveWarned = false;
+function saveOk(ok) {
+  if (ok || saveWarned) return;
+  saveWarned = true;
+  banner('⚠ Couldn\'t save: this browser\'s storage is full or blocked. Progress won\'t survive a reload.', '#ff9f6b');
+}
+// The saved season, checked: a wrong night or broken fields mean no Continue rather than a NaN night.
+// Nested fields that aren't objects fall back to fresh ones; numbers that aren't numbers fall back to 0.
+function readSave() {
+  const s = store.get('hs_save', null);
+  if (!s || typeof s !== 'object' || !s.campaign || typeof s.campaign !== 'object' || Array.isArray(s.campaign)) return null;
+  const n = Number(s.night);
+  if (!Number.isInteger(n) || n < 1 || n > 999) return null;
+  const c = Object.assign(freshCampaign(), s.campaign), fresh = freshCampaign();
+  for (const k of Object.keys(fresh)) {
+    const want = fresh[k];
+    if (want && typeof want === 'object') { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k]) !== Array.isArray(want)) c[k] = want; }
+    else if (typeof want === 'number') { const v = Number(c[k]); c[k] = Number.isFinite(v) ? v : want; }
+  }
+  return { night: n, campaign: c, court: !!s.court };
+}
 function clearSave() { if (previewMode) return; try { localStorage.removeItem('hs_save'); } catch (e) { /* no storage */ } }
 function loadGame() {
   restoreRandom();
-  const s = store.get('hs_save', null);
-  if (!s || !s.campaign) return false;
+  const s = readSave();
+  if (!s) return false;
   night = s.night;
-  campaign = Object.assign(freshCampaign(), s.campaign);
+  campaign = s.campaign;
   startNight();
+  if (s.court) { story = null; G.court = null; state = 'court'; }   // reloaded mid-court: straight back to the judge
   return true;
 }
 function startAtNight(n) {
