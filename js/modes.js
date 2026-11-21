@@ -282,8 +282,8 @@ function drawSettings() {
   const y = buttonGrid([
     { label: `Difficulty: ${diff().label}`, fn: () => { settings.difficulty = order[(order.indexOf(settings.difficulty) + 1) % 3]; saveSettings(); } },
     { label: `Screen shake: ${settings.shake ? 'On' : 'Off'}`, fn: () => { settings.shake = !settings.shake; saveSettings(); } },
-    { label: `Sound: ${pct(settings.sfxVol)}`, fn: () => { settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
-    { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
+    { label: `Sound: ${muted ? 'Muted (M)' : pct(settings.sfxVol)}`, fn: () => { if (muted) setMuted(false); else settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
+    { label: `Music: ${muted ? 'Muted (M)' : pct(settings.musicVol)}`, fn: () => { if (muted) setMuted(false); else { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; } saveSettings(); } },
     { label: `Sight cones: ${settings.cbCones ? 'Colorblind' : 'Standard'}`, fn: () => { settings.cbCones = !settings.cbCones; saveSettings(); } },
     { label: `Flashing: ${settings.flashes ? 'On' : 'Reduced'}`, fn: () => { settings.flashes = !settings.flashes; saveSettings(); } },
     { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => setHints(!settings.hints) },

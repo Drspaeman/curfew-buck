@@ -72,7 +72,8 @@ function render(now) {
   drawScreens(now);
   drawToasts();
   if (state !== lastState) { fadeT = 0.3; lastState = state; }
-  if (fadeT > 0) { fadeT -= 1 / 60; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = `rgba(0,0,0,${clamp(fadeT / 0.3, 0, 1) * 0.6})`; ctx.fillRect(0, 0, VW, VH); }
+  const fdt = clamp((now - (render.prevNow || now)) / 1000, 0, 0.05); render.prevNow = now;
+  if (fadeT > 0) { fadeT -= fdt; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = `rgba(0,0,0,${clamp(fadeT / 0.3, 0, 1) * 0.6})`; ctx.fillRect(0, 0, VW, VH); }
 }
 let lastState = null, fadeT = 0;
 
@@ -308,9 +309,15 @@ function drawVignette() {
 // Where achievement toasts go. Phones: only the two newest, below the suspicion bar. If that would cover
 // Dale or the popups over his head, they go under his feet instead, as long as they end above the hint box
 // (or Raven's speech box); if only one fits there, only the newest shows.
+/*hudfix-applied*/
+// Is the season-complete screen waiting for a choice (Endless or New season)? Then stray clicks do nothing.
+function seasonChoice() { return state === 'over' && night === 5 && G && G.endReason === 'win' && !oneNightMode() && !netClient(); }
+// Blinking prompts and warnings stay steady with Flashing: Reduced
+function blinkOn(ms) { return !settings.flashes || Math.floor(performance.now() / ms) % 2 === 0; }
 function toastLayout() {
   const narrow = VW < 760;
-  let y = narrow ? 300 : 220, show = narrow ? toasts.slice(-2) : toasts;
+  // phones in play: below the objective chip and the police warning, not on top of them
+  let y = narrow ? (G && (state === 'play' || state === 'photo') ? (G.police ? 338 : G.objective ? 314 : 300) : 300) : 220, show = narrow ? toasts.slice(-2) : toasts;
   // phone menus and results: just the newest, at the very top, above the screen's title
   if (narrow && state !== 'play' && state !== 'photo') return { y: 12, show: toasts.slice(-1) };
   // a phone on its side: menus get one slim line in the top edge; in play, the newest goes under the minimap
@@ -742,7 +749,7 @@ function drawInflatable(b) {
 }
 function drawHolidayLights(h) {
   const cols = ['#ff4040', '#40d060', '#4080ff', '#ffd040'];
-  const t = Math.floor(performance.now() / 500);
+  const t = settings.flashes ? Math.floor(performance.now() / 500) : 0;   // steady bulbs with Flashing: Reduced
   let i = 0;
   const dot = (x, y) => { ctx.fillStyle = cols[(i + t) % 4]; ctx.globalAlpha = settings.flashes ? 1 : 0.85; ctx.fillRect(x - 2, y - 2, 4, 4); i++; };
   for (let x = h.x + 6; x < h.x + h.w; x += 16) { dot(x, h.y + 3); dot(x, h.y + h.h - 3); }
@@ -1099,7 +1106,7 @@ function drawHUD(now) {
   ctx.fillText(`Quota: ${G.delivered} / ${G.quota} deer${G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 28, 60);
   ctx.fillStyle = '#e8e8e8';
   ctx.fillText(`Score: ${campaign.score + G.nightScore}   ·   Cash: $${campaign.cash + G.earned}`, 28, 80);
-  ctx.fillStyle = player.arrows > 2 ? '#e8e8e8' : (Math.floor(performance.now() / 300) % 2 ? '#ff6b6b' : '#ffd166');
+  ctx.fillStyle = player.arrows > 2 ? '#e8e8e8' : !settings.flashes ? '#ff6b6b' : (Math.floor(performance.now() / 300) % 2 ? '#ff6b6b' : '#ffd166');
   ctx.fillText(`Arrows: ${player.arrows}`, 28, 100);
   ctx.fillStyle = player.cones > 0 ? '#e8e8e8' : '#888';
   ctx.fillText(`Pinecones: ${player.cones}`, 118, 100);
@@ -1264,7 +1271,8 @@ function drawTruckPointer(t = world.shed, label = 'SHED', color = '#ffd166') {
   const a = Math.atan2(ty - VH / 2, tx - VW / 2);
   // ride an ellipse near the screen edge, kept clear of the top HUD
   const px = clamp(VW / 2 + Math.cos(a) * (VW / 2 - 50), 40, VW - 40);
-  let py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), VW < 760 ? 240 : 100, VH - 60);   // stay below the HUD panel (it's taller on phones)
+  const top = VW < 760 ? 300 + (G.objective ? 26 : 0) + (G.police ? 26 : 0) : 100;
+  let py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), top, VH - 60);   // stay below the HUD panel (it's taller on phones)
   // desktop: never on top of the stats panel (top left) or the minimap (top right)
   if (VW >= 760 && ((px < 300 && py < 250) || (px > VW - 250 && py < 200))) py = px < 300 ? 250 : 200;
   // and never under the tutorial panel: drop just below it
@@ -1301,7 +1309,7 @@ function drawMinimap(big) {
   for (const a of arrows) if (!a.flying && a.t === Infinity) { ctx.fillStyle = '#fff'; ctx.fillRect(a.x * s - 1, a.y * s - 1, 2, 2); }
   for (const n of G.notices) if (!n.got) { ctx.fillStyle = '#ffe38a'; ctx.fillRect(n.x * s - 1.5, n.y * s - 1.5, 3, 3); }
   for (const w of watchers) {
-    ctx.fillStyle = w.type === 'cop' ? (Math.floor(performance.now() / 250) % 2 ? '#ff3030' : '#4070ff') : w.type === 'ex' ? '#ff9ad5' : '#ffd166';
+    ctx.fillStyle = w.type === 'cop' ? (!settings.flashes || Math.floor(performance.now() / 250) % 2 ? '#ff3030' : '#4070ff') : w.type === 'ex' ? '#ff9ad5' : '#ffd166';
     ctx.beginPath(); ctx.arc(w.x * s, w.y * s, 3, 0, TAU); ctx.fill();
   }
   ctx.fillStyle = '#ff7a1a';
@@ -1389,7 +1397,8 @@ function shareText() {
   return `Curfew Buck · ${mode} · ${deerRow} ${stars} · ${campaign.score} pts${how}`;
 }
 function savePhoto() {
-  const hint = photoHint; photoHint = false; render(performance.now()); photoHint = hint;   // a clean frame without the hint
+  const hint = photoHint, keepToasts = toasts; photoHint = false; toasts = []; fadeT = 0;
+  try { render(performance.now()); } finally { photoHint = hint; toasts = keepToasts; }   // a clean frame: no hint, toast or fade
   try { const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'curfew-buck-photo.png'; a.click(); sfx.grab(); } catch (e) { /* blocked */ }
 }
 let photoHint = true;
@@ -1479,8 +1488,8 @@ function drawScreenBody(now) {
     ctx.fillStyle = '#9be564'; ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillText(`Quota: ${G.quota} deer before sunrise`, cx, y + 50);
     ctx.fillStyle = '#9ecbff'; ctx.font = '15px system-ui, sans-serif';
-    ctx.fillText(WEATHER_TEXT[G.weather], cx, y + 78);
-    ctx.fillStyle = '#c9d6ff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(moonFx().label, cx, y + 98); y += 20;
+    const wEnd = wrapText(WEATHER_TEXT[G.weather], cx, y + 78, maxW, 19);   // the snow warning is long on a phone
+    ctx.fillStyle = '#c9d6ff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(moonFx().label, cx, wEnd + 20); y = wEnd - 58;
     if (G.objective) {
       ctx.fillStyle = '#7cf'; ctx.font = 'bold 15px system-ui, sans-serif';
       ctx.fillText(fitText(`★ Optional objective: ${G.objective.text}${G.objective.reward ? ` (+$${G.objective.reward})` : ''}`, maxW), cx, y + 102);
@@ -1502,12 +1511,12 @@ function drawScreenBody(now) {
       y = wrapText('Rumor at the bait shop: Old Hosta is in the woods tonight.', cx, y + 28, maxW, 20);   // y = its last line, however many it took
     }
     const gear = SHOP.filter(s => has(s.id)).map(s => s.name);
-    if (gear.length) { ctx.fillStyle = '#9be564'; ctx.font = '13px system-ui, sans-serif'; ctx.fillText('Gear: ' + gear.join(' · '), cx, y + 26); y += 26; }
+    if (gear.length) { ctx.fillStyle = '#9be564'; ctx.font = '13px system-ui, sans-serif'; y = wrapText('Gear: ' + gear.join(' · '), cx, y + 26, maxW, 18); }
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillStyle = '#aaa'; ctx.font = 'italic 14px system-ui, sans-serif';
     y = wrapText('💡 Tip: ' + (G.tip || (G.tip = pick(TIPS))), cx, y + 46, maxW, 19);
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 18px system-ui, sans-serif';
-    if (Math.floor(now / 600) % 2 === 0) ctx.fillText(touchMode ? 'Tap to begin' : 'Click to begin', cx, y + 40);
+    if (blinkOn(600)) ctx.fillText(touchMode ? 'Tap to begin' : 'Click to begin', cx, y + 40);
   } else if (state === 'pause') {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 42px system-ui, sans-serif';
     ctx.fillText('PAUSED', cx, VH * 0.4);
@@ -1517,8 +1526,8 @@ function drawScreenBody(now) {
     const py = buttonGrid([
       { label: 'Resume', fn: () => { state = 'play'; }, hi: true },
       { label: 'Restart night (R)', fn: () => restartNight() },
-      { label: `Sound: ${pct(settings.sfxVol)}`, fn: () => { settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
-      { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
+      { label: `Sound: ${muted ? 'Muted (M)' : pct(settings.sfxVol)}`, fn: () => { if (muted) setMuted(false); else settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
+      { label: `Music: ${muted ? 'Muted (M)' : pct(settings.musicVol)}`, fn: () => { if (muted) setMuted(false); else { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; } saveSettings(); } },
       { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => setHints(!settings.hints) },
       { label: 'Quit to title', fn: () => { state = 'title'; } },
       ...(G.tut ? [{ label: pad.connected ? 'Skip tutorial (Y)' : 'Skip tutorial', fn: () => { skipTutorial(); state = 'play'; } }] : []),
@@ -1599,8 +1608,10 @@ function drawScreenBody(now) {
     // stars
     ctx.font = '34px system-ui, sans-serif';
     ctx.fillStyle = '#ffd166';
-    const shownStars = clamp(Math.min(G.stars || 0, Math.floor((now - (G.resultAt || 0)) / 350)), 0, 3);
-    ctx.fillText('★'.repeat(shownStars) + '☆'.repeat(3 - shownStars), cx, y + 46);
+    const earned = r === 'win' ? [true, !G.police, G.timesSpotted === 0] : [false, false, false];
+    const reveal = Math.floor((now - (G.resultAt || 0)) / 350);
+    let lit = 0;
+    ctx.fillText(earned.map(e => e && lit++ < reveal ? '★' : '☆').join(''), cx, y + 46);   // in the legend's order
     ctx.fillStyle = '#999'; ctx.font = '12px system-ui, sans-serif';
     ctx.fillText('★ quota met   ★ cops never called   ★ never spotted', cx, y + 66);
     ctx.fillStyle = '#e8e8e8'; ctx.font = '16px system-ui, sans-serif';
@@ -1650,15 +1661,16 @@ function drawScreenBody(now) {
     if (state === 'over' && oneNightMode() && !netClient()) {
       y = buttonGrid([{ label: G.copiedAt && now - G.copiedAt < 1500 ? '✓ Copied!' : '📋 Copy result', fn: () => { try { navigator.clipboard.writeText(shareText()).then(() => { G.copiedAt = performance.now(); }); } catch (e) { /* no clipboard */ } } }], y + 14, 200, 34) - 6;
     }
-    if (VW >= 1100 && G.route && G.route.length > 1) drawRouteMap(VW - 250, VH - 210, 230);
+    if (VW >= 1180 && G.route && G.route.length > 1) drawRouteMap(VW - 250, VH - 210, 230);   // beside the 640px recap, never on it
     ctx.fillStyle = '#ffd166'; ctx.font = 'bold 19px system-ui, sans-serif';
     if (state === 'over' && r === 'win' && night === 5) {
       buttonGrid([{ label: 'Endless Mode ▶', fn: () => startEndless(), hi: true }, { label: 'New season', fn: () => newCampaign() }], y + 24, 220, 44);
     } else if (state === 'over' && night > 5) {
       ctx.fillText(`Endless run ended on night ${night}. Best: ${store.get('hs_endless_best', 0) > 5 ? 'cleared night ' + store.get('hs_endless_best', 0) : 'no night cleared yet'}`, cx, y + 30);
-      if (Math.floor(now / 600) % 2 === 0) { ctx.font = 'bold 17px system-ui, sans-serif'; ctx.fillText('Click to start a new season', cx, y + 62); }
+      if (blinkOn(600)) { ctx.font = 'bold 17px system-ui, sans-serif'; ctx.fillText('Click to start a new season', cx, y + 62); }
     } else if (netClient()) ctx.fillText('Waiting for the host to continue…', cx, y + 40);
-    else if (Math.floor(now / 600) % 2 === 0) ctx.fillText(`${touchMode ? 'Tap' : 'Click'} ${state === 'nightdone' ? 'to visit the bait shop' : 'to start a new season'}`, cx, y + 40);
+    else if (seasonChoice()) { /* the two buttons above are the only way on */ }
+    else if (blinkOn(600)) ctx.fillText(`${touchMode ? 'Tap' : 'Click'} ${state === 'nightdone' ? 'to visit the bait shop' : 'to start a new season'}`, cx, y + 40);
   }
 }
 
@@ -1936,17 +1948,28 @@ function drawTrophies() {
   ctx.fillStyle = '#bbb'; ctx.font = '13px system-ui, sans-serif';
   ctx.fillText(`Achievements: ${got} / ${keys.length}`, cx, 78);
   const cols = VW > 900 ? 2 : 1, cw = Math.min(430, (VW - 40) / cols), rh = 19;
-  const x0 = cx - (cols * cw) / 2;
+  const x0 = cx - (cols * cw) / 2, stack = cw < 400;
+  let sy = 104;
   keys.forEach((k, i) => {
-    const x = x0 + (i % cols) * cw + 8, y = 104 + Math.floor(i / cols) * rh;
     const [name, desc] = ACH[k];
+    if (stack) {
+      const x = x0 + 8;
+      ctx.textAlign = 'left'; ctx.fillStyle = achievements[k] ? '#ffd166' : '#666'; ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.fillText(fitText((achievements[k] ? '🏆 ' : '🔒 ') + name, cw - 16), x, sy);
+      ctx.fillStyle = achievements[k] ? '#aaa' : '#666'; ctx.font = '11px system-ui, sans-serif';
+      const ls = wrapLines(desc, cw - 30);
+      ls.forEach((l, j) => ctx.fillText(l, x + 18, sy + 15 + j * 14));
+      sy += 15 + ls.length * 14 + 7;
+      return;
+    }
+    const x = x0 + (i % cols) * cw + 8, y = 104 + Math.floor(i / cols) * rh;
     ctx.textAlign = 'left';
     ctx.fillStyle = achievements[k] ? '#ffd166' : '#555'; ctx.font = 'bold 12px system-ui, sans-serif';
     ctx.fillText(fitText((achievements[k] ? '🏆 ' : '🔒 ') + name, 178), x, y);
     ctx.fillStyle = achievements[k] ? '#aaa' : '#555'; ctx.font = '11px system-ui, sans-serif';
     ctx.fillText(fitText(desc, cw - 206), x + 186, y);
   });
-  let y = 104 + Math.ceil(keys.length / cols) * rh + 18;
+  let y = stack ? sy + 12 : 104 + Math.ceil(keys.length / cols) * rh + 18;
   const life = store.get('hs_life', {});
   ctx.textAlign = 'center'; ctx.fillStyle = '#9ecbff'; ctx.font = 'bold 14px system-ui, sans-serif';
   ctx.fillText('LIFETIME', cx, y); y += 20;
@@ -1958,7 +1981,9 @@ function drawTrophies() {
   ctx.fillStyle = '#ccc'; ctx.font = '13px system-ui, sans-serif';
   if (!scores.length) { ctx.fillText('None yet. Go fill that freezer.', cx, y); }
   scores.slice(0, 5).forEach((s, i) => { ctx.fillText(`${i + 1}. ${s.score} pts · reached night ${s.night} · $${s.cash} · ${s.date}`, cx, y); y += 18; });
-  ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('Click or press Esc to go back', cx, VH - 20);
+  if (!scores.length) y += 18;
+  // at the bottom of the screen, or below the list when it scrolls (never on top of it)
+  ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('Click or press Esc to go back', cx, Math.max(VH - 20, y + 16));
 }
 function drawCredits() {
   const cx = VW / 2;

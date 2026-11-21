@@ -62,14 +62,14 @@ window.addEventListener('keydown', e => {
     if (n >= 1 && n <= SHOP.length) buy(SHOP[n - 1]);
     if (e.code === 'Enter' || e.code === 'Space') { night++; startNight(); }
   }
-  else if (state === 'over' && (e.code === 'Enter' || e.code === 'KeyR')) newCampaign();
+  else if (state === 'over' && (e.code === 'Enter' || e.code === 'KeyR') && !seasonChoice()) newCampaign();
 });
 window.addEventListener('keyup', e => {
   keys[e.code] = false;
   if (e.code === 'Space' && state === 'play' && !netClient()) releaseDraw();
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touch.mx = touch.my = 0; if (netClient()) { NET.lastIn = ''; NET.inT = 0; } if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; } });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; stopGameplaySounds(); } });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touch.mx = touch.my = 0; if (netClient()) { NET.lastIn = ''; NET.inT = 0; } if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; stopGameplaySounds(); } });
 cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; aimBy = 'mouse'; });
 cv.addEventListener('mousedown', e => {
   mouse.x = e.clientX; mouse.y = e.clientY;
@@ -87,7 +87,7 @@ cv.addEventListener('mousedown', e => {
   else if (state === 'play') startDraw();
   else if (state === 'pause') state = 'play';
   else if (state === 'nightdone') goShop();
-  else if (state === 'over') newCampaign();
+  else if (state === 'over' && !seasonChoice()) newCampaign();
 });
 window.addEventListener('mouseup', e => { if (e.button === 0 && state === 'play' && !netClient()) releaseDraw(); });
 cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -198,7 +198,7 @@ function pollPad() {
     else if (state === 'title') { if (!loadGame()) newCampaign(); }
     else if (state === 'intro' || state === 'pause') state = 'play';
     else if (state === 'nightdone') goShop();
-    else if (state === 'over') newCampaign();
+    else if (state === 'over' && !seasonChoice()) newCampaign();
   }
   pad.prev = b;
 }
@@ -371,6 +371,7 @@ function steveBuy(kind) {
   // spend tonight's earnings first, then savings
   const fromEarned = Math.min(G.earned, prices[kind]);
   G.earned -= fromEarned; campaign.cash -= prices[kind] - fromEarned;
+  campaign.boughtSteve = true;   // Thrifty means nothing from Steve either
   if (kind === 'beer') campaign.items.beer = (campaign.items.beer || 0) + 1;
   if (kind === 'arrows') player.arrows += 4;
   if (kind === 'cones') player.cones += 3;

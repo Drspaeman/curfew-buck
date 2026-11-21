@@ -476,7 +476,8 @@ function reelIn() {
   player.bag = (player.bag || 0) + packs;
   sfx.deliver();
   popup(player.x, player.y - 30, `You caught ${catchName}${packs ? ` (+${packs} pack${packs > 1 ? 's' : ''})` : ''}`, '#9be564', 2.4);
-  if (packs > 0 || catchName.includes('KOI')) { unlock('fisher'); G.fish = (G.fish || 0) + 1; }
+  if (!catchName.startsWith('nothing')) unlock('fisher');   // "Catch anything at all": the boot counts here
+  if (packs > 0 || catchName.includes('KOI')) G.fish = (G.fish || 0) + 1;   // ...but it isn't a fish
 }
 function updateFishing(dt) {
   const f = player.fishing;
@@ -570,7 +571,7 @@ function drawStory(now) {
   ctx.fillStyle = 'rgba(5,8,14,0.9)'; ctx.fillRect(0, 0, VW, VH);
   if (story.jail) { ctx.fillStyle = 'rgba(120,125,135,0.5)'; for (let x = 20; x < VW; x += 46) ctx.fillRect(x, 0, 8, VH); ctx.fillRect(0, 40, VW, 10); ctx.fillRect(0, VH - 50, VW, 10); }
   // typewriter reveal
-  story.t += 1 / 60;
+  story.t += clamp((now - (story.lastNow || now)) / 1000, 0, 0.05); story.lastNow = now;
   const shown = text.slice(0, Math.floor(story.t * 70));
   ctx.font = '18px system-ui, sans-serif';
   const lines = wrapLines(text, bw - (who === 'narrator' ? 40 : 120));
@@ -1394,7 +1395,7 @@ function endNight(reason) {
     if (reason === 'win' && !oneNightMode()) unlock('season');
     if (reason === 'win' && night === 5) {
       if ([0, 1, 2, 3, 4].every(i => (campaign.stars[i] || 0) >= 3)) unlock('allstars');
-      if (!campaign.spent) unlock('thrifty');
+      if (!campaign.spent && !campaign.boughtSteve) unlock('thrifty');
     }
     if (campaign.daily) { const dd = store.get('hs_daily', {}), dk = dailyRecordKey(); dd[dk] = Math.max(dd[dk] || 0, campaign.score); store.set('hs_daily', dd); unlock('daily'); restoreRandom(); }
     if (campaign.map === 'golf') { store.set('hs_golf_best', Math.max(store.get('hs_golf_best', 0), campaign.score)); if (reason !== 'arrested') unlock('golfer'); }
@@ -1495,7 +1496,10 @@ function buildNews(reason) {
 // Shared with the online guest camera in net.js.
 function camTargetY(y) {
   const narrow = VW < 760, topPad = narrow ? 320 : 0, botPad = narrow ? (G && G.hint ? 200 : 70) : 0;
-  return H > VH - topPad - botPad ? clamp(y - VH / 2, -topPad, H - VH + botPad) : (H - VH) / 2;
+  let focus = VH / 2;
+  const tb = narrow && G && G.tut && typeof tutorialBox === 'function' ? tutorialBox() : null;
+  if (tb) focus = Math.min(VH - 150, Math.max(focus, tb.y + tb.h + 70));   // the tutorial panel would cover him
+  return H > VH - topPad - botPad ? clamp(y - focus, -topPad - (focus - VH / 2), H - VH + botPad) : (H - VH) / 2;
 }
 
 function updateCam(dt) {
