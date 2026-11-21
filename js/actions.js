@@ -119,6 +119,7 @@ function interact() {
     }
   }
   if (gothInteract()) return;
+  if (yotmInteract()) return;
   if (G.police && dist(player.x, player.y, world.van.x + world.van.w / 2, world.van.y + world.van.h / 2) < 160) { popup(player.x, player.y - 30, 'Steve: "Cops at the end of the road, man. Come back later!"', '#b5e86a', 2); return; }
   if (nearVan()) { openSteve(); return; }
   if (player.cooler) {

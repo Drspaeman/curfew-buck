@@ -334,8 +334,9 @@ function updateGoth(dt) {
       : player.carry ? pick(['Is that... for an altar? Respect.', 'A whole deer. Finally, someone commits to the macabre.'])
       : player.cooler ? 'Is that a cooler of venison or a portable crypt? Both. It\'s both.'
       : G.buzz > 0 ? 'Are you... drunk? At 4 AM? On a lawn? That\'s my whole aesthetic.'
+      : G.yotmStolen && !R.yotmSaid ? 'You stole the Yard of the Month sign? My dad nominated that yard. I\'ve never been prouder of a stranger.'
       : G.soaked > 0 ? 'Your boots squeak in B-flat. Can you do it twice before the chorus?' : null;
-    if (l) { ravenSay(l); R.talkCD = 14; }
+    if (l) { ravenSay(l); R.talkCD = 14; if (l.startsWith('You stole the Yard')) R.yotmSaid = true; }
   }
   // Edgar, Raven's crow, sits on the fence. Get too close without sneaking and he caws (everyone hears it)
   if (R.edgar && !R.edgar.flown) {

@@ -497,6 +497,8 @@ function setupObjective() {
   const o = OBJECTIVES[night];
   G.objective = o ? Object.assign({ count: 0, done: false }, o) : null;
   if (G.objective && o.id === 'longbow' && campaign.weapons.longbow) G.objective = null;
+  // Old Hosta is already in the freezer from an earlier night: that counts (no second one to chase)
+  if (G.objective && o.id === 'hosta' && campaign.flags.hostaDone) { campaign.flags.hosta = true; G.objective = null; }
 }
 function objectiveEvent(kind, arg) {
   const o = G.objective;
@@ -529,7 +531,7 @@ function updateObjective() {
     campaign.weapons.longbow = true;
     campaign.weapon = 'longbow';
     sfx.deliver();
-    popup(player.x, player.y - 34, 'GRANDPA\'S LONGBOW! Equipped. Quiet, true, and one-shots legends.', '#ffd166', 3);
+    popup(player.x, player.y - 34, 'Grandpa\'s longbow equipped. One shot drops Old Hosta.', '#ffd166', 3);
     objectiveEvent('longbow');
     unlock('longbow');
     makeNoise(player.x, player.y, 120, 'garage', true);
@@ -548,7 +550,7 @@ function playScene(lines, done) {
 function sceneFor(id, done) {
   if (campaign.seen[id]) { done(); return; }
   campaign.seen[id] = true;
-  playScene(SCENES[id], done);
+  playScene((SCENES[id] || []).filter(l => typeof l[2] !== 'function' || l[2](campaign)), done);
 }
 function advanceStory(skipAll) {
   if (!story) return;
@@ -736,7 +738,7 @@ function deliver() {
   G.streak = (G.streak || 0) + 1;
   if (G.streak >= 2) { const bonus = 50 * (G.streak - 1); G.nightScore += bonus; popup(player.x, player.y - 74, `👻 Ghost streak ×${G.streak} (+${bonus})`, '#b8e0ff', 2); }
   if (G.streak >= 4) unlock('streak');
-  if (d.legend) { unlock('legend'); G.legendDone = true; banner('LEGEND BAGGED: OLD HOSTA', '#ffd166'); }
+  if (d.legend) { unlock('legend'); G.legendDone = true; if (!oneNightMode()) campaign.flags.hostaDone = true; banner('LEGEND BAGGED: OLD HOSTA', '#ffd166'); }
   if (G.delivered === G.quota) { banner(`QUOTA MET! ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} at your ${world.golf ? 'truck' : 'shed'} to call it a night, or keep hunting`, '#9be564'); tone(523, 0.18, 'triangle', 0.08); tone(659, 0.18, 'triangle', 0.08, null, 0.12); tone(784, 0.35, 'triangle', 0.09, null, 0.24); rumble(200, 0.4); }
 }
 
@@ -1375,12 +1377,15 @@ function endNight(reason) {
     if (campaign.map === 'golf') { store.set('hs_golf_best', Math.max(store.get('hs_golf_best', 0), campaign.score)); if (reason !== 'arrested') unlock('golfer'); }
     if (campaign.halloween) store.set('hs_halloween_best', Math.max(store.get('hs_halloween_best', 0), campaign.score));
     if (campaign.map === 'cul' || campaign.map === 'random') store.set('hs_' + campaign.map + '_best', Math.max(store.get('hs_' + campaign.map + '_best', 0), campaign.score));
+    if (reason === 'win' && night === 5 && !oneNightMode()) {
+      // last stop before the auction (settled before the score is recorded, so the leaderboard's cash matches):
+      // Earl buys whatever is left in the freezer at his usual $12 a pack, and chips in $300 on Easy
+      if (campaign.freezer > 0) { campaign.earlLast = { packs: campaign.freezer, cash: campaign.freezer * 12 }; campaign.cash += campaign.earlLast.cash; campaign.freezer = 0; }
+      if (settings.difficulty === 'easy') { campaign.earlChip = 300; campaign.cash += 300; }
+    }
     if (!oneNightMode()) { recordScore(); clearSave(); }
     state = 'over'; reason === 'win' ? sfx.win() : sfx.lose();
     if (reason === 'win' && night === 5) {
-      // last stop before the auction: Earl buys whatever is left in the freezer, at his usual $12 a pack
-      if (!oneNightMode() && campaign.freezer > 0) { campaign.earlLast = { packs: campaign.freezer, cash: campaign.freezer * 12 }; campaign.cash += campaign.earlLast.cash; campaign.freezer = 0; }
-      if (!oneNightMode() && settings.difficulty === 'easy') { campaign.earlChip = 300; campaign.cash += 300; }
       if (campaign.cash >= CABIN_GOAL) unlock('cabin');
       playScene(buildEnding(campaign), () => { state = 'over'; });
     } else if (reason === 'arrested' && night <= 5) playScene(SCENES.busted, () => { state = 'over'; });
@@ -1440,9 +1445,10 @@ VOICEMAILS.clean.push('Quiet night, huh? Too quiet. Stay out of my hydrangeas.',
 STEVE_LINES.push('Steve: "My cousin\'s brother-in-law says venison\'s up. Or down. One of those."', 'Steve: "If anyone asks, this is a mobile library."', 'Steve: "Cash is king. Venison is... duke? Earl? No, Earl\'s the bait guy."');
 function buildNews(reason) {
   let headline;
-  if (G.legendDone) headline = 'LEGENDARY BUCK "OLD HOSTA" VANISHES; GARDEN CLUB HOLDS VIGIL';
-  else if (reason === 'arrested') headline = 'ORANGE MENACE ARRESTED. GARDEN CLUB REQUESTS DETAILS';
+  if (reason === 'arrested') headline = 'ORANGE MENACE ARRESTED. GARDEN CLUB REQUESTS DETAILS';
+  else if (G.legendDone) headline = 'LEGENDARY BUCK "OLD HOSTA" VANISHES; GARDEN CLUB HOLDS VIGIL';
   else if (G.police) headline = 'POLICE CHASE "ORANGE MENACE" THROUGH ESTATES. SUSPECT AT LARGE';
+  else if (G.yotmStolen) headline = pick(['YARD OF THE MONTH SIGN STOLEN. LINDA VANCE: "I WILL FIND YOU"', 'YARD OF THE MONTH SIGN STOLEN. HOA FINES WINNER FOR MISSING SIGN', 'SIGN THIEF STRIKES. YARD OF THE MONTH NOW "YARD OF THE MOMENT"']);
   else if (reason === 'win' && G.shots === 0) headline = 'BOW ACCOMPANIES MAN ON ERRANDS';
   else if (G.noticesGot === 3) headline = 'HOA FORMS MISSING. COMMITTEE FORMED TO DESIGN A REPLACEMENT FORM';
   else if (G.timesSpotted === 0) headline = pick(['DEER POPULATION MYSTERIOUSLY DECLINING; RESIDENTS BAFFLED', 'HOSTA LOSSES AT RECORD LOW; GARDEN CLUB SUSPICIOUS', 'NOBODY SAW ANYTHING, AND THAT\'S WHAT WORRIES LINDA']);
@@ -1450,10 +1456,10 @@ function buildNews(reason) {
   const fines = G.timesSpotted * 250 + G.shots * 50;
   if (G.camClips) return { headline, lines: [`Doorbell footage (${G.camClips} clip${G.camClips > 1 ? 's' : ''}) shows "an orange blur, possibly a man, possibly a large traffic cone."`, `Treasurer Gary Pfister estimates $${fines.toLocaleString()} in fines "if we ever catch him."`] };
   const lines = [
-    `Treasurer Gary Pfister estimates $${fines.toLocaleString()} in fines "if we ever catch him."`,
-    pick([
+    reason === 'arrested' ? `Treasurer Gary Pfister estimates $${fines.toLocaleString()} in fines. He has asked for a second calculator.` : `Treasurer Gary Pfister estimates $${fines.toLocaleString()} in fines "if we ever catch him."`,
+    reason === 'arrested' && G.legendDone ? 'Old Hosta was not recovered. The Garden Club is holding a vigil anyway.' : pick([
       'Linda Vance reminds residents that Bylaw 14.3 is "not a suggestion."',
-      'Todd from Neighborhood Watch says he "almost had him."',
+      night >= 2 ? 'Todd from Neighborhood Watch says he "almost had him."' : 'Linda Vance says the board is looking into whistles.',
       'The Garden Club reports record-low hosta losses. Coincidence?',
       'Reminder: trash cans must be out of sight by 7 PM. This means you, Block 4.',
     ]),

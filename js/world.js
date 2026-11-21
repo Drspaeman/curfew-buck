@@ -459,6 +459,7 @@ function startNight() {
     G.gossip.push({ x, y, idx: left[G.gossip.length], got: false });
   }
   setupGoth();   // Raven, her hidden trading cards and a band poster (js/goth.js)
+  setupYotm();   // the HOA's Yard of the Month sign (js/modes.js)
   player = {
     x: world.shed.x - 26, y: world.shed.y + 35, ang: 0, crouch: false, carry: null, cd: 0, hidden: false, lit: false, moving: false, step: 0,
     drawing: false, draw: 0, arrows: 8 + (has('quiver') ? 6 : 0), cones: 2 + (has('pouch') ? 3 : 0),
@@ -478,7 +479,7 @@ function startNight() {
   deer = []; arrows = []; popups = []; particles = []; cones = []; drops = []; marks = []; flies = []; leaves = [];
   for (let i = 0; i < 9 + night; i++) spawnDeer(false);
   const legendChance = night >= 5 ? 1 : night >= 3 ? 0.5 : 0;
-  if (Math.random() < legendChance) spawnDeer(false, true);
+  if (Math.random() < legendChance && !(campaign.flags && campaign.flags.hostaDone && !oneNightMode())) spawnDeer(false, true);   // once he's in the freezer, he stays there
   if (campaign.map === 'golf') setupGolfWatchers(); else if (campaign.map === 'cul') setupCulWatchers(); else if (campaign.map === 'custom') setupSpecWatchers(); else setupWatchers();
   spawnCritters();
   setupObjective();

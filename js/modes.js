@@ -1,6 +1,50 @@
 'use strict';
 // Hunter Sub: Game modes: Daily Hunt, Country Club, Maple Court, random and custom maps, two-player.
 // Part 7 of 10. All parts share one global scope, so load them in order (see index.html).
+// ---- Yard of the Month ----
+// The HOA plants a "Yard of the Month" sign in one front lawn each night. Dale can steal it (E). It rustles
+// (a little noise), the newsletter notices, and Linda takes it personally. Stolen signs pile up in the shed.
+const YOTM_LINES = [
+  'You stole the Yard of the Month sign. The yard is now merely fine.',
+  'Yard of the Month: acquired. Your shed has never been this decorated.',
+  'You took the sign. Somewhere, Linda sits bolt upright in bed.',
+  'Yard of the Month sign stolen. The hostas look relieved.',
+];
+function setupYotm() {
+  G.yotm = null;
+  const houses = (world.houses || []).filter(h => h !== world.exHouse && !h.label);
+  for (let k = 0; k < 40 && houses.length; k++) {
+    const h = houses[Math.floor(Math.random() * houses.length)];
+    // in the front lawn: between the house and its street
+    const x = h.x + (h.w || HW) * (0.25 + Math.random() * 0.5), y = h.top ? h.y - 18 : h.y + (h.h || HH) + 18;
+    if (world.blocked(x, y, 14) || dist(x, y, world.shed.x, world.shed.y) < 300) continue;
+    G.yotm = { x, y, got: false };
+    return;
+  }
+}
+function nearYotm() { const s = G && G.yotm; return !!(s && !s.got && player && dist(s.x, s.y, player.x, player.y) < 40); }
+function yotmInteract() {
+  if (!nearYotm()) return false;
+  const s = G.yotm;
+  s.got = true; G.yotmStolen = true;
+  if (!oneNightMode()) campaign.yotm = (campaign.yotm || 0) + 1;
+  makeNoise(s.x, s.y, 110 * noiseMult(), 'rustle');   // pulling a sign out of a lawn isn't silent
+  sfx.pickup();
+  popup(s.x, s.y - 30, pick(YOTM_LINES), '#9be564', 3);
+  unlock('yotm');
+  if ((campaign.yotm || 0) >= 3) unlock('yotm3');
+  return true;
+}
+function drawYotm() {
+  const s = G && G.yotm;
+  if (!s || s.got || !inView(s.x, s.y, 40)) return;
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(s.x - 1.5, s.y - 4, 3, 16);                       // stake
+  ctx.fillStyle = '#f4f1e6'; roundRect(ctx, s.x - 22, s.y - 22, 44, 20, 3); ctx.fill();      // sign
+  ctx.strokeStyle = '#2e7d32'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#2e7d32'; ctx.font = 'bold 6px system-ui, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('YARD OF THE', s.x, s.y - 14); ctx.fillText('MONTH 🏆', s.x, s.y - 6);
+}
+
 // Daily records are kept per difficulty, so an Easy score never sits on the Normal board (Normal keeps the plain date key)
 function dailyRecordKey() { return campaign.daily + (settings.difficulty && settings.difficulty !== 'normal' ? ':' + settings.difficulty : ''); }
 function startDaily() {
@@ -82,10 +126,10 @@ const SCANNER = [
 function tylerLine() {
   if (G.endReason === 'arrested') return 'dad. DAD. mom is SO mad. also kowalski said hi';
   if ((G.soldPacks || 0) >= 3 && Math.random() < 0.4) return 'dad i made u an invoice. it just says MEAT in 48 point font';
+  if (G.legendDone) return 'OLD HOSTA??? earl is gonna lose his mind';
   if (G.stars >= 3) return 'nobody saw u at all?? ur literally a ninja';
   if (G.police) return 'i heard the sirens lol. u ok?';
-  if (G.legendDone) return 'OLD HOSTA??? earl is gonna lose his mind';
-  return pick(['nice. mom didnt even notice', 'ur on the hoa group chat again', 'teach me how to do that pls']);
+  return pick([G.exSaw ? 'mom knew it was u before she even got to the window' : 'mom asked why the freezer is louder than usual', 'ur on the hoa group chat again', 'teach me how to do that pls']);
 }
 function drawGossip(now) {
   if (!G || !G.gossip) return;

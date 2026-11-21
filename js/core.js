@@ -386,6 +386,8 @@ const ACH = {
   longbow: ['Heirloom', 'Take back Grandpa\'s Longbow'],
   story: ['Side Hustle', 'Complete a story objective'],
   cabin: ['Pruitt Woods', 'Raise the $1,500 cabin deposit by the end of the season'],
+  yotm: ['Yard of the Moment', 'Steal the HOA\'s Yard of the Month sign'],
+  yotm3: ['Curator', 'Steal 3 Yard of the Month signs in one season'],
   rabbit: ['Wascally', 'Bag a rabbit'],
   soaked: ['Lawn Care', 'Get soaked by a sprinkler'],
   snowghost: ['Snow Ghost', 'Win Night 5 without anyone following your footprints'],

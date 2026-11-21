@@ -39,6 +39,7 @@ function render(now) {
   drawNotices(now);
   drawGossip(now);
   drawGoth(now);
+  drawYotm();
   drawCarvings(now);
   drawCat();
   drawDogs(now);
@@ -1498,8 +1499,7 @@ function drawScreenBody(now) {
     y = wrapText(`Watching tonight: ${watchers.map(w => w.label).join(' · ')}`, cx, y + 104, maxW, 20);
     if (deer.some(d => d.legend)) {
       ctx.fillStyle = '#ffd166'; ctx.font = 'bold 15px system-ui, sans-serif';
-      wrapText('Rumor at the bait shop: OLD HOSTA, the legendary 14-pointer, is in the woods tonight.', cx, y + 28, maxW, 20);
-      y += 28;
+      y = wrapText('Rumor at the bait shop: Old Hosta is in the woods tonight.', cx, y + 28, maxW, 20);   // y = its last line, however many it took
     }
     const gear = SHOP.filter(s => has(s.id)).map(s => s.name);
     if (gear.length) { ctx.fillStyle = '#9be564'; ctx.font = '13px system-ui, sans-serif'; ctx.fillText('Gear: ' + gear.join(' · '), cx, y + 26); y += 26; }
@@ -1790,6 +1790,7 @@ function contextLabel() {
   if (nearRaven() && gothBinderDone() && !gothHasSecret()) return '[E] talk to Raven (she has something for you)';
   if (nearRaven()) return (campaign.racks || []).length && G.goth && !G.goth.boughtRack && !oneNightMode() ? '[E] sell Raven an antler rack' : G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) && gothPosters().length >= POSTERS.length ? '[E] backstage pass: ask Raven for a hint' : player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
   if (nearVan()) return '[E] talk to Steve';
+  if (nearYotm()) return '[E] steal the Yard of the Month sign';
   if (player.cooler) return nearTruck() ? '[E] put cooler back' : '';
   if (nearTruck() && G.freezer > 0) return '[E] pack a cooler';
   if (pondNear()) return '[E] fish';
