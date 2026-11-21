@@ -317,14 +317,19 @@ function updateTutorial() {
   }
 }
 function skipTutorial() { G.tut = null; store.set('hs_tut_done', true); }
-function drawTutorial() {
-  if (!G.tut) return;
+// Where the tutorial panel sits (edge arrows use this to stay out from under it)
+function tutorialBox() {
+  if (!G || !G.tut || !TUTORIAL[G.tut.step]) return null;
   const step = TUTORIAL[G.tut.step];
-  const compact = VW < 760;
-  const w = Math.min(560, VW - 28), x = VW / 2 - w / 2, y = compact ? 316 : 80;
+  const w = Math.min(560, VW - 28), x = VW / 2 - w / 2, y = VW < 760 ? 316 : 80;
   ctx.font = '15px system-ui, sans-serif';
   const lines = wrapLines(typeof step.text === 'function' ? step.text() : step.text, w - 30);
-  const h = 34 + lines.length * 20;
+  return { x, y, w, h: 34 + lines.length * 20, lines };
+}
+function drawTutorial() {
+  const box = tutorialBox();
+  if (!box) return;
+  const { x, y, w, h, lines } = box;
   panel(x, y, w, h);
   ctx.strokeStyle = '#9be564'; ctx.lineWidth = 1.5; roundRect(ctx, x, y, w, h, 10); ctx.stroke();
   ctx.textAlign = 'left'; ctx.fillStyle = '#9be564'; ctx.font = 'bold 11px system-ui, sans-serif';

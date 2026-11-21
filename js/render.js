@@ -1266,6 +1266,9 @@ function drawTruckPointer(t = world.shed, label = 'SHED', color = '#ffd166') {
   let py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), VW < 760 ? 240 : 100, VH - 60);   // stay below the HUD panel (it's taller on phones)
   // desktop: never on top of the stats panel (top left) or the minimap (top right)
   if (VW >= 760 && ((px < 300 && py < 250) || (px > VW - 250 && py < 200))) py = px < 300 ? 250 : 200;
+  // and never under the tutorial panel: drop just below it
+  const tb = tutorialBox();
+  if (tb && px > tb.x - 30 && px < tb.x + tb.w + 30 && py > tb.y - 20 && py < tb.y + tb.h + 20) py = Math.min(VH - 60, tb.y + tb.h + 28);
   ctx.save(); ctx.translate(px, py); ctx.rotate(a);
   ctx.fillStyle = color;
   ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
@@ -1513,7 +1516,7 @@ function drawScreenBody(now) {
     // (the story objective is already on the HUD chip, so it isn't repeated here)
     const py = buttonGrid([
       { label: 'Resume', fn: () => { state = 'play'; }, hi: true },
-      { label: 'Restart night (R)', fn: () => startNight() },
+      { label: 'Restart night (R)', fn: () => restartNight() },
       { label: `Sound: ${pct(settings.sfxVol)}`, fn: () => { settings.sfxVol = cycleVol(settings.sfxVol); saveSettings(); sfx.grab(); } },
       { label: `Music: ${pct(settings.musicVol)}`, fn: () => { settings.musicVol = cycleVol(settings.musicVol); settings.music = settings.musicVol > 0; saveSettings(); } },
       { label: `Hints: ${settings.hints ? 'On' : 'Off'}`, fn: () => setHints(!settings.hints) },
@@ -1607,10 +1610,10 @@ function drawScreenBody(now) {
     const rows = [
       `Deer delivered: ${G.delivered} / ${G.quota}${G.bucks ? ` (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}${G.legendDone ? ' + OLD HOSTA' : ''}`,
       `Arrows fired: ${G.shots}  ·  Accuracy: ${acc}%  ·  Times spotted: ${G.timesSpotted}`,
-      `Venison sold to Steve: ${packsText(G.soldPacks || 0)}  ·  Freezer: ${packsText(campaign.freezer)}  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
+      `Sold to Steve: ${packsText(G.soldPacks || 0)}  ·  Freezer: ${packsText(campaign.freezer)}  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
       campaign.versus ? (G.endReason === 'win' ? '🏆 Dale (Player 1) wins!' : '🏆 The HOA (Player 2) wins!') : campaign.coop ? `Co-op: ${G.delivered} deer, Tyler hauled ${G.tylerHauls || 0}` :
-      campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.map === 'cul' ? `Cul-de-sac best: ${store.get('hs_cul_best', 0)}` : campaign.map === 'random' ? `Random neighborhood best: ${store.get('hs_random_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}: best today ${(store.get('hs_daily', {})[campaign.daily] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
-      `Time bonus: ${G.timeBonus || 0}  ·  Ghost bonus: ${G.stealthBonus || 0}  ·  Cash earned: $${G.earned}`,
+      campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.map === 'cul' ? `Cul-de-sac best: ${store.get('hs_cul_best', 0)}` : campaign.map === 'random' ? `Random neighborhood best: ${store.get('hs_random_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}${settings.difficulty !== 'normal' ? ' (' + settings.difficulty + ')' : ''}: best today ${(store.get('hs_daily', {})[dailyRecordKey()] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
+      `Time bonus: ${G.timeBonus || 0} pts  ·  No-cops bonus: ${G.stealthBonus || 0} pts  ·  Cash earned: $${G.earned}`,
       `Night score: ${G.nightScore}  ·  Season total: ${campaign.score}  ·  Best: ${best}`,
     ].filter(Boolean);
     // phones: a row that doesn't fit breaks at its ' · ' separators instead of losing the end to '…'

@@ -54,7 +54,7 @@ window.addEventListener('keydown', e => {
     if (e.code === 'KeyP' || e.code === 'Escape') { player.drawing = false; state = 'pause'; }
   } else if (state === 'pause') {
     if (e.code === 'KeyP' || e.code === 'Escape' || e.code === 'Enter') state = 'play';
-    if (e.code === 'KeyR') startNight();
+    if (e.code === 'KeyR') restartNight();
     if (e.code === 'KeyN') newCampaign();
   }
   else if (state === 'nightdone' && (e.code === 'Enter' || e.code === 'Space')) goShop();

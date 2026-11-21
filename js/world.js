@@ -482,8 +482,14 @@ function startNight() {
   if (campaign.map === 'golf') setupGolfWatchers(); else if (campaign.map === 'cul') setupCulWatchers(); else if (campaign.map === 'custom') setupSpecWatchers(); else setupWatchers();
   spawnCritters();
   setupObjective();
-  G.priceTrend = campaign.lastPrice ? Math.sign(G.price - campaign.lastPrice) : 0;
-  campaign.lastPrice = G.price;
+  // Steve's quote is set once per night: Restart and Continue get the same price (and the same haggle result)
+  const q = campaign.quote;
+  if (!oneNightMode() && q && q.night === night && Number.isFinite(q.price)) { G.price = q.price; G.haggled = !!q.haggled; G.priceTrend = q.trend || 0; }
+  else {
+    G.priceTrend = campaign.lastPrice ? Math.sign(G.price - campaign.lastPrice) : 0;
+    campaign.lastPrice = G.price;
+    if (!oneNightMode()) campaign.quote = { night, price: G.price, trend: G.priceTrend };
+  }
   if ((campaign.heat || campaign.heatNight === night) && !campaign.daily && night <= 5) {
     campaign.heat = 0; campaign.heatNight = night;
     G.heatPatrol = true;
@@ -508,6 +514,14 @@ function startNight() {
   state = 'intro';
   if (SCENES['intro' + night]) sceneFor('intro' + night, () => { state = 'intro'; });
   saveGame();
+  nightStart = { night, campaign: JSON.parse(JSON.stringify(campaign)) };
+}
+// What the campaign looked like when this night began. Restart goes back to it, so nothing from the
+// abandoned attempt (a 911 call's heat, the tagged-koi flag, Raven's met flag) leaks into the retry.
+let nightStart = null;
+function restartNight() {
+  if (nightStart && nightStart.night === night) campaign = JSON.parse(JSON.stringify(nightStart.campaign));
+  startNight();
 }
 
 // After a won night: the "after" cutscene (once), then Earl's shop.

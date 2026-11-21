@@ -116,6 +116,7 @@ const OBJECTIVES = {
 // The ending depends on how the season went.
 function buildEnding(c) {
   const lines = [['narrator', 'The next day. Noon. The Whispering Pines HOA clubhouse. The Pruitt Woods auction.']];
+  if (c.earlLast) lines.push(['narrator', `On the way over, Earl buys the last ${packsText(c.earlLast.packs)} in the freezer: +$${c.earlLast.cash}. Dale walks in with $${c.cash}.`]);
   const rich = c.cash >= CABIN_GOAL;
   const koi = c.flags.koi;
   const friendly = c.exSightings <= 6;

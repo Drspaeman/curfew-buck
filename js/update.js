@@ -466,7 +466,9 @@ function reelIn() {
   if (f.bite <= 0) { popup(player.x, player.y - 30, 'Too early! It swam off.', '#ff9f6b', 1.4); return; }
   let catchName, packs;
   if (f.pond.koi && !campaign.flags.koi && night === 4) { catchName = 'a TAGGED HOA KOI. Proof!'; packs = 0; campaign.flags.koi = true; objectiveEvent('koi'); }
-  else if (f.pond.koi) { catchName = 'a koi (Steve will love this)'; packs = 3; }
+  // the HOA koi pond is not a fish farm: after three koi a night, they hide under the lily pads
+  else if (f.pond.koi && (G.koiTaken || 0) >= 3) { catchName = 'nothing. The koi are onto you, hiding under the lily pads'; packs = 0; }
+  else if (f.pond.koi) { catchName = 'a koi (Steve will love this)'; packs = 3; G.koiTaken = (G.koiTaken || 0) + 1; }
   else { const r = Math.random(); if (r < 0.1) { catchName = 'an old boot. Classic.'; packs = 0; unlock('oldboot'); } else if (r < 0.3) { catchName = 'a fat catfish'; packs = 2; } else { catchName = 'a largemouth bass'; packs = 1; } }
   player.bag = (player.bag || 0) + packs;
   sfx.deliver();
@@ -1369,13 +1371,15 @@ function endNight(reason) {
       if ([0, 1, 2, 3, 4].every(i => (campaign.stars[i] || 0) >= 3)) unlock('allstars');
       if (!campaign.spent) unlock('thrifty');
     }
-    if (campaign.daily) { const dd = store.get('hs_daily', {}); dd[campaign.daily] = Math.max(dd[campaign.daily] || 0, campaign.score); store.set('hs_daily', dd); unlock('daily'); restoreRandom(); }
+    if (campaign.daily) { const dd = store.get('hs_daily', {}), dk = dailyRecordKey(); dd[dk] = Math.max(dd[dk] || 0, campaign.score); store.set('hs_daily', dd); unlock('daily'); restoreRandom(); }
     if (campaign.map === 'golf') { store.set('hs_golf_best', Math.max(store.get('hs_golf_best', 0), campaign.score)); if (reason !== 'arrested') unlock('golfer'); }
     if (campaign.halloween) store.set('hs_halloween_best', Math.max(store.get('hs_halloween_best', 0), campaign.score));
     if (campaign.map === 'cul' || campaign.map === 'random') store.set('hs_' + campaign.map + '_best', Math.max(store.get('hs_' + campaign.map + '_best', 0), campaign.score));
     if (!oneNightMode()) { recordScore(); clearSave(); }
     state = 'over'; reason === 'win' ? sfx.win() : sfx.lose();
     if (reason === 'win' && night === 5) {
+      // last stop before the auction: Earl buys whatever is left in the freezer, at his usual $12 a pack
+      if (!oneNightMode() && campaign.freezer > 0) { campaign.earlLast = { packs: campaign.freezer, cash: campaign.freezer * 12 }; campaign.cash += campaign.earlLast.cash; campaign.freezer = 0; }
       if (campaign.cash >= CABIN_GOAL) unlock('cabin');
       playScene(buildEnding(campaign), () => { state = 'over'; });
     } else if (reason === 'arrested' && night <= 5) playScene(SCENES.busted, () => { state = 'over'; });

@@ -1,6 +1,8 @@
 'use strict';
 // Hunter Sub: Game modes: Daily Hunt, Country Club, Maple Court, random and custom maps, two-player.
 // Part 7 of 10. All parts share one global scope, so load them in order (see index.html).
+// Daily records are kept per difficulty, so an Easy score never sits on the Normal board (Normal keeps the plain date key)
+function dailyRecordKey() { return campaign.daily + (settings.difficulty && settings.difficulty !== 'normal' ? ':' + settings.difficulty : ''); }
 function startDaily() {
   // Same starting layout (deer, critters, notes, weather) for everyone on the same day.
   const key = dailyKey();
@@ -38,8 +40,17 @@ function slipOnIce() {
 function steveHaggle() {
   if (G.haggled) return;
   G.haggled = true;
+  // the haggle sticks to tonight's quote, in memory, the restart snapshot and the save (no rerolling it)
+  const lock = () => {
+    if (oneNightMode()) return;
+    const q = { night, price: G.price, trend: G.priceTrend || 0, haggled: true };
+    campaign.quote = q;
+    if (nightStart && nightStart.night === night) nightStart.campaign.quote = Object.assign({}, q);
+    const sv = store.get('hs_save', null); if (sv && sv.campaign && sv.night === night) { sv.campaign.quote = Object.assign({}, q); store.set('hs_save', sv); }
+  };
   if (Math.random() < 0.55) { G.price = Math.round(G.price * 1.25); G.steveLine = 'Steve: "Fine. FINE. $' + G.price + ' a pack. Hard bargain for a guy who lives in a shed."'; sfx.buy(); unlock('haggler'); }
   else { G.price = Math.max(10, Math.round(G.price * 0.85)); G.steveLine = pick(['Steve: "Now you\'ve insulted me. $' + G.price + '. Take it or leave it."', 'Steve: "I ran the numbers on a napkin. A pessimistic napkin. $' + G.price + ' a pack."']); sfx.thunk(); }
+  lock();
 }
 function priceOf(item) { return campaign.special === item.id ? Math.round(item.price * 0.75) : item.price; }
 function pickSpecial() {
@@ -164,7 +175,7 @@ function voice(type) {
 const COURT_PLEAS = [
   { label: '1. "It was for the freezer, Your Honor."', odds: 0.4, fine: 150 },
   { label: '2. "Raccoons. Very large raccoons."', odds: 0.25, fine: 0 },
-  { label: '3. Hire Earl\'s nephew as your lawyer ($250)', odds: 0.75, fine: 250, cost: true },
+  { label: '3. Hire Earl\'s nephew as your lawyer', odds: 0.75, fine: 250, cost: true },
 ];
 function courtPlea(i) {
   const p = COURT_PLEAS[i];
@@ -173,10 +184,11 @@ function courtPlea(i) {
   const dismissed = Math.random() < p.odds;
   campaign.courtUsed = true;
   if (dismissed) {
-    campaign.cash = Math.max(0, campaign.cash - p.fine);
+    const paid = Math.min(campaign.cash, p.fine);   // you can't pay more than you have
+    campaign.cash -= paid;
     unlock('lawyer');
     G.court = { ok: true, text: i === 2 ? 'Earl\'s nephew objects to everything, including the judge\'s tie. Case dismissed.' : i === 1 ? 'The judge has also had raccoon problems. Case dismissed, with sympathy.' : 'The judge is a hunter. "Case dismissed. Fill that freezer, Mr. Pruitt."' };
-    if (p.fine) G.court.text += ` (Fine: $${p.fine})`;
+    if (p.fine) G.court.text += p.cost ? ` (Earl's nephew bills you $${paid}.)` : paid < p.fine ? ` (Fine: $${p.fine}. You had $${paid}, so that's what you paid.)` : ` (You paid the $${p.fine} fine.)`;
     sfx.win();
   } else {
     G.court = { ok: false, text: i === 1 ? '"Raccoons don\'t carry compound bows, Mr. Pruitt." Guilty.' : i === 2 ? 'Earl\'s nephew objects to his own client. Guilty.' : '"The freezer is not a legal defense." Guilty. Your season is over.' };
@@ -205,7 +217,7 @@ function drawCourt() {
   y += 70;
   if (!G.court) {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 16px system-ui, sans-serif'; ctx.fillText('How do you plead?', cx, y); y += 16;
-    y = buttonGrid(COURT_PLEAS.map((p, i) => ({ label: VW < 640 ? `${i + 1}. ${Math.round(p.odds * 100)}%${p.fine ? `, $${p.fine}` : ''}: ${p.label.slice(3)}` : `${p.label}  ·  ${Math.round(p.odds * 100)}% chance${p.fine ? `, $${p.fine}` : ''}`, fn: () => courtPlea(i), enabled: !(p.cost && campaign.cash < p.fine), hi: pad.connected && (G.courtSel || 0) === i })), y, Math.min(620, VW - 30), 42);
+    y = buttonGrid(COURT_PLEAS.map((p, i) => ({ label: VW < 640 ? `${i + 1}. ${Math.round(p.odds * 100)}%${p.fine ? `, $${p.fine} if you win` : ''}: ${p.label.slice(3)}` : `${p.label}  ·  ${Math.round(p.odds * 100)}% to walk${p.fine ? `, then pay $${p.fine}${p.cost ? ' (only if he wins)' : ''}` : ', free'}`, fn: () => courtPlea(i), enabled: !(p.cost && campaign.cash < p.fine), hi: pad.connected && (G.courtSel || 0) === i })), y, Math.min(620, VW - 30), 42);
     if (pad.connected) { ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('D-pad ↑/↓ to choose · A to plead', VW / 2, y + 8); }
     if (G.courtMsg) { ctx.fillStyle = '#ff9f6b'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(G.courtMsg, cx, y + 14); }
     ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('One court date per season. If you lose, the season is over.', cx, VH - 26);
