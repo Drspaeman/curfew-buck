@@ -1,4 +1,4 @@
-# Hunter Sub (play build)
+# Curfew Buck (play build)
 
 Play in your browser: **https://drspaeman.github.io/hunter-sub-play/**
 
