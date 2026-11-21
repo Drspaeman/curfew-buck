@@ -428,6 +428,7 @@ function p2Action() {
     return;
   }
   if (!tyler) return;
+  { const R = G.goth; if (R && R.held >= 0 && R.raven && !tyler.carry && dist(R.raven.x, R.raven.y, tyler.x, tyler.y) < 60) { gothReturnShiny(tyler); return; } }
   const shed = world.shed, sx = shed.x + shed.w / 2, sy = shed.y + shed.h / 2;
   if (tyler.carry) {
     const d = tyler.carry;

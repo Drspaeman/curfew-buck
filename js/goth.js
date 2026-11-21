@@ -60,6 +60,7 @@ const GOTH_PLUCK = [220, 246.94, 261.63, 311.13, 329.63, 415.3];
 ACH.raven = ['Night Shift', 'Meet Raven, the only goth in Whispering Pines'];
 ACH.binder = ['Full Binder', 'Collect all 12 of Raven\'s Cryptids of Whispering Pines cards'];
 ACH.superfan = ['Superfan', 'Find all 6 Velvet Casket gig posters'];
+ACH.magpie = ['Crow\'s Best Friend', 'Return all 8 of Edgar\'s shinies to Raven'];
 ACH.offering = ['The Offering', 'Trade Raven a pinecone for a card hint'];
 WHOS_WHO.push(['Raven Pfister', 'Gary\'s daughter, 26. Moved back home after art school.', 'Draws trading cards of everyone. Fronts the band Velvet Casket. Does not snitch.', RAVEN_COLOR]);
 
@@ -69,7 +70,8 @@ TIPS.push(
   "Raven never calls the cops. Bring her a pinecone and she'll point you to a hidden trading card.",
   "Raven's trading cards hide INSIDE bushes. You only see them up close, or with the night-vision goggles.",
   "Velvet Casket's garage shows drown out your noise. Hunt near the band.",
-  "Edgar the crow caws if you walk up to him. Sneak past.");
+  "Edgar the crow caws if you walk up to him. Sneak past.",
+  "Something glinting on a lawn? Edgar dropped it. Raven pays a pinecone and $10 to get it back.");
 NOTICES.push(
   'Violation #2350: garage concert ("Velvet Casket") exceeded approved silence.',
   'Violation #2351: Black candles on a porch after 10 PM. Fire code AND vibes.',
@@ -86,11 +88,31 @@ if (typeof tylerLine === 'function') {
     return baseTyler();
   };
 }
-WHOS_WHO.push(['Edgar', 'Raven\'s crow.', 'Perches by Raven. Caws if you get close, even sneaking. Give him room.', '#c9c3d1']);
+WHOS_WHO.push(['Edgar', 'Raven\'s crow.', 'Perches by Raven. Caws if you get close, even sneaking. Steals anything shiny and leaves it on lawns.', '#c9c3d1']);
 ACH.gothdad = ['Goth Dad', 'Finish a night in Raven\'s black vest'];
 
-const gothCards = () => store.get('hs_cards', []);
-const gothPosters = () => store.get('hs_posters', []);
+// Collection lists: unique whole-number ids in range, whatever is in storage. In demo/trailer mode (previewMode)
+// nothing is written, so finds are kept in memory for the session instead.
+const gothMem = {};
+function gothList(key, max) {
+  const raw = previewMode && gothMem[key] ? gothMem[key] : store.get(key, []);
+  return Array.isArray(raw) ? [...new Set(raw.filter(i => Number.isInteger(i) && i >= 0 && i < max))] : [];
+}
+function gothSave(key, list) { if (previewMode) gothMem[key] = list.slice(); else store.set(key, list); }
+const gothCards = () => gothList('hs_cards', CARDS.length + 1);   // + the secret card #13
+const gothPosters = () => gothList('hs_posters', POSTERS.length);
+// Edgar's Shinies: things Raven's crow has stolen from the neighborhood. [emoji, item, note]
+const SHINIES = [
+  ['🔑', 'Linda\'s spare golf-cart key', 'Linda has filed three reports about "a winged thief." Edgar has read all three.'],
+  ['💍', 'Darlene\'s mood ring', 'Stuck on "irritated." It has never shown another color.'],
+  ['🪙', 'A 1994 quarter', 'Mr. Henderson has been looking for it since 1994. He isn\'t sure why.'],
+  ['🥄', 'Gary\'s commemorative spoon', 'From his "Treasurer of the Year" set. There was no vote.'],
+  ['📎', 'A gold paper clip', 'Off an HOA violation notice. Edgar considers it a trophy.'],
+  ['🔔', 'A bicycle bell', 'Paperboy Kyle\'s. Kyle doesn\'t know yet.'],
+  ['🧷', 'A safety pin', 'From Raven\'s jacket. She says Edgar is "reclaiming it."'],
+  ['🏅', 'Tyler\'s participation medal', 'Edgar earned it more.'],
+];
+const gothShinies = () => gothList('hs_shinies', SHINIES.length);
 const SECRET_CARD = 12;   // Raven's self-portrait: not in the bushes, she hands it over herself
 const gothBinderDone = () => { const c = gothCards(); return CARDS.every((_, i) => c.includes(i)); };
 const gothHasSecret = () => gothCards().includes(SECRET_CARD);
@@ -133,7 +155,7 @@ function setupHalloween() {
     watchers.push(kid);
   });
   fixWalkerRoutes();
-  banner('🎃 HALLOWEEN: the vest passes as a costume (slower suspicion). Trick-or-treaters spook deer.', '#ff9f1a');
+  banner('🎃 HALLOWEEN: the vest passes as a costume (slower suspicion). Trick-or-treaters spook deer. Velvet Casket\'s show covers your noise.', '#ff9f1a');
 }
 function updateHalloween(dt) {
   if (!G || !G.halloween) return;
@@ -184,7 +206,7 @@ function drawPumpkins(now) {
 }
 
 function setupGoth() {
-  const rand = mulberry32((realRandom() * 2147483647) | 0);
+  const rand = campaign.daily ? mulberry32((Math.random() * 2147483647) | 0) : mulberry32((realRandom() * 2147483647) | 0);   // Daily: from the date's seed
   G.goth = { cards: [], posters: [], raven: null, hint: null, hintT: 0, traded: false, met: false, talkCD: 0, line: 0 };
   const R = G.goth;
   const gotC = gothCards(), gotP = gothPosters();
@@ -212,16 +234,41 @@ function setupGoth() {
       if (world.blocked(x, y, 16) || dist(x, y, world.shed.x, world.shed.y) < 400) continue;
       R.raven = { x, y };
       for (const [dx, dy] of [[-46, -10], [46, -14], [0, -48], [-40, 30]]) if (!world.blocked(x + dx, y + dy, 8)) { R.edgar = { x: x + dx, y: y + dy, flown: false, t: 0 }; break; }
-      if (campaign.halloween || (night >= 3 && rand() < (gothPosters().length >= 3 ? 0.5 : 0.25))) {
+      if (campaign.halloween || (night >= 3 && rand() < (!campaign.daily && gothPosters().length >= 3 ? 0.5 : 0.25))) {
         // the stage goes on open ground next to her
         let sx = x, sy = y + 60;
         for (const [dx, dy] of [[0, 60], [0, -60], [60, 0], [-60, 0], [50, 50], [-50, 50]]) if (!world.blocked(x + dx, y + dy, 30)) { sx = x + dx; sy = y + dy; break; }
         R.concert = { x: sx, y: sy, t: 0, chordT: 0, beat: 0 };
-        banner('🎸 CONCERT NIGHT: Velvet Casket is playing a garage show. The noise covers yours near the band.', RAVEN_COLOR);
+        if (!campaign.halloween) banner('🎸 CONCERT NIGHT: Velvet Casket is playing a garage show. The noise covers yours near the band.', RAVEN_COLOR);   // Halloween's banner says it
       }
       break;
     }
   }
+  // Edgar dropped one of his shinies somewhere tonight (only on nights Raven is out, so you can return it)
+  const leftS = SHINIES.map((_, i) => i).filter(i => !gothShinies().includes(i));
+  R.shinies = []; R.held = -1;
+  if (R.raven && leftS.length && !campaign.daily) {   // not in the Daily Hunt: a pinecone and $10 would make the day uneven
+    for (let k = 0; k < 300; k++) {
+      const x = M + 60 + rand() * (W - 2 * M - 120), y = M + 60 + rand() * (H - 2 * M - 120);
+      if (world.blocked(x, y, 22) || dist(x, y, world.shed.x, world.shed.y) < 500 || dist(x, y, R.raven.x, R.raven.y) < 300) continue;
+      R.shinies.push({ x, y, idx: leftS[Math.floor(rand() * leftS.length)], got: false });
+      break;
+    }
+  }
+}
+// Give Edgar's shiny back to Raven (Dale with E, or Tyler with Enter in co-op). A pinecone and $10, once per item.
+function gothReturnShiny(who) {
+  const R = G.goth, i = R.held, got = gothShinies();
+  R.held = -1; R.holder = null;
+  if (got.includes(i)) { ravenSay('Edgar already brought that one back. He steals it on a loop. It\'s a whole thing.'); return true; }
+  got.push(i); gothSave('hs_shinies', got);
+  (player || who).cones++; G.earned += 10; sfx.buy(); particlesAt(R.raven.x, R.raven.y, '#ffe9a8');
+  popup(who.x, who.y - 40, `✨ +1 pinecone, +$10 · shinies ${got.length}/${SHINIES.length}`, '#ffe9a8', 2.6);
+  ravenSay(pick([`${SHINIES[i][1]}? Edgar! We talked about this. ...Thank you. Take a pinecone. And ten bucks. Don't tell him.`,
+    'Oh no. He\'s been "collecting" again. Here: a pinecone and $10. He\'ll steal it back by Tuesday.',
+    'You returned it instead of keeping it? That\'s the most goth thing anyone\'s ever done here.']), 5);
+  if (got.length === SHINIES.length) { unlock('magpie'); banner('✨ ALL OF EDGAR\'S SHINIES! He has started stealing from you instead. Out of respect.', '#ffe9a8'); }
+  return true;
 }
 function nearRaven() { const r = G && G.goth && G.goth.raven; return !!(r && player && dist(r.x, r.y, player.x, player.y) < 60); }
 function ravenSay(text, t = 3.6) {
@@ -235,8 +282,9 @@ function gothInteract() {
   if (!nearRaven()) return false;
   const R = G.goth;
   if (!R.met) { R.met = true; unlock('raven'); campaign.flags.raven = true; }
+  if (R.held >= 0) return gothReturnShiny(player);
   if (gothBinderDone() && !gothHasSecret()) {
-    const got = gothCards(); got.push(SECRET_CARD); store.set('hs_cards', got); unlock('selfportrait');
+    const got = gothCards(); got.push(SECRET_CARD); gothSave('hs_cards', got); unlock('selfportrait');
     ravenSay('All twelve? ...Okay. Here\'s thirteen. It\'s me. Don\'t make it weird.', 6);
     particlesAt(R.raven.x, R.raven.y, RAVEN_COLOR); sfx.grab();
     banner('🃏 SECRET CARD #13: Raven Pfister, The Artist. Check your binder in Raven\'s Crypt.', RAVEN_COLOR);
@@ -278,20 +326,7 @@ function updateGoth(dt) {
   if (!R || !player) return;
   R.talkCD -= dt;
   if (R.say) { R.say.t -= dt; if (R.say.t <= 0) R.say = null; }
-  const C = R.concert;
-  if (C) {
-    C.t += dt; C.chordT -= dt;
-    const d = dist(C.x, C.y, player.x, player.y);
-    if (C.chordT <= 0 && d < 900) {
-      C.chordT = 0.5; C.beat++;
-      const ch = toneChannel; toneChannel = 'music';
-      const v = 0.05 * clamp(1 - d / 900, 0, 1);
-      const root = [110, 110, 87.3, 98][Math.floor(C.beat / 4) % 4];   // Am, Am, F, G
-      tone(55, 0.12, 'sine', v * 1.6, 40);                              // kick
-      if (C.beat % 2 === 0) { tone(root, 0.45, 'sawtooth', v * 0.6); tone(root * 1.5, 0.45, 'sawtooth', v * 0.4); }
-      toneChannel = ch;
-    }
-  }
+  if (R.concert) { R.concert.t += dt; concertTick(dt, R.concert, R.concert, player); }
   if (R.hintT > 0) { R.hintT -= dt; if (R.hintT <= 0 || (R.hint && R.hint.got)) R.hint = null; }
   // Raven reacts to what you're up to as you pass (after you've met)
   if (R.raven && R.met && R.talkCD <= 0 && !R.say && dist(R.raven.x, R.raven.y, player.x, player.y) < 150) {
@@ -323,21 +358,43 @@ function updateGoth(dt) {
   for (const c of R.cards) {
     if (c.got || dist(c.x, c.y, player.x, player.y) > 26) continue;
     c.got = true;
-    const got = gothCards(); if (!got.includes(c.idx)) got.push(c.idx); store.set('hs_cards', got);
+    const got = gothCards(); if (!got.includes(c.idx)) got.push(c.idx); gothSave('hs_cards', got);
     const [name, title] = CARDS[c.idx];
     popup(c.x, c.y - 30, `🃏 ${name} · ${title} (${got.length}/${CARDS.length})`, RAVEN_COLOR, 4);
     sfx.grab(); particlesAt(c.x, c.y, RAVEN_COLOR);
     hint('cards', 'Raven\'s trading cards hide inside bushes. They stay collected across seasons. Open Raven\'s Crypt on the title screen to see your binder.');
     if (got.length >= CARDS.length) { unlock('binder'); banner('🦇 FULL BINDER! Raven painted your vest black. Turn it on in Settings.', RAVEN_COLOR); }
   }
+  for (const s of R.shinies || []) {
+    const by = dist(s.x, s.y, player.x, player.y) <= 26 ? 'dale' : campaign.coop && tyler && dist(s.x, s.y, tyler.x, tyler.y) <= 26 ? 'tyler' : null;
+    if (s.got || R.held >= 0 || !by) continue;
+    s.got = true; R.held = s.idx; R.holder = by;
+    popup(s.x, s.y - 30, `${SHINIES[s.idx][0]} Edgar's shiny: ${SHINIES[s.idx][1]}`, '#ffe9a8', 3.6);
+    sfx.pickup();
+    hint('shiny', 'Edgar the crow steals shiny things. Bring it back to Raven (E) for a pinecone and $10. If the night ends first, Edgar steals it back.');
+  }
   for (const p of R.posters) {
     if (p.got || dist(p.x, p.y, player.x, player.y) > 34) continue;
     p.got = true;
-    const got = gothPosters(); if (!got.includes(p.idx)) got.push(p.idx); store.set('hs_posters', got);
+    const got = gothPosters(); if (!got.includes(p.idx)) got.push(p.idx); gothSave('hs_posters', got);
     popup(p.x, p.y - 30, `🦇 Poster ${got.length}/${POSTERS.length} · ${POSTERS[p.idx][0]}`, RAVEN_COLOR, 4);
     sfx.pickup();
     if (got.length >= POSTERS.length) unlock('superfan');
   }
+}
+// The garage show's sound: kick and chords, louder as the listener gets closer. clock keeps chordT/beat
+// (the stage itself on the host; a separate object on an online guest, whose stage is replaced each snapshot).
+function concertTick(dt, C, clock, who) {
+  clock.chordT = (clock.chordT || 0) - dt;
+  const d = dist(C.x, C.y, who.x, who.y);
+  if (clock.chordT > 0 || d >= 900) return;
+  clock.chordT = 0.5; clock.beat = (clock.beat || 0) + 1;
+  const ch = toneChannel; toneChannel = 'music';
+  const v = 0.05 * clamp(1 - d / 900, 0, 1);
+  const root = [110, 110, 87.3, 98][Math.floor(clock.beat / 4) % 4];   // Am, Am, F, G
+  tone(55, 0.12, 'sine', v * 1.6, 40);                                  // kick
+  if (clock.beat % 2 === 0) { tone(root, 0.45, 'sawtooth', v * 0.6); tone(root * 1.5, 0.45, 'sawtooth', v * 0.4); }
+  toneChannel = ch;
 }
 function particlesAt(x, y, color) {
   for (let i = 0; i < 14; i++) particles.push({ x, y, vx: rnd(-90, 90), vy: rnd(-110, 30), t: rnd(0.4, 0.9), c: color });
@@ -368,6 +425,15 @@ function drawGoth(now) {
     ctx.fillStyle = RAVEN_COLOR; ctx.font = 'bold 6px system-ui, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('VELVET', 0, -6); ctx.fillText('CASKET', 0, 1);
     ctx.fillStyle = '#e8e8e8'; ctx.fillText('🦇', 0, 9);
+    ctx.restore();
+  }
+  for (const s of R.shinies || []) {
+    if (s.got || !inView(s.x, s.y, 30)) continue;
+    const k = settings.flashes ? 0.5 + 0.5 * Math.sin(now / 160 + s.x) : 0.6, r = 6 + 6 * k;   // steady with Flashing off
+    ctx.save(); ctx.translate(s.x, s.y);
+    ctx.fillStyle = '#ffe9a8'; ctx.globalAlpha = 0.6 + 0.4 * k;
+    ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(1.6, -1.6); ctx.lineTo(r, 0); ctx.lineTo(1.6, 1.6); ctx.lineTo(0, r); ctx.lineTo(-1.6, 1.6); ctx.lineTo(-r, 0); ctx.lineTo(-1.6, -1.6); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(SHINIES[s.idx][0], 0, 16);
     ctx.restore();
   }
   drawPumpkins(now);
@@ -472,10 +538,12 @@ function drawRavenSpeech(now) {
   // top center under the suspicion bar (below the HUD panel on narrow screens), clear of hints at the bottom
   let w = Math.min(460, VW - 24), h = 86, x = (VW - w) / 2, y = VW < 760 ? VH - h - 210 : 72;   // phones: above the hint box, below the achievement pop-ups
   if (shortLandscape()) {
-    // a phone on its side: between the HUD panel and the minimap, just under the suspicion bar, as tall as the text
+    // a phone on its side: between the HUD panel and the minimap, just under the suspicion bar
     const m = minimapBox(); x = 274; w = Math.max(240, m.x - 8 - x); y = G.police ? 92 : 66;   // under the suspicion bar (taller during a 911 call)
-    ctx.font = '14px system-ui, sans-serif'; h = Math.max(86, 34 + wrapLines(say.text, w - 100).length * 18);
   }
+  // as tall as the text, everywhere (a long line used to spill out of the bottom)
+  ctx.font = '14px system-ui, sans-serif'; const need = Math.max(86, 34 + wrapLines(say.text, w - 100).length * 18);
+  if (need > h) { h = need; if (VW < 760 && !shortLandscape() && y + h > VH - 154) y = VH - 154 - h; }   // phones: grow down toward the hint box, up only if it must
   ctx.fillStyle = 'rgba(12,8,18,0.92)'; roundRect(ctx, x, y, w, h, 10); ctx.fill();
   ctx.strokeStyle = RAVEN_COLOR; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.save(); roundRect(ctx, x + 6, y + 6, 74, 74, 8); ctx.clip();
@@ -535,7 +603,7 @@ function drawCrypt() {
   { const g = ctx.createRadialGradient(cx, 128, 8, cx, 128, 64); g.addColorStop(0, 'rgba(180,140,255,0.45)'); g.addColorStop(1, 'rgba(180,140,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, 128, 64, 0, TAU); ctx.fill(); }
   drawRavenPortrait(cx, 132, 96, performance.now());
   ctx.textAlign = 'center'; ctx.fillStyle = '#ccc'; ctx.font = '14px system-ui, sans-serif';
-  let y = wrapText('Raven drew a trading card of everyone in the neighborhood and hid them in bushes. Her band\'s gig posters are stapled to streetlight poles. Give her a pinecone for a hint (free once you\x27ve found every poster).', cx, 206, Math.min(640, VW - 30), 19) + 26;
+  let y = wrapText('Raven drew a trading card of everyone in the neighborhood and hid them in bushes. Her band\'s gig posters are stapled to streetlight poles. Give her a pinecone for a hint (free once you\x27ve found every poster). Her crow Edgar steals shiny things: bring them back to her.', cx, 206, Math.min(640, VW - 30), 19) + 26;
   ctx.fillStyle = '#ffd166'; ctx.font = 'bold 15px system-ui, sans-serif';
   const nCards = CARDS.filter((_, i) => cards.includes(i)).length;
   ctx.fillText(`CARDS ${nCards} / ${CARDS.length}${gothHasSecret() ? ' + #13' : ''}    ·    POSTERS ${posters.length} / ${POSTERS.length}`, cx, y); y += 18;
@@ -565,12 +633,30 @@ function drawCrypt() {
     ctx.fillStyle = '#aaa'; ctx.font = 'italic 11px system-ui, sans-serif'; wrapText(note, x + pw / 2, yy + 16, pw - 14, 13);
   });
   y += Math.ceil(POSTERS.length / pc) * (ph + gap) + 12;
+  // Edgar's shinies
+  const shin = gothShinies();
+  ctx.fillStyle = '#ffe9a8'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`EDGAR'S SHINIES  ${SHINIES.filter((_, i) => shin.includes(i)).length} / ${SHINIES.length}`, cx, y + 6); y += 20;
+  const sc = clamp(Math.floor((VW - 20) / 210), 1, 4), sw = Math.min(200, (VW - 20 - gap * (sc - 1)) / sc);
+  // tile height from the longest found entry (title lines + note lines), at least 74
+  let sh = 74;
+  SHINIES.forEach(([emo, item, note], i) => { if (!shin.includes(i)) return; ctx.font = 'bold 12px system-ui, sans-serif'; const a = wrapLines(emo + ' ' + item, sw - 14).length; ctx.font = 'italic 11px system-ui, sans-serif'; const b = wrapLines(note, sw - 14).length; sh = Math.max(sh, 18 + a * 15 + b * 13 + 6); });
+  const sx0 = cx - (sc * sw + (sc - 1) * gap) / 2;
+  SHINIES.forEach(([emo, item, note], i) => {
+    const x = sx0 + (i % sc) * (sw + gap), sy = y + Math.floor(i / sc) * (sh + gap), own = shin.includes(i);
+    ctx.fillStyle = own ? '#1a1608' : 'rgba(255,255,255,0.05)'; roundRect(ctx, x, sy, sw, sh, 6); ctx.fill();
+    ctx.strokeStyle = own ? '#ffe9a8' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.textAlign = 'center';
+    if (!own) { ctx.fillStyle = '#777'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('✨ ? (somewhere glinting)', x + sw / 2, sy + sh / 2 + 4); return; }
+    ctx.fillStyle = '#ffe9a8'; ctx.font = 'bold 12px system-ui, sans-serif'; const yy = wrapText(emo + ' ' + item, x + sw / 2, sy + 18, sw - 14, 15);
+    ctx.fillStyle = '#aaa'; ctx.font = 'italic 11px system-ui, sans-serif'; wrapText(note, x + sw / 2, yy + 15, sw - 14, 13);
+  });
+  y += Math.ceil(SHINIES.length / sc) * (sh + gap) + 12;
   if (gothBinderDone()) { ctx.fillStyle = RAVEN_COLOR; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.fillText('Full binder! Raven painted your vest black. Turn it on in Settings.', cx, y + 4); y += 22; }
   buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; }, hi: true }], y + 6, 160, 38);
   // a found card, big (tap anywhere to close)
   if (cryptZoom !== null && cards.includes(cryptZoom)) {
     ctx.fillStyle = 'rgba(5,8,14,0.85)'; ctx.fillRect(0, drawScroll, VW, VH);
-    const zw = Math.min(320, VW - 40), zh = Math.round(zw * 1.42), zx = (VW - zw) / 2, zy = drawScroll + Math.max(20, (VH - zh) / 2 - 10);
+    const zh = Math.round(Math.min(320 * 1.42, (VW - 40) * 1.42, VH - 60)), zw = Math.round(zh / 1.42), zx = (VW - zw) / 2, zy = drawScroll + Math.max(12, (VH - zh) / 2 - 14);
     drawCardFace(zx, zy, zw, zh, cryptZoom, true);
     ctx.fillStyle = '#aaa'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Tap anywhere to close', VW / 2, zy + zh + 20);
     uiButtons.unshift({ x: 0, y: 0, w: VW, h: VH, fn: () => { cryptZoom = null; } });

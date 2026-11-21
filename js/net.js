@@ -314,6 +314,8 @@ function netClientFrame(dt) {
   if (state === 'play' && G) musicTick(dt);
   // follow my own character
   const me = netMyChar() || player;
+  // hear Velvet Casket from where my own character stands (the host plays it in updateGoth, which guests skip)
+  if (state === 'play' && G && G.goth && G.goth.concert && me) concertTick(dt, G.goth.concert, NET.concertClock || (NET.concertClock = {}), me);
   if (me) {
     const tx = W > VW ? clamp(me.x - VW / 2, 0, W - VW) : (W - VW) / 2;
     const ty = camTargetY(me.y);

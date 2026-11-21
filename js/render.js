@@ -816,6 +816,7 @@ function drawLighting(now) {
   if (tyler) glow(lctx, tyler.x, tyler.y, netClient() ? 120 : 80, netClient() ? 0.55 : 0.35);   // P2 can see around Tyler too
   if (G && G.goth) { const R = G.goth; if (R.raven) glow(lctx, R.raven.x, R.raven.y, 70, 0.45); if (R.concert) glow(lctx, R.concert.x, R.concert.y, 170, 0.6); }   // Raven's candle, the band's stage light
   if (G && G.pumpkins) for (const p of G.pumpkins) if (inView(p.x, p.y, 60)) glow(lctx, p.x, p.y, 46, 0.4);   // jack-o'-lanterns
+  if (G && G.goth && G.goth.shinies) for (const s of G.goth.shinies) if (!s.got && inView(s.x, s.y, 40)) glow(lctx, s.x, s.y, 26, settings.flashes ? 0.5 + 0.25 * Math.sin(performance.now() / 160 + s.x) : 0.6);   // Edgar's shiny glints in the dark
   for (const w of watchers) {
     if (!w.poly || !inView(w.x, w.y, 500)) continue;
     const R = coneRange(w);
@@ -1416,7 +1417,7 @@ function drawScreens(now) {
     const trackH = VH - 24, barH = Math.max(40, trackH * VH / (VH + menuMax)), barY = 12 + (trackH - barH) * (menuScroll / menuMax);
     ctx.fillStyle = 'rgba(255,255,255,0.12)'; roundRect(ctx, VW - 8, 12, 4, trackH, 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,209,102,0.8)'; roundRect(ctx, VW - 8, barY, 4, barH, 2); ctx.fill();
-    if (menuScroll < menuMax - 4) {
+    if (menuScroll < menuMax - 4 && !(state === 'crypt' && cryptZoom !== null)) {   // not over the zoomed card's close hint
       ctx.fillStyle = 'rgba(5,8,14,0.85)'; roundRect(ctx, VW / 2 - 70, VH - 26, 140, 20, 10); ctx.fill();
       ctx.fillStyle = '#ffd166'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(touchMode ? '▼ swipe up for more' : '▼ scroll for more', VW / 2, VH - 12);
@@ -1782,6 +1783,8 @@ function contextLabel() {
   if (player.fishing) return player.fishing.bite > 0 ? '[E] REEL IN!' : 'fishing...';
   if (player.carry) return nearTruck() ? '' : '[E] drop deer';
   if (!player.cooler && deer.some(d => d.dead && !d.carried && dist(d.x, d.y, player.x, player.y) < 48)) return '[E] drag deer';
+  if (nearRaven() && G.goth && G.goth.held >= 0) return '[E] give Raven Edgar\'s shiny';
+  if (nearRaven() && gothBinderDone() && !gothHasSecret()) return '[E] talk to Raven (she has something for you)';
   if (nearRaven()) return (campaign.racks || []).length && G.goth && !G.goth.boughtRack && !oneNightMode() ? '[E] sell Raven an antler rack' : G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) && gothPosters().length >= POSTERS.length ? '[E] backstage pass: ask Raven for a hint' : player.cones > 0 && G.goth && !G.goth.traded && G.goth.cards.some(c => !c.got) ? '[E] give Raven a pinecone' : '[E] talk to Raven';
   if (nearVan()) return '[E] talk to Steve';
   if (player.cooler) return nearTruck() ? '[E] put cooler back' : '';
