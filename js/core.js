@@ -46,15 +46,20 @@ window.addEventListener('keydown', () => unlockAudio());
 // hidden screens (no tapping Restart Night blind). Releases still go through so nothing stays held.   /*r7*/
 // A key held across the notice (either way) only counts again once it's let go and pressed fresh: its auto-repeats
 // can't toggle mute, commit a key binding or press a menu button after the window grows back.   /*r9*/
-const keysHeldAcrossNotice = new Set();
+// Every physical key that's down is tracked; when the window crosses the minimum, all of them are marked, and each
+// stays swallowed (repeats included) until that key itself is released, whatever else is pressed meanwhile.   /*r10*/
+const keysHeldAcrossNotice = new Set(), keysDownNow = new Set();
 let noticeCrossed = false;
-window.addEventListener('keyup', e => keysHeldAcrossNotice.delete(e.code), true);
+function markKeysAcrossNotice() { for (const c of keysDownNow) keysHeldAcrossNotice.add(c); }
+window.addEventListener('keyup', e => { keysHeldAcrossNotice.delete(e.code); keysDownNow.delete(e.code); }, true);
+window.addEventListener('blur', () => keysDownNow.clear());
 for (const t of ['keydown', 'mousedown', 'pointerdown', 'click', 'touchstart', 'wheel', 'contextmenu']) {
   window.addEventListener(t, e => {
     const small = typeof screenTooSmall === 'function' && screenTooSmall();
+    if (t === 'keydown') keysDownNow.add(e.code);
     if (t === 'keydown' && !small) {
-      if (e.repeat && (noticeCrossed || keysHeldAcrossNotice.has(e.code))) { keysHeldAcrossNotice.add(e.code); e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); return; }
-      if (!e.repeat) noticeCrossed = false;   // a fresh press: hands are back on the keys
+      if (keysHeldAcrossNotice.has(e.code) || (e.repeat && noticeCrossed)) { keysHeldAcrossNotice.add(e.code); e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); return; }
+      if (!e.repeat) noticeCrossed = false;   // a fresh press of a different key: hands are back on the keys
       return;
     }
     if (small) { if (t === 'keydown') keysHeldAcrossNotice.add(e.code); e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); }
@@ -369,7 +374,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '2.2.8';
+const VERSION = '2.3.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',

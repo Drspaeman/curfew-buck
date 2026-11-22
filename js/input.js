@@ -305,7 +305,7 @@ function onScreenSizeChange() {
   for (const k in keys) keys[k] = false;
   if (typeof player !== 'undefined' && player) player.drawing = false;
   pad.needRelease = true; pad.mx = pad.my = 0; pad.draw = false;
-  if (typeof noticeCrossed !== 'undefined') noticeCrossed = true;
+  if (typeof noticeCrossed !== 'undefined') { noticeCrossed = true; markKeysAcrossNotice(); }   // keys down right now only count again after they're released   /*r10*/
 }
 function screenTooSmall() { return !((VW >= 560 && VH >= 300) || (VW >= 320 && VH >= 560)); }
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
