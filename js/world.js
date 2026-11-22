@@ -423,6 +423,7 @@ function setHints(on) {
 }
 function hint(id, text) {
   if (!G || campaign.hints[id] || settings.hints === false) return;
+  if (typeof adaptControls === 'function') text = adaptControls(text);   // touch / gamepad wording   /*ctl23*/
   if (G.hint && G.hint.id !== id) {
     G.hintQ = G.hintQ || [];
     if (!G.hintQ.some(h => h.id === id) && G.hintQ.length < 4) G.hintQ.push({ id, text });

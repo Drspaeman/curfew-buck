@@ -310,6 +310,14 @@ function ctl(what) {
   };
   return (T[what] || {})[dev] || what;
 }
+// Hint text is written for the keyboard; say it the way this player plays (touch buttons, gamepad, rebound keys)   /*ctl23*/
+function adaptControls(t) {
+  const dev = inputKind(), press = ctl('press'), Press = press[0].toUpperCase() + press.slice(1);
+  t = t.replace(/\bPress E\b/g, `${Press} ${ctl('use')}`).replace(/\bpress E\b/g, `${press} ${ctl('use')}`).replace(/\(E\)/g, `(${ctl('use')})`);
+  if (dev === 'touch') t = t.replace(/\b[Pp]ress T( \(or Y on a gamepad\))?/g, 'Tap 📵').replace(/\bpress T\b/g, 'tap 📵').replace(/\bPress N again\b/g, 'Tap NVG again');
+  if (dev === 'pad') t = t.replace(/\bPress T \(or Y on a gamepad\)/g, 'Press Y').replace(/\bpress T\b/g, 'press Y');
+  return t;
+}
 // ============================================================
 // Guided tutorial (first Night 1 only)
 // ============================================================

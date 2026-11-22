@@ -1241,7 +1241,8 @@ function drawHUD(now) {
   if (G.hint) {
     ctx.globalAlpha = clamp(G.hint.t, 0, 1);
     ctx.font = '15px system-ui, sans-serif';
-    const maxW = Math.min(620, VW - 60);
+    const topHint = shortLandscape() && touchMode, hcx = topHint ? minimapBox().x / 2 : VW / 2;   // top hints stop short of the minimap
+    const maxW = topHint ? Math.min(620, minimapBox().x - 60) : Math.min(620, VW - 60);
     const lines = [];
     let line = '';
     for (const w of G.hint.text.split(' ')) {
@@ -1249,11 +1250,12 @@ function drawHUD(now) {
       if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
     }
     lines.push(line);
-    const h = lines.length * 21 + 20, y = VH - 44 - h;
-    panel(VW / 2 - maxW / 2 - 16, y, maxW + 32, h);
-    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 1.5; roundRect(ctx, VW / 2 - maxW / 2 - 16, y, maxW + 32, h, 10); ctx.stroke();
+    // touch on a short landscape screen: the bottom is the thumb buttons, so a (temporary) hint goes across the top   /*r4*/
+    const h = lines.length * 21 + 20, y = topHint ? 8 : VH - 44 - h;
+    panel(hcx - maxW / 2 - 16, y, maxW + 32, h);
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 1.5; roundRect(ctx, hcx - maxW / 2 - 16, y, maxW + 32, h, 10); ctx.stroke();
     ctx.fillStyle = '#fff2c4'; ctx.textAlign = 'center';
-    lines.forEach((l, i) => ctx.fillText(l, VW / 2, y + 26 + i * 21));
+    lines.forEach((l, i) => ctx.fillText(l, hcx, y + 26 + i * 21));
     ctx.globalAlpha = 1;
   }
   // controls

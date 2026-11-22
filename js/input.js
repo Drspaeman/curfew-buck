@@ -247,7 +247,15 @@ function touchButtons() {
   for (const b of list) { if (y < topLimit) { x -= r * 2 + 12; y = VH - r - 70; } out.push(Object.assign({ x, y, r }, b)); y -= r * 2 + 12; }
   out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
   out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
-  if (nearTruck()) out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?'   /*vary18*/ : 'LEAVE', fn: tryLeave, x: shortLandscape() ? VW / 2 + 70 : VW / 2, y: shortLandscape() ? VH - 52 : VH - 120, r: shortLandscape() ? 28 : 34,   /*r3: landscape phones: off Dale, beside the thumb buttons*/ hot: true });
+  if (nearTruck()) {
+    // LEAVE ends the night (and escapes a chase): its circle must never share a pixel with another button,
+    // so a tap can't land on beer or CALL instead. Start at the usual spot and slide left, then up, until it's clear.   /*r4*/
+    const lr = shortLandscape() ? 28 : 34;
+    let lx = shortLandscape() ? VW / 2 + 70 : VW / 2, ly = shortLandscape() ? VH - lr - 18 : VH - 120;
+    const clear = (cx, cy) => out.every(b => dist(cx, cy, b.x, b.y) >= lr + b.r + 10);
+    for (let k = 0; k < 40 && !clear(lx, ly); k++) { lx -= 14; if (lx < lr + 120) { lx = shortLandscape() ? VW / 2 + 70 : VW / 2; ly -= 2 * lr + 10; } }
+    out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: lx, y: ly, r: lr, hot: true });
+  }
   return out;
 }
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }

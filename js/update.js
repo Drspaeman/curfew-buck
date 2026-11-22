@@ -33,7 +33,7 @@ function update(dt) {
 
   if (!G.planShown && G.playT > 1.2) { G.planShown = true; if (G.goal || G.twist) banner([G.goal ? `${GOALS[G.goal.id].title.toUpperCase()}: ${goalText(G.goal)}` : '', G.twist ? TWISTS[G.twist].label : ''].filter(Boolean).join('  ·  '), '#7cf'); }   /*vary18*/
   // Tutorial hints (first season only shows each once)
-  if (night === 1 && G.playT > 0.5 && !G.tut) hint('start', 'Sneak (hold Shift) toward a deer. HOLD click to draw your bow, RELEASE to fire. Full draw = deadly.');
+  if (night === 1 && G.playT > 0.5 && !G.tut) hint('start', `${ctl('sneak')} to sneak toward a deer. ${ctl('draw')} to draw your bow, then ${ctl('release').toLowerCase()} to fire. Full draw = deadly.`);   /*ctl23*/
   if (G.playT > 35 && !G.tut) hint('cone', `${inputKind() === 'touch' ? 'The CONE button' : inputKind() === 'pad' ? 'B' : 'Right-click (or F)'} throws a pinecone. Watchers walk over to check it out. Use it to clear a path.`);
   if (night === 2 && G.playT > 3) hint('flood', 'More porch floodlights tonight. Sneak and give them room: get too close and they click on.');
 
@@ -285,7 +285,7 @@ function updateWorldEvents(dt) {
   // Mom calls (press T to decline before it rings out loud)
   const mom = G.mom;
   if (mom) {
-    if (mom.state === 'wait' && G.playT > mom.at) { mom.state = 'buzz'; mom.t = 2.6; sfx.buzz(); banner('📱 MOM IS CALLING — press T to decline!', '#ff9ad5'); hint('mom', 'Your phone is buzzing! Press T (or Y on a gamepad) fast, or it rings out loud.'); }
+    if (mom.state === 'wait' && G.playT > mom.at) { mom.state = 'buzz'; mom.t = 2.6; sfx.buzz(); banner(adaptControls('📱 MOM IS CALLING — press T to decline!'), '#ff9ad5'); hint('mom', 'Your phone is buzzing! Press T (or Y on a gamepad) fast, or it rings out loud.'); }
     else if (mom.state === 'buzz') {
       mom.t -= dt;
       if (mom.t <= 0) {
@@ -780,7 +780,7 @@ function updatePlayer(dt) {
   if (canHide) for (const b of world.bushes) if (dist(b.x, b.y, player.x, player.y) < b.r - 3) { player.hidden = true; break; }
   if (player.hidden && !player.moving) { G.bushT = (G.bushT || 0) + dt; if (G.bushT > 20 && !G.spiderSaid) { G.spiderSaid = true; popup(player.x, player.y - 30, 'A spider has started charging you rent.', '#c9c3d1', 2.4); } } else if (player.moving) { G.bushT = 0; G.spiderSaid = false; }
   if (canHide && player.inGrass && player.crouch) player.hidden = true;
-  if (player.inGrass && !player.crouch) hint('grass', 'Tall grass: hold Shift (sneak) while standing in it and you\'re hidden.');
+  if (player.inGrass && !player.crouch) hint('grass', 'Tall grass: sneak while you stand in it and you\'re hidden.');
   player.shadow = world.houses.some(h => player.x > h.x + 14 && player.x < h.x + h.w + 26 && player.y > h.y + h.h && player.y < h.y + h.h + 52);
   player.lit = false;
   for (const l of world.lights) if (dist(l.x, l.y, player.x, player.y) < 150) { player.lit = true; break; }
