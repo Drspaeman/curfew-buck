@@ -34,10 +34,14 @@ const SCENES = {
     ['dale', 'Home sweet shed.'],
     ['tyler', '(text) Dad. Mom says if she catches you hunting in the yard again she\'s calling Kowalski. Also the HOA put up NO HUNTING signs. Like, everywhere.'],
     ['dale', '(text) Tell your mom the deer started it. They ate her hydrangeas.'],
-    ['narrator', 'Taped to the freezer: "PUBLIC AUCTION. Pruitt Woods, 40 acres. Bidders must post a $1,500 deposit."'],
+    ['narrator', 'Taped to the freezer: "PUBLIC AUCTION. Pruitt Woods, 40 acres. Noon, the day after deer season ends. Bidders must post a $1,500 deposit."'],
     ['dale', 'Grandpa\'s hunting camp. Linda calls it "Phase 2."'],
     ['dale', 'Fifteen hundred bucks. I have a bow, a freezer, and a cousin of a cousin who buys meat out of a van.'],
-    ['steve', '(text) its steve. heard u got deer. van is on the east logging road. bring cash, i mean bring meat, i bring cash. delete this'],
+    ['steve', '(text) its steve. IF u get deer, van is on the east logging road. u bring meat. i bring cash. delete this'],
+    ['narrator', 'Stapled under the auction notice, in red pen: "FINAL WARNING. Miss your quota or get chased home: one strike. Get arrested: two."'],   /*dialog16*/ /*write16*/
+    ['narrator', '"Three strikes and this structure will be TOWED. Please empty the freezer before pickup. — L. Vance, HOA."'],
+    ['dale', '(text) Steve, hypothetically, how much room is in the van?'],
+    ['steve', '(text) theres room. u would have to sleep in the cooler aisle'],
   ],
   after1: [
     ['narrator', 'Dale hangs his vest on the shed door. The freezer hums.'],
@@ -48,6 +52,8 @@ const SCENES = {
   intro2: [
     ['linda', 'Residents! As of tonight, Neighborhood Watch patrols are MANDATORY. Todd has graciously volunteered.'],
     ['todd', 'I have a whistle. And a vest. And a dream.'],
+    ['linda', 'And to whoever keeps calling the police on the Orange Menace: thank you. Every night he comes home short is a strike. An arrest is two. Three, and his little shed gets towed.'],
+    ['gary', 'I\'ve already reserved the tow truck. Please keep the curb clear.'],
     ['earl', '(text) Dale. Unrelated: three squirrels, ninety bucks. The chili contest calls that "locally sourced."'],
     ['dale', 'Squirrels. In the trees. Small, fast, loud. Great.'],
     ['tyler', '(text) also garys daughter raven drew u on a trading card. she thinks ur a cryptid'],
@@ -59,9 +65,9 @@ const SCENES = {
     ['henderson', '(shouting from his porch) MARTHA! I\'M STAYING UP TONIGHT! I\'LL CATCH HIM MYSELF!'],
     ['dale', 'Who\'s Martha?'],
     ['tyler', '(text) nobody knows. also mom has grandpa\'s old longbow in the garage. she said she\'s "keeping it as leverage"'],
-    ['tyler', '(text) garys daughter raven (26, goth) thinks ur a cryptid. dad. ur on a TRADING CARD'],
-    ['dale', 'What\'s a cryptid?'],
-    ['tyler', '(text) like bigfoot. but orange'],
+    ['tyler', '(text) update: raven\'s card for u says SPOOKINESS 7/10, HOA VIOLATIONS 99. she says the 99 is "a conservative estimate"'],
+    ['dale', '(text) Seven? I\'ve been out here every night.'],
+    ['tyler', '(text) dad that is not the part to be mad about'],
   ],
   intro3: [
     ['narrator', 'Rain hammers the shed roof. Perfect cover.'],
@@ -83,6 +89,8 @@ const SCENES = {
     ['tyler', '(text) dad. DAD. i found something. linda has been selling koi from the HOA clubhouse pond. like the expensive ones the HOA bought with dues. to STEVE'],
     ['steve', '(text) i dont know any lindas. i dont know any koi. but if u happened to catch one with an HOA tag on it that would be crazy proof wouldnt it'],
     ['dale', 'The clubhouse pond. North woods. Get me a tag number, and Tyler can match it to Steve\'s pickup sheets.'],
+    ['darlene', '(through the shed door) Dale, I can hear you planning. You plan out loud. You have ALWAYS planned out loud.'],
+    ['dale', '...I\'m planning a nap.'],
   ],
   after4: [
     ['narrator', 'Tyler digs up the HOA\'s koi invoice. One fish: $1,200. Suddenly the dues make sense.'],
@@ -106,9 +114,25 @@ const SCENES = {
     ['dale', 'Never.'],
   ],
   busted: [
-    ['kowalski', 'Dale. Buddy. We\'ve talked about this.'],
-    ['dale', 'I was taking out the trash.'],
-    ['kowalski', 'With a bow. At 5 AM. In Gary\'s hydrangeas.'],
+    ['kowalski', 'Dale. Buddy. We\'ve talked about this.', c => !c.strikes],
+    ['dale', 'I was taking out the trash.', c => !c.strikes],
+    ['kowalski', 'With a bow. At 5 AM. In Gary\'s hydrangeas.', c => !c.strikes],
+    ['kowalski', 'Dale. I made you a punch card. Linda already stamped it twice.', c => c.strikes === 1 || c.strikes === 2],
+    ['dale', 'Do I get a sandwich with that?', c => c.strikes === 1 || c.strikes === 2],
+    ['kowalski', 'You get a bologna sandwich and Linda reading your file out loud at the next meeting.', c => c.strikes === 1 || c.strikes === 2],
+    ['kowalski', 'That\'s three strikes, Dale. Linda\'s already on the phone with the tow company. She\'s using her happy voice.', c => c.strikes >= 3],
+    ['dale', 'She has a happy voice?', c => c.strikes >= 3],
+    ['kowalski', 'Nobody\'s ever heard it before. It\'s horrifying.', c => c.strikes >= 3],
+  ],
+  // Retrying a failed night: a short "take two", depending on how the night went wrong
+  retry: [
+    ['narrator', 'Take two. Same night, same neighborhood, :FINE lighter. Tonight\'s haul is gone; the gear you started with is back.'],
+    ['darlene', '(texting) Kowalski ran your plates at 6 AM, Dale. I got the email too. We share an EMAIL.', c => c.lastFail === 'arrested'],
+    ['kowalski', '(voicemail) Dale, you\'re on probation. That means "stop," not "try again." ...You\'re going to try again, aren\'t you.', c => c.lastFail === 'arrested'],
+    ['tyler', '(text) dad kowalski parked outside the shed for an HOUR. u owe the HOA a citation. also mom is laughing which is somehow worse', c => c.lastFail === 'escaped'],
+    ['earl', '(voicemail) Heard you came up short. The deer declined to comment. Shop\'s open.', c => c.lastFail === 'home'],
+    ['tyler', '(text) the joggers saw u at sunrise. theres a post. it has 400 likes. the caption is just "?"', c => c.lastFail === 'sunrise'],
+    ['linda', '(on the HOA app) Strike :STRIKES. The tow truck is idling. Have a WONDERFUL evening, Mr. Pruitt.'],
   ],
 };
 

@@ -136,7 +136,8 @@ function audioBus() {
   comp.connect(AC.destination);
   return (masterBus = comp);
 }
-function stopGameplaySounds() { for (const o of liveTones) { try { o.stop(); } catch (e) { /* already stopped */ } } liveTones.clear(); }
+function stopGameplaySounds() { if (typeof musicHush === 'function') musicHush();   /*fix16*/
+  for (const o of liveTones) { try { o.stop(); } catch (e) { /* already stopped */ } } liveTones.clear(); }
 function tone(freq, dur, type = 'sine', vol = 0.15, slideTo = null, delay = 0) {
   if (muted) return;
   if (toneChannel === 'music' && !settings.music) return;
@@ -201,7 +202,7 @@ const QUIPS = {
     'Oh, you have GOT to be kidding me.',
     'Dale? Is that MY good flashlight?',
     'This is exactly why I left you.',
-    'You missed child support but not deer season?',
+    'You had time for THIS, but the shed door still sticks?',   /*write16*/
     'I can see your vest, Dale. It\'s ORANGE.',
     'I\'m telling your mother.',
   ],
@@ -248,13 +249,21 @@ QUIPS.treasurer.push('Fine schedule says... a lot.', 'Smile, you\'re on the news
 QUIPS.watch.push('Code orange! CODE ORANGE!', 'Stop or I\'ll... write you up!', 'Finally, some action.');
 QUIPS.jogger.push('On your left! Wait, are you hunting?', 'This is not on my fitness app.');
 QUIPS.cop.push('Dale, I can see the vest.', 'Hands where I can see \'em, buddy.');
+// more voices, so a long night doesn't repeat itself   /*dialog16*/
+QUIPS.ex.push('I can hear you breathing, Dale. You breathe LOUD.', 'Tyler has school tomorrow and you have a COURT date.', 'Do not make me get the hose.');
+QUIPS.hoa.push('That shed is one violation from the tow truck, Mr. Pruitt!', 'I have a clipboard and I am NOT afraid to use it!', 'Phase 2 does not include YOU!');
+QUIPS.treasurer.push('I\'m logging this in the drone footage folder!', 'That\'s a line item, Dale!', 'Under section 9, that\'s a whole spreadsheet.');
+QUIPS.watch.push('Todd to base! Todd to... I don\'t have a base.', 'This is the best night of my life.', 'Freeze! Or... jog away slowly! Either!');
+QUIPS.cop.push('Dale, my shift ends at six. Help me out here.', 'Don\'t make me call the dog, Dale.', 'Sarge! SARGE! Over here, boy!');
+QUIPS.investigate.push('If that\'s you, Dale, I\'m not mad. I\'m disappointed.', 'Deer? Raccoon? Dale?', 'I\'m getting the BIG flashlight.');
+QUIPS.kill.push('Grandpa would be proud.', 'That\'s rent.', 'Steve\'s gonna love this one.');
 QUIPS.cam = ['*ding dong* Motion detected.', '📷 *click* Clip saved to the cloud.', 'Ring! Someone is at your front door.'];
 QUIPS.chad = ['Bro. BRO. Are you hunting?', 'Babe! Your ex is in the yard again!', 'Can\'t hear you over the blower, dude!', 'Is that a crossbow? Sick. Also: no.'];
 const NIGHT_INTROS = [
   'Opening night. Darlene got the house and the dog. Her lawyer got the hunting lease. You got a bow and a grudge. The deer of Whispering Pines have gotten fat on hostas. Fill the freezer before sunrise.',
-  'Word got around. Linda put up "NO HUNTING" signs and recruited Todd from Neighborhood Watch. Stay low.',
+  'The NO HUNTING signs stayed up. Now Linda has made Neighborhood Watch patrols mandatory, and Todd brought his own whistle. Stay low.',
   'The HOA called an emergency meeting about "the Orange Menace." There are more of them out tonight.',
-  'Darlene\'s new boyfriend installed motion lights. Gary bought night-vision binoculars with HOA dues.',
+  'Fog tonight. More motion lights on the lawns, and Gary has a drone in the air, bought with HOA dues.',
   'Last night of the season. The whole subdivision is on alert. One more haul and the freezer\'s full for the year.',
 ];
 const ENDLESS_INTROS = [
@@ -340,7 +349,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '1.9.3';
+const VERSION = '2.0.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
@@ -358,7 +367,7 @@ const TIPS = [
 const CREDITS = [
   ['CURFEW BUCK', 'A game about deer, divorce, and HOA bylaws.'],
   ['Engine', 'Plain JavaScript + HTML5 canvas. No libraries.'],
-  ['Sound', 'Every beep, bark, burp and banjo-ish bassline is synthesized live.'],
+  ['Sound', 'Every beep, bark and burp, and the whole ambient-to-EDM score, is synthesized live.'],
   ['Built with', 'Claude Code, with bug hunts and joke reviews from Codex.'],
   ['Music', 'Velvet Casket appears courtesy of Gary\'s garage. Gary was not consulted.'],
   ['Trading cards', 'Hand-drawn by Raven Pfister, mostly at 3 AM.'],
@@ -366,7 +375,7 @@ const CREDITS = [
   ['Disclaimer', 'No HOA presidents were harmed. Gary\'s pride took a hit.'],
 ];
 const ACH = {
-  ghost: ['Ghost of Whispering Pines', 'Finish a night without being spotted'],
+  ghost: ['Ghost of Whispering Pines', 'Meet quota without being spotted once'],
   exproof: ['Darlene-Proof', 'Meet quota without Darlene seeing you'],
   trophy: ['Trophy Room', 'Deliver a buck'],
   legend: ['Legend Slayer', 'Bag Old Hosta'],
@@ -407,7 +416,7 @@ const ACH = {
   golfer: ['Members Only', 'Finish a night at the Country Club'],
   daily: ['Daily Grind', 'Finish a Daily Hunt'],
   iceskater: ['Ice Capades', 'Slip on the ice'],
-  racks: ['Antler Collector', 'Sell an antler rack to Earl'],
+  racks: ['Wall Space', 'Sell an antler rack to Earl'],
   albino: ['Ghost Deer', 'Bag a rare albino deer'],
   oncamera: ['Caught on Camera', 'Get filmed by a doorbell cam'],
   lawyer: ['Objection!', 'Get your case dismissed in court'],

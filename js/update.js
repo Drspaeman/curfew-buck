@@ -23,9 +23,13 @@ function update(dt) {
   if (G.ghost) { G.ghost.t -= dt; if (G.ghost.t <= 0) G.ghost = null; }
   G.radioCD -= dt;
   musicTick(dt);
-  if (!G.warn60 && G.time < 60 && G.time > 1) { G.warn60 = true; banner(G.delivered >= G.quota ? '☀ Sunrise in 60 seconds! Quota met: you\'re safe either way.' : `☀ Sunrise in 60 seconds! ${G.quota - G.delivered} deer to go.`, '#ffb347'); tone(660, 0.15, 'triangle', 0.08); tone(660, 0.15, 'triangle', 0.08, null, 0.25); }
+  if (!G.warn60 && G.time < 60 && G.time > 1) { G.warn60 = true; banner(G.delivered >= G.quota ? '☀ Sunrise in 60 seconds! Quota met: head back to end the night.'   /*write16*/ : `☀ Sunrise in 60 seconds! ${G.quota - G.delivered} deer to go.`, '#ffb347'); tone(660, 0.15, 'triangle', 0.08); tone(660, 0.15, 'triangle', 0.08, null, 0.25); }
   if (!G.warn20 && G.time < 20 && G.time > 1) { G.warn20 = true; banner(G.delivered >= G.quota ? '☀ 20 SECONDS TO SUNRISE. Quota met. Nice work.' : `☀ 20 SECONDS TO SUNRISE. ${G.quota - G.delivered} deer short!`, '#ff9f6b'); tone(880, 0.2, 'triangle', 0.09); }
-  if (G.time <= 0) { G.time = 0; endNight(G.delivered >= G.quota ? 'win' : 'sunrise'); return; }
+  if (G.time <= 0) {
+    G.time = 0;
+    if (G.police && G.policeT <= 0) { banner('☀🚔 Sunrise, and the cops are still out. Kowalski spots the orange vest from a block away.', '#ff5a5a'); endNight('arrested'); return; }
+    endNight(G.delivered >= G.quota ? 'win' : 'sunrise'); return;
+  }
 
   // Tutorial hints (first season only shows each once)
   if (night === 1 && G.playT > 0.5 && !G.tut) hint('start', 'Sneak (hold Shift) toward a deer. HOLD click to draw your bow, RELEASE to fire. Full draw = deadly.');
@@ -83,26 +87,110 @@ function update(dt) {
   updateCam(dt);
 }
 
-// Dynamic music: a quiet plucky bass line that speeds up and gets busier with danger.
-let musicBeat = 0, musicT = 0;
-const BASS = [55, 55, 65.41, 49, 55, 55, 73.42, 65.41];
-const PLUCK = [220, 261.63, 293.66, 329.63, 392, 440];
-function musicTick(dt) {
-  if (!settings.music || !(settings.musicVol > 0) || muted) return;
-  const danger = G.police ? 2 : (G.anySeen || G.sus > 45) ? 1 : 0;
-  musicT -= dt;
-  if (musicT > 0) return;
-  musicT = [0.62, 0.42, 0.28][danger];
-  toneChannel = 'music';
-  const goth = typeof has === 'function' && has('vccd');   // Velvet Casket CD (js/goth.js)
-  const n = (goth ? GOTH_BASS : BASS)[musicBeat % BASS.length];
-  tone(n, musicT * 0.9, goth ? 'sawtooth' : 'triangle', (danger ? 0.05 : 0.035) * (goth ? 0.6 : 1));
-  if (danger >= 1 && musicBeat % 2 === 1) tone(6000, 0.02, 'square', 0.008);
-  if (danger === 2) tone(n * 2, 0.08, 'sawtooth', 0.015);
-  if (danger === 0 && musicBeat % 4 === 2 && Math.random() < 0.6) tone(pick(goth ? GOTH_PLUCK : PLUCK), goth ? 0.5 : 0.25, 'triangle', 0.02, null, 0.05);
-  musicBeat++;
-  toneChannel = 'sfx';
+// Music: a small synth sequencer scheduled ahead on the audio clock, so the beat stays tight at any frame rate.
+// Four layers that build with danger:
+//   menus     ambient pads only
+//   calm      ambient pads, a soft sub pulse and a sparse echoing pluck (about 96 BPM)
+//   spotted   adds a muted kick, hats and an arpeggio; the filter opens
+//   police    full EDM at 128 BPM: four-on-the-floor kick, clap, rolling offbeat bass, 16th hats, saw lead
+// The Velvet Casket CD (js/goth.js) swaps the chords for a darker minor progression.
+const MUSIC = { next: 0, step: 0, level: 0, want: 0, bus: null, verb: null, noise: null, lastTick: 0, out: null, hushed: false };
+const musicRnd = mulberry32(0x6d757369);   // its own dice, so music never changes a seeded Daily
+const CHORDS = [[110, [220, 261.63, 329.63]], [87.31, [174.61, 220, 261.63]], [130.81, [261.63, 329.63, 392]], [98, [196, 246.94, 293.66]]];          // Am F C G
+const GOTH_CHORDS = [[110, [220, 261.63, 329.63]], [73.42, [146.83, 174.61, 220]], [87.31, [174.61, 220, 261.63]], [82.41, [164.81, 207.65, 246.94]]];  // Am Dm F E
+function musicBus() {
+  if (MUSIC.bus) return MUSIC.bus;
+  const out = AC.createGain(); out.gain.value = 1; out.connect(audioBus()); MUSIC.out = out;
+  // a feedback echo for plucks and leads (dotted eighth at the calm tempo)
+  const d = AC.createDelay(1), fb = AC.createGain(), wet = AC.createGain(), lp = AC.createBiquadFilter();
+  d.delayTime.value = 0.47; fb.gain.value = 0.38; wet.gain.value = 0.35; lp.type = 'lowpass'; lp.frequency.value = 2400;
+  d.connect(lp).connect(fb).connect(d); lp.connect(wet).connect(out);
+  const nb = AC.createBuffer(1, AC.sampleRate * 0.5, AC.sampleRate), ch = nb.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = musicRnd() * 2 - 1;
+  MUSIC.noise = nb; MUSIC.verb = d;
+  return (MUSIC.bus = out);
 }
+function mVol(v) { return v * (settings.musicVol ?? 1); }
+function mTrack(node) { if (state === 'play') { liveTones.add(node); node.onended = () => liveTones.delete(node); } }
+function mOsc(type, f, t, dur, vol, opt = {}) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (opt.slide) o.frequency.exponentialRampToValueAtTime(opt.slide, t + (opt.slideT || dur));
+  if (opt.detune) o.detune.value = opt.detune;
+  const a = opt.attack || 0.005;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(mVol(vol), t + a);
+  g.gain.setTargetAtTime(0.0001, t + Math.max(a, dur - (opt.release || dur * 0.6)), (opt.release || dur * 0.6) / 4);
+  let node = o.connect(g);
+  if (opt.cut) { const f2 = AC.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.setValueAtTime(opt.cut, t); if (opt.cutTo) f2.frequency.exponentialRampToValueAtTime(opt.cutTo, t + dur); f2.Q.value = opt.q || 0.7; g.disconnect(); o.disconnect(); o.connect(f2).connect(g); }
+  g.connect(musicBus()); if (opt.echo) g.connect(MUSIC.verb);
+  o.start(t); o.stop(t + dur + 0.6); mTrack(o);
+}
+function mNoise(t, dur, vol, type, freq) {
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = MUSIC.noise; f.type = type; f.frequency.value = freq;
+  g.gain.setValueAtTime(mVol(vol), t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(musicBus());
+  s.start(t, musicRnd() * 0.3); s.stop(t + dur + 0.02); mTrack(s);
+}
+const mKick = (t, v) => mOsc('sine', 150, t, 0.28, v, { slide: 42, slideT: 0.12, release: 0.22 });
+function musicStep(i, t, lvl, goth) {
+  const bar = Math.floor(i / 16), s = i % 16, beat = 60 / musicBpm(lvl);
+  const [root, chord] = (goth ? GOTH_CHORDS : CHORDS)[Math.floor(bar / 2) % 4];
+  // pads: a new chord every two bars, slow attack, filtered darker when calm
+  if (s === 0 && bar % 2 === 0) for (const f of chord) for (const dt of [-7, 7]) mOsc('sawtooth', f, t, beat * 8 - 0.05, lvl < 0 ? 0.011 : 0.009, { attack: 1.2, release: 2, detune: dt, cut: lvl >= 2 ? 1800 : lvl === 1 ? 1100 : 700 });
+  if (lvl < 0) { if (s === 8 && bar % 2 === 1) mOsc('sine', chord[2] * 2, t, 1.6, 0.012, { echo: true, attack: 0.02 }); return; }
+  // calm: sub pulse on the beat, sparse plucks into the echo
+  if (lvl === 0) {
+    if (s % 8 === 0) mOsc('sine', root / 2, t, beat * 1.6, 0.05, { attack: 0.03 });
+    if ((s === 6 || s === 14) && musicRnd() < 0.55) mOsc('triangle', chord[Math.floor(musicRnd() * 3)] * 2, t, 0.3, 0.022, { echo: true });
+    return;
+  }
+  // spotted and police: the beat comes in
+  if (lvl === 1) {
+    if (s % 8 === 0) mKick(t, 0.09);
+    if (s % 4 === 2) mNoise(t, 0.04, 0.012, 'highpass', 7000);
+    if (s % 2 === 0) mOsc('triangle', chord[(s / 2) % 3] * 2, t, beat * 0.45, 0.02, { echo: s % 8 === 6 });
+    if (s % 4 === 2) mOsc('sawtooth', root, t, beat * 0.4, 0.03, { cut: 500, cutTo: 200 });
+    return;
+  }
+  // police: full EDM
+  if (s % 4 === 0) mKick(t, 0.16);
+  if (s === 4 || s === 12) { mNoise(t, 0.16, 0.05, 'bandpass', 1500); mNoise(t + 0.012, 0.12, 0.03, 'bandpass', 1100); }
+  mNoise(t, s % 4 === 2 ? 0.09 : 0.03, s % 4 === 2 ? 0.02 : 0.009, 'highpass', 8000);
+  if (s % 4 === 2 || s % 4 === 3) mOsc('sawtooth', root, t, beat * 0.22, 0.05, { cut: 900, cutTo: 220, q: 6 });
+  const lead = [0, 1, 2, 1, 0, 2, 1, 2][(s >> 1) % 8], oct = s % 8 < 4 ? 2 : 4;
+  if (s % 2 === 0) mOsc('square', chord[lead] * oct / 2, t, beat * 0.4, 0.014, { cut: 2600, cutTo: 900, echo: s % 8 === 0 });
+  if (s === 15 && bar % 4 === 3) mNoise(t, beat * 1.2, 0.02, 'highpass', 2000);   // riser into the next phrase
+}
+function musicBpm(lvl) { return lvl >= 2 ? 128 : lvl === 1 ? 112 : 96; }
+// Pause, mute and quitting fade the whole score out at once (echo tail included); playing again fades it back in
+function musicHush() {
+  if (!MUSIC.out || MUSIC.hushed) return;
+  MUSIC.hushed = true;
+  try { const g = MUSIC.out.gain; g.cancelScheduledValues(AC.currentTime); g.setTargetAtTime(0, AC.currentTime, 0.03); } catch (e) { /* audio gone */ }
+}
+function musicRun(lvl) {
+  if (muted || !settings.music || !(settings.musicVol > 0) || !AC || AC.state !== 'running') { musicHush(); return; }
+  const now = AC.currentTime;
+  if (MUSIC.hushed && MUSIC.out) { MUSIC.hushed = false; const g = MUSIC.out.gain; g.cancelScheduledValues(now); g.setTargetAtTime(1, now, 0.05); MUSIC.next = 0; }
+  if (MUSIC.next < now - 0.2 || MUSIC.next > now + 1) { MUSIC.next = now + 0.06; MUSIC.step = 0; MUSIC.level = lvl; }   // after a pause, a new phrase
+  MUSIC.want = lvl;
+  const goth = typeof has === 'function' && campaign && has('vccd');
+  try {
+    while (MUSIC.next < now) { MUSIC.next += 60 / musicBpm(MUSIC.level) / 4; MUSIC.step++; }   // skip beats lost to a stall instead of playing them in a burst
+    while (MUSIC.next < now + 0.15) {
+      if (MUSIC.step % 16 === 0) MUSIC.level = MUSIC.want;   // switch layers on the bar line
+      musicStep(MUSIC.step, MUSIC.next, MUSIC.level, goth);
+      MUSIC.next += 60 / musicBpm(MUSIC.level) / 4; MUSIC.step++;
+    }
+  } catch (e) { /* audio unavailable */ }
+}
+function musicTick(dt) {
+  const danger = G.police ? 2 : (G.anySeen || G.sus > 45) ? 1 : 0;
+  musicRun(danger);
+}
+// Title and menus: just the ambient pads
+function menuMusicTick() { if (['title', 'modes', 'players', 'extras', 'settings', 'shop', 'nightdone', 'crypt', 'scores', 'trophies', 'credits', 'whoswho', 'nights', 'custom'].includes(state)) musicRun(-1); }
 
 function grunt() {
   if (G.gruntCD > 0) { popup(player.x, player.y - 30, `Grunt call ready in ${Math.ceil(G.gruntCD)}s`, '#ffd166', 1); return; }
@@ -722,6 +810,8 @@ function updatePlayer(dt) {
     popup(player.x, player.y - 30, `+${player.bag} small-game pack${player.bag > 1 ? 's' : ''} into the freezer`, '#9be564', 1.6);
     player.bag = 0;
   }
+  if (G.police && nearTruck() && !player.carry && tyler && tyler.carry && !(G.waitTylerT > 0)) { G.waitTylerT = 3; popup(player.x, player.y - 40, 'Waiting for Tyler and his deer. ' + ctl('leave') + ' leaves without it.', '#ffd166', 2.6); }
+  if (G.waitTylerT > 0) G.waitTylerT -= dt;
   if (G.police && nearTruck() && !player.carry && !(tyler && tyler.carry)) {
     unlock('getaway');
     if (watchers.some(w => w.type === 'cop' && w.parked && dist(w.x, w.y, player.x, player.y) < 300)) unlock('footchase');
@@ -1308,6 +1398,16 @@ function detection(dt) {
   if (G.arrest >= 1) { G.arrest = 1; endNight('arrested'); }
 }
 
+// A season night with the cops called: the save already holds the strike, so quitting or reloading can't dodge it   /*flow16*/
+function seasonNight() { return !oneNightMode() && night <= 5 && !campaign.versus && !campaign.coop; }
+function saveChaseCheckpoint() {
+  if (!seasonNight() || G.settled) return;
+  const keepFine = G.retryFine; G.retryFine = 50;
+  const c = retryCampaign(); c.strikes = (campaign.strikes || 0) + 1; c.lastFail = 'escaped';
+  G.retryFine = keepFine;
+  if (c.strikes < STRIKES_MAX) saveOk(store.set('hs_save', { night, campaign: c }));
+  else clearSave();   // that would be the third strike: the season is over either way
+}
 function callPolice(w) {
   if (!campaign.daily) campaign.heat = 1; // tomorrow night starts with a patrol car out
   G.police = true;
@@ -1315,12 +1415,14 @@ function callPolice(w) {
   G.copTimer = 50;
   G.sus = 100;
   G.caller = w.type;
+  saveChaseCheckpoint();
   sfx.alert();
   popup(w.x, w.y - 50, w.type === 'ex' ? QUIPS.callEx : w.type === 'cop' ? 'Dispatch, I have eyes on the orange vest! Send everybody.' : QUIPS.callHoa, '#ff6b6b', 3.5);
   banner(world.golf ? '911 CALLED! Cops arrive in 7 seconds. Get back to Earl\'s truck!' : G.delivered >= G.quota || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');
-  hint('police', 'The cops are coming. Get back inside your shed to escape. If a cruiser\'s spotlight holds on you, the ARREST bar fills.');
+  hint('police', 'The cops are coming. Get back inside your shed before the LOCKDOWN timer runs out, or you\'re arrested (two strikes). If a cruiser\'s spotlight holds on you, the ARREST bar fills. Getting away still costs a $50 citation.');
 }
 
+function lockdownSecs() { return settings.difficulty === 'easy' ? 110 : settings.difficulty === 'hard' ? 60 : 80; }
 function updatePolice(dt) {
   if (G.sirenCap > 0) G.sirenCap -= dt;   /*siren15*/
   if (!G.police) return;
@@ -1329,6 +1431,14 @@ function updatePolice(dt) {
   G.trailT -= dt;
   if (G.trailT <= 0) { G.trailT = 0.3; G.trail.push({ x: player.x, y: player.y }); }
   G.policeTime = (G.policeTime || 0) + dt;
+  // Lockdown: once the cops are on scene you have a short window to get home before they seal the block   /*conseq*/
+  if (G.lockT === undefined) G.lockT = lockdownSecs();
+  G.lockT -= dt;
+  if (G.lockT <= 0 && !G.settled) {
+    G.lockT = 0; G.lockedDown = true;
+    banner('🚔 LOCKDOWN! Every cruiser in the county just boxed in the block. Kowalski found you behind a recycling bin.', '#ff5a5a');
+    endNight('arrested'); return;
+  }
   G.scanT = (G.scanT ?? 3) - dt;
   if (G.scanT <= 0) { G.scanT = rnd(9, 15); popup(player.x, player.y - 60, pick(SCANNER), '#9ecbff', 2.6); tone(1800, 0.03, 'square', 0.02); }
   if (!G.k9Spawned && G.policeTime > 25) { G.k9Spawned = true; spawnK9(); }
@@ -1358,6 +1468,9 @@ function endNight(reason) {
   G.stars = reason === 'win' ? 1 + (G.police ? 0 : 1) + (G.timesSpotted === 0 ? 1 : 0) : 0;
   G.earned += G.stars * 25;
   campaign.cash += G.earned;
+  // Calling the cops costs you even when you get away: Kowalski mails a citation
+  G.citation = G.police && reason !== 'arrested' && !campaign.versus ? Math.min(campaign.cash, 50) : 0;
+  campaign.cash -= G.citation;
   if (G.goth && G.goth.boughtRack && (campaign.racks || []).length) campaign.racks.shift();   // the rack Raven bought tonight
   campaign.earnedTotal = (campaign.earnedTotal || 0) + G.earned;
   // What's in the freezer stays in the freezer. A cooler or bag you were carrying comes home too (unless you got arrested).
@@ -1369,6 +1482,7 @@ function endNight(reason) {
   campaign.score += G.nightScore;
   const newDeer = G.delivered - (G.fromTruck || 0);   // truck-bed deer were counted last night
   campaign.totalDeer += newDeer;
+  G.bestBefore = best;
   if (campaign.score > best) { best = campaign.score; store.set('hs_best', best); }
   if (reason === 'win') {
     if (G.timesSpotted === 0) unlock('ghost');
@@ -1397,11 +1511,12 @@ function endNight(reason) {
     if (reason === 'arrested' && night < 5 && !oneNightMode() && !campaign.courtUsed) {
       // First arrest of the season: you get your day in court. The save remembers, so a reload goes to court too.
       state = 'over'; sfx.lose();
-      saveOk(store.set('hs_save', { night, campaign, court: true }));
-      playScene(SCENES.busted, () => { G.court = null; state = 'court'; });
+      saveOk(store.set('hs_save', { night, campaign, court: true, start: nightStart && nightStart.night === night ? nightStart.campaign : null }));   /*fix16*/
+      playScene(storyLines('busted'), () => { G.court = null; state = 'court'; });
       story.jail = true;
       return;
     }
+    if (reason !== 'win' && night <= 5 && !oneNightMode() && strikeOut(reason === 'arrested' ? 2 : 1, reason === 'arrested' ? 100 : 50)) return;
     if (reason === 'win' && !oneNightMode()) unlock('season');
     if (reason === 'win' && night === 5) {
       if ([0, 1, 2, 3, 4].every(i => (campaign.stars[i] || 0) >= 3)) unlock('allstars');
@@ -1422,10 +1537,44 @@ function endNight(reason) {
     if (reason === 'win' && night === 5) {
       if (campaign.cash >= CABIN_GOAL) unlock('cabin');
       playScene(buildEnding(campaign), () => { state = 'over'; });
-    } else if (reason === 'arrested' && night <= 5) playScene(SCENES.busted, () => { state = 'over'; });
+    } else if (reason === 'arrested' && night <= 5) playScene(storyLines('busted'), () => { state = 'over'; });
   }
 }
 
+// Failed nights in a season: each one is a strike (an arrest is two). Under three strikes you can retry
+// the night from its start, minus a fine. The third strike ends the season.
+const STRIKES_MAX = 3;
+function strikeOut(n, fine) {
+  campaign.strikes = (campaign.strikes || 0) + n;
+  G.strikeAdd = n; G.retryFine = fine;
+  if (campaign.strikes >= STRIKES_MAX) { G.evicted = true; return false; }   // season over: the caller records it
+  G.retry = true;
+  if (G.bestBefore !== undefined && best !== G.bestBefore) { best = G.bestBefore; store.set('hs_best', best); }   // the attempt is rolled back, so is its score
+  saveOk(store.set('hs_save', { night, campaign: retryCampaign() }));   // Continue goes straight to the retry
+  state = 'over'; sfx.lose();
+  if (G.endReason === 'arrested') playScene(storyLines('busted'), () => { state = 'over'; });
+  return true;
+}
+// The season as it stood when this night began, with the strikes, the fine and what you've seen kept
+function retryCampaign() {
+  const c = JSON.parse(JSON.stringify(nightStart && nightStart.night === night ? nightStart.campaign : campaign));
+  c.strikes = campaign.strikes || 0; c.courtUsed = !!campaign.courtUsed; c.heat = Math.max(c.heat || 0, campaign.heat || 0); c.seen = Object.assign({}, campaign.seen); c.sid = campaign.sid;
+  c.cash = Math.max(0, (c.cash || 0) - ((G && G.retryFine) || 0));
+  return c;
+}
+// A scene's lines for the current season (lines with a condition only when it holds), with :FINE / :STRIKES filled in   /*dialog16*/
+function storyLines(id, vars = {}) {
+  return (SCENES[id] || []).filter(l => typeof l[2] !== 'function' || l[2](campaign))
+    .map(l => [l[0], l[1].replace(':FINE', '$' + (vars.fine ?? 0)).replace(':STRIKES', `${campaign.strikes || 0} of ${STRIKES_MAX}`)]);
+}
+function retryNight() {
+  if (!G || !G.retry) return;
+  const fine = G.retryFine || 0, why = G.endReason;
+  campaign = retryCampaign(); campaign.lastFail = why;
+  startNight();
+  if (!netLive()) { const after = state; playScene(storyLines('retry', { fine }), () => { state = after; }); }
+  banner(`↻ Night ${night}, take two. Strike ${campaign.strikes} of ${STRIKES_MAX}.`, '#ffd166');
+}
 function saveGame() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night, campaign })); }
 // Between nights (results and Earl's shop): Continue starts the next night with everything kept.
 function saveNext() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night: night + 1, campaign })); }
@@ -1449,7 +1598,7 @@ function readSave() {
     if (want && typeof want === 'object') { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k]) !== Array.isArray(want)) c[k] = want; }
     else if (typeof want === 'number') { const v = Number(c[k]); c[k] = Number.isFinite(v) ? v : want; }
   }
-  return { night: n, campaign: c, court: !!s.court };
+  return { night: n, campaign: c, court: !!s.court, start: s.court && s.start && typeof s.start === 'object' && !Array.isArray(s.start) ? s.start : null };
 }
 function clearSave() { if (previewMode) return; try { localStorage.removeItem('hs_save'); } catch (e) { /* no storage */ } }
 function loadGame() {
@@ -1459,7 +1608,12 @@ function loadGame() {
   night = s.night;
   campaign = s.campaign;
   startNight();
-  if (s.court) { story = null; G.court = null; state = 'court'; }   // reloaded mid-court: straight back to the judge
+  if (!s.court && campaign.strikes && !oneNightMode()) banner(`⚠ Strike ${campaign.strikes} of ${STRIKES_MAX}. One more failed night${campaign.strikes >= 2 ? '' : ' or an arrest'} and the HOA tows the shed.`, '#ffb347');
+  if (s.court) {   // reloaded mid-court: straight back to the judge, with the court record (and the night's real start) kept
+    story = null; G.court = null; state = 'court';
+    if (s.start) nightStart = { night, campaign: JSON.parse(JSON.stringify(s.start)) };
+    saveOk(store.set('hs_save', s));
+  }
   return true;
 }
 function startAtNight(n) {
@@ -1515,7 +1669,12 @@ function camTargetY(y) {
 function updateCam(dt) {
   // Hold R (or RB on a gamepad) to look ahead toward your aim
   const look = state === 'play' && (keys.KeyR || pad.look) ? 260 : 0;
-  const lx = player.x + Math.cos(player.ang) * look, ly = player.y + Math.sin(player.ang) * look;
+  let lx = player.x + Math.cos(player.ang) * look, ly = player.y + Math.sin(player.ang) * look;
+  if (tyler && !netLive() && state === 'play') {   // local co-op: frame both players, Dale always on screen   /*coop16*/
+    const mx = Math.min(90, VW / 6), my = Math.min(90, VH / 6);
+    lx = clamp((player.x + tyler.x) / 2, player.x - (VW / 2 - mx), player.x + (VW / 2 - mx));
+    ly = clamp((player.y + tyler.y) / 2, player.y - (VH / 2 - my), player.y + (VH / 2 - my));
+  }
   const tx = W > VW ? clamp(lx - VW / 2, 0, W - VW) : (W - VW) / 2;
   const ty = camTargetY(ly);
   const k = Math.min(1, dt * 8);

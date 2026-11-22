@@ -24,6 +24,7 @@ window.addEventListener('keydown', e => {
     else if (['Escape', 'KeyE', 'Enter', 'Digit6'].includes(e.code)) state = 'play';
     return;
   }
+  if (state === 'court' && G.court && ['Enter', 'Space'].includes(e.code) && !e.repeat) { finishCourt(); return; }
   if (state === 'court' && !G.court) { if (e.code === 'Digit1') courtPlea(0); if (e.code === 'Digit2') courtPlea(1); if (e.code === 'Digit3') courtPlea(2); }
   if (state === 'play' && e.code === 'KeyV') drinkBeer();
   if (state === 'play' && e.code === 'Tab') G.mapOpen = !G.mapOpen;
@@ -64,7 +65,7 @@ window.addEventListener('keydown', e => {
     if (n >= 1 && n <= SHOP.length) buy(SHOP[n - 1]);
     if (e.code === 'Enter' || e.code === 'Space') { night++; startNight(); }
   }
-  else if (state === 'over' && (e.code === 'Enter' || e.code === 'KeyR') && !seasonChoice()) newCampaign();
+  else if (state === 'over' && (e.code === 'Enter' || e.code === 'KeyR') && !seasonChoice()) overNext();   /*flow16*/
 });
 window.addEventListener('keyup', e => {
   keys[e.code] = false;
@@ -89,7 +90,7 @@ cv.addEventListener('mousedown', e => {
   else if (state === 'play') startDraw();
   else if (state === 'pause') state = 'play';
   else if (state === 'nightdone') goShop();
-  else if (state === 'over' && !seasonChoice()) newCampaign();
+  else if (state === 'over' && !seasonChoice()) overNext();
 });
 window.addEventListener('mouseup', e => { if (e.button === 0 && state === 'play' && !netClient()) releaseDraw(); });
 cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -103,6 +104,8 @@ let shopSel = 0, titleEgg = '';
 // Aiming follows whichever device was used last, so an idle controller can't steal the mouse or touch aim
 let aimBy = 'mouse';
 // Gamepad menu focus: the D-pad moves between the buttons on any menu screen, A presses the focused one
+// After results: one-night modes return to the title (your saved season is untouched); a lost season starts over
+function overNext() { if (oneNightMode()) { restoreRandom(); campaign = freshCampaign(); state = 'title'; } else newCampaign(); }
 let padFocus = -1, padFocusState = null, kbFocus = false;
 // Keyboard menu focus: Tab / Shift+Tab move between a screen's buttons, Enter or Space presses the focused one
 function kbMenuKey(e) {
@@ -140,7 +143,7 @@ function padMenuNav(edge) {
     const btn = padFocus >= 0 && uiButtons[padFocus];
     if (btn) { btn.fn(); return true; }
     // sub-menus (and the season's last results, which offer Endless) wait for a choice instead of backing out
-    if (['modes', 'players', 'extras', 'custom', 'settings', 'crypt'].includes(state) || (state === 'over' && night === 5 && G && G.endReason === 'win' && !oneNightMode())) {
+    if (['modes', 'players', 'extras', 'custom', 'settings', 'crypt'].includes(state) || (state === 'over' && night === 5 && G && G.endReason === 'win' && !oneNightMode()) || seasonChoice()) {   /*conseq*/
       padFocus = 0; padScrollTo(uiButtons[0]); return true;
     }
   }
@@ -212,7 +215,7 @@ function pollPad() {
     else if (state === 'title') { if (!loadGame()) newCampaign(); }
     else if (state === 'intro' || state === 'pause') state = 'play';
     else if (state === 'nightdone') goShop();
-    else if (state === 'over' && !seasonChoice()) newCampaign();
+    else if (state === 'over' && !seasonChoice()) overNext();
   }
   pad.prev = b;
 }

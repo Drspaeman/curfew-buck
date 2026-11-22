@@ -18,7 +18,7 @@ let drag = null;
 
 let signText = 'MAPLE ST';
 function blankSpec() {
-  return { format: 'hunter-sub-map', version: 1, name: 'My Neighborhood', author: '', intro: '', seed: 9001,
+  return { format: 'curfew-buck-map', version: 1, name: 'My Neighborhood', author: '', intro: '', seed: 9001,
     roads: [{ x: M, y: 1200, w: W - 2 * M, h: ROAD, vert: false }], bulbs: [], houses: [], ponds: [], pools: [], hedges: [], woods: [],
     bushes: [], trees: [], signs: [], shed: null, van: null, clubhouse: null };
 }

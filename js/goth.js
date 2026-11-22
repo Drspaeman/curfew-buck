@@ -295,7 +295,7 @@ function gothInteract() {
     const pts = campaign.racks[0], cash = pts * 10;   // removed from campaign.racks when the night settles
     R.boughtRack = true; G.earned += cash; sfx.buy();
     popup(player.x, player.y - 40, `+$${cash}: Raven bought the ${pts}-point rack`, RAVEN_COLOR, 2.4);
-    ravenSay(pick([`Antlers! For my installation piece, "Suburban Ossuary." Here's $${cash}.`, `${pts} points? It's perfect. It's going on my headboard. $${cash}, final offer.`, `Don't tell Earl. He'd only give you $${pts * 8}.`]), 4.5);
+    ravenSay(pick([`Antlers! For my installation piece, "Suburban Ossuary." Here's $${cash}.`, `${pts} points? Perfect for the lobby of my imaginary funeral home. ${cash}, final offer.`, `Don't tell Earl. He'd only give you $${pts * 8}.`]), 4.5);
     unlock('ossuary');
     return true;
   }
@@ -330,7 +330,7 @@ function updateGoth(dt) {
   if (R.hintT > 0) { R.hintT -= dt; if (R.hintT <= 0 || (R.hint && R.hint.got)) R.hint = null; }
   // Raven reacts to what you're up to as you pass (after you've met)
   if (R.raven && R.met && R.talkCD <= 0 && !R.say && dist(R.raven.x, R.raven.y, player.x, player.y) < 150) {
-    const l = G.police ? pick(['For the record, I didn\'t call them. I would never.', 'Sirens. How romantic. Run.'])
+    const l = G.police ? pick(['For the record, I didn\'t call them. I would never.', 'Sirens in B-flat. Terrible key for a getaway. Run.'])
       : player.carry ? pick(['Is that... for an altar? Respect.', 'A whole deer. Finally, someone commits to the macabre.'])
       : player.cooler ? 'Is that a cooler of venison or a portable crypt? Both. It\'s both.'
       : G.buzz > 0 ? 'Are you... drunk? At 4 AM? On a lawn? That\'s my whole aesthetic.'

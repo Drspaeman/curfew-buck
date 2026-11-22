@@ -544,6 +544,7 @@ function startNight() {
 // abandoned attempt (a 911 call's heat, the tagged-koi flag, Raven's met flag) leaks into the retry.
 let nightStart = null;
 function restartNight() {
+  if (G && G.police && !G.settled && typeof seasonNight === 'function' && seasonNight()) { state = 'play'; endNight('escaped'); return; }   /*flow16*/
   if (nightStart && nightStart.night === night) campaign = JSON.parse(JSON.stringify(nightStart.campaign));
   startNight();
 }

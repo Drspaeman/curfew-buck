@@ -7,8 +7,8 @@
 // seed, so snapshots only carry the things that move.
 //
 // Two ways to connect:
-//   • Steam: the desktop app in steam/ (Electron + steamworks.js) uses Steam lobbies and Steam P2P.
-//     It runs as Steam's free test app, Spacewar (app ID 480), until Curfew Buck has its own app ID.
+//   • Internet: two computers anywhere. A direct WebRTC connection (PeerJS, loaded only when you pick it),
+//     found with a 6-digit lobby code through PeerJS's free public matchmaking server.
 //   • Local: two windows or tabs of the game in the same browser (for testing, or one PC, two screens).
 // ============================================================
 const NET = {
@@ -27,18 +27,85 @@ const netHost = () => NET.live && NET.role === 'host';
 const netClient = () => NET.live && NET.role === 'client';
 
 // ---------------------------------------------------------------- backends
-function netSteamBackend() {
-  const s = window.hsSteam;
-  if (!s) return null;
+// Internet play: WebRTC data channel between two browsers. The host's lobby code is its PeerJS id.
+const PEERJS_URL = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+function netLoadPeer() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script'); sc.src = PEERJS_URL; sc.async = true;
+    sc.onload = () => window.Peer ? res() : rej(new Error('the connection library didn\'t load'));
+    sc.onerror = () => rej(new Error('couldn\'t reach the internet to load the connection library'));
+    setTimeout(() => { if (!window.Peer) rej(new Error('loading the connection library timed out (check your connection)')); }, 15000);
+    document.head.appendChild(sc);
+  });
+}
+function netWebBackend() {   /*fix16*/
+  let peer = null, conn = null, pending = null, gen = 0, retries = 0;
+  const live = g => { if (g !== gen) throw new Error('cancelled'); };
+  const idFor = code => 'curfewbuck-v1-' + String(code).replace(/\D/g, '');
+  const opened = p => new Promise((res, rej) => {
+    const to = setTimeout(() => rej(new Error('the matchmaking server didn\'t answer (check your connection)')), 12000);
+    p.on('open', id => { clearTimeout(to); res(id); });
+    p.on('error', e => { clearTimeout(to); rej(e); });
+  });
+  const wire = c => {
+    conn = c; pending = null;
+    c.on('data', d => { if (conn === c) netOnMessage(d); });
+    c.on('close', () => { if (conn === c) { conn = null; netOnEvent({ type: 'peer-left' }); } });
+    c.on('error', () => { if (conn === c) { conn = null; netOnEvent({ type: 'peer-left' }); } });
+  };
+  const drop = () => { gen++; try { if (conn) conn.close(); } catch (e) { /* closed */ } try { if (pending) pending.close(); } catch (e) { /* closed */ } try { if (peer) peer.destroy(); } catch (e) { /* gone */ } conn = null; pending = null; peer = null; };
   return {
-    name: 'Steam', available: !!s.available, user: s.name || '', error: s.error || '',
-    host: kind => s.host(kind), join: code => s.join(code), invite: () => s.invite(),
-    leave: () => s.leave(), send: str => s.send(str),
+    name: 'Internet', available: true, user: 'Player',
+    async host() {
+      drop(); const g = gen;
+      await netLoadPeer(); live(g);
+      for (let tries = 0; tries < 4; tries++) {
+        const code = String(100000 + Math.floor(Math.random() * 900000));
+        const p = peer = new window.Peer(idFor(code));
+        try { await opened(p); live(g); } catch (e) { if (g === gen) { try { p.destroy(); } catch (x) { /* gone */ } peer = null; } if (e && e.type === 'unavailable-id' && g === gen) continue; throw e; }
+        retries = 0;
+        p.on('connection', c => {
+          // one guest: the slot is taken the moment an offer arrives, and freed if it never opens
+          if (conn || pending) { c.on('open', () => { c.send(JSON.stringify({ t: 'refuse', why: 'That lobby already has two players.' })); setTimeout(() => c.close(), 300); }); return; }
+          pending = c;
+          const to = setTimeout(() => { if (pending === c) { pending = null; try { c.close(); } catch (e) { /* closed */ } } }, 15000);
+          c.on('open', () => { clearTimeout(to); if (pending === c) wire(c); });
+          c.on('error', () => { clearTimeout(to); if (pending === c) pending = null; });
+          c.on('close', () => { clearTimeout(to); if (pending === c) pending = null; });
+        });
+        // keep the code alive for a rejoin, a few times; then say the lobby is gone
+        p.on('disconnected', () => { if (p !== peer || p.destroyed) return; if (retries++ < 3) { try { p.reconnect(); } catch (e) { /* closed */ } } else if (!conn) NET.err = 'Lost the connection to the matchmaking server. Leave and host again for a new code.'; });
+        p.on('error', e => { if (p === peer && e && ['unavailable-id', 'network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type) && !conn) NET.err = 'The lobby went offline (' + e.type + '). Leave and host again for a new code.'; });
+        return { code };
+      }
+      throw new Error('couldn\'t get a free lobby code, try again');
+    },
+    async join(code) {
+      drop(); const g = gen;
+      await netLoadPeer(); live(g);
+      const p = peer = new window.Peer();
+      try { await opened(p); live(g); } catch (e) { if (g === gen) drop(); throw e; }
+      const c = p.connect(idFor(code), { reliable: true });
+      await new Promise((res, rej) => {
+        const to = setTimeout(() => rej(new Error('no lobby with code ' + code + ' answered. Check the code, and that the host is still in the lobby.')), 15000);
+        c.on('open', () => { clearTimeout(to); res(); });
+        c.on('error', e => { clearTimeout(to); rej(e); });
+        p.on('error', e => { clearTimeout(to); rej(e && e.type === 'peer-unavailable' ? new Error('no lobby with code ' + code + '. Check the code with the host.') : e); });
+      }).catch(e => { if (g === gen) drop(); throw e; });
+      live(g);
+      wire(c);
+      return { ok: true };
+    },
+    invite: () => {},
+    unpair: () => { try { if (conn) conn.close(); } catch (e) { /* closed */ } conn = null; },
+    leave: drop, dispose: drop,
+    send: str => { if (conn && conn.open) conn.send(str); },
   };
 }
 function netLocalBackend() {
   if (typeof BroadcastChannel === 'undefined') return null;
-  const bc = new BroadcastChannel('hunter-sub-net');
+  const bc = new BroadcastChannel('curfew-buck-net');
   const me = Math.random().toString(36).slice(2, 8);
   let room = null, peer = null;
   bc.onmessage = e => {
@@ -59,10 +126,6 @@ function netLocalBackend() {
     send: str => { if (room) bc.postMessage({ room, from: me, msg: str }); },
   };
 }
-if (window.hsSteam && window.hsSteam.onMessage) {
-  window.hsSteam.onMessage(str => netOnMessage(str));
-  window.hsSteam.onEvent(ev => netOnEvent(ev));
-}
 
 function netSend(obj) {
   if (!NET.backend) return 0;
@@ -79,7 +142,7 @@ function openOnline() {
 function netUse(which) {
   if (NET.backend && NET.backend.name === which) return NET.backend;
   if (NET.backend) { netLeave(true); if (NET.backend.dispose) NET.backend.dispose(); }
-  NET.backend = which === 'Steam' ? netSteamBackend() : netLocalBackend();
+  NET.backend = which === 'Internet' ? netWebBackend() : netLocalBackend();
   return NET.backend;
 }
 function netResetSession() {
@@ -89,30 +152,31 @@ function netResetSession() {
 async function netHostLobby(kind, which) {
   const b = netUse(which);
   netResetSession();
-  if (!b || !b.available) { NET.err = which === 'Steam' ? 'Steam isn\'t available here. Open the desktop app with Steam running.' : 'This browser can\'t do local play.'; return; }
+  if (!b || !b.available) { NET.err = 'This browser can\'t do online play.'; return; }
   NET.role = 'host'; NET.kind = kind; NET.live = false; NET.err = ''; NET.runSeed = 0;
-  NET.status = 'Creating a lobby…';
+  NET.status = b.name === 'Internet' ? 'Connecting to the matchmaking server…' : 'Creating a lobby…';
   try {
     const r = await b.host(kind);
+    if (NET.backend !== b || NET.role !== 'host') return;
     NET.code = String(r.code);
     NET.status = `Lobby open. Waiting for a friend to join (${kind === 'versus' ? 'Versus' : 'Co-op'})…`;
-    if (b.name === 'Steam') b.invite();
-  } catch (e) { NET.err = 'Couldn\'t create a lobby: ' + (e && e.message || e); NET.role = null; }
+  } catch (e) { if (e && e.message === 'cancelled') return; NET.err = 'Couldn\'t create a lobby: ' + (e && e.message || e); NET.role = null; }
 }
 async function netJoinLobby(code, which) {
   code = String(code || '').trim();
   netResetSession();
   if (!code) { NET.err = 'Type or paste a lobby code first.'; return; }
   const b = netUse(which);
-  if (!b || !b.available) { NET.err = 'Steam isn\'t available here.'; return; }
+  if (!b || !b.available) { NET.err = 'This browser can\'t do online play.'; return; }
   NET.role = 'client'; NET.live = false; NET.err = ''; NET.code = code;
   NET.status = 'Joining lobby ' + code + '…';
   try {
     await b.join(code);
+    if (NET.backend !== b || NET.role !== 'client') return;
     NET.status = 'Joined. Saying hi to the host…';
     netSend({ t: 'hello', name: b.user || 'Player 2', v: VERSION });
-    NET.helloAt = performance.now();
-  } catch (e) { NET.err = 'Couldn\'t join: ' + (e && e.message || e); NET.role = null; }
+    NET.helloAt = NET.joinAt = performance.now();
+  } catch (e) { if (e && e.message === 'cancelled') return; NET.err = 'Couldn\'t join: ' + (e && e.message || e); NET.role = null; }
 }
 function netLeave(quiet) {
   if (NET.backend) { try { if (NET.live || NET.role) netSend({ t: 'bye' }); NET.backend.leave(); } catch (e) { /* ignore */ } }
@@ -132,9 +196,6 @@ function netOnEvent(ev) {
       NET.live = false; NET.role = null;
       restoreRandom(); state = 'online'; NET.err = 'The host left the game.';
     }
-  } else if (ev.type === 'invite') {
-    // Accepted a Steam invite, or clicked "Join game" on a friend
-    openOnline(); netJoinLobby(ev.code, 'Steam');
   } else if (ev.type === 'error') NET.err = ev.text || 'Network error';
 }
 function netOnMessage(str) {
@@ -356,9 +417,10 @@ function netP2Keys() {
 function netOnlineKey(e) {
   if (state !== 'online' || e.type !== 'keydown') return false;
   if (e.code === 'Escape') { netLeave(); state = 'title'; return true; }
+  if (e.code === 'Tab' || (kbFocus && (e.code === 'Enter' || e.code === 'Space'))) return false;   /*coop16*/
   if (e.code === 'Backspace') { NET.codeInput = NET.codeInput.slice(0, -1); return true; }
-  if (e.code === 'Enter' && NET.codeInput && !e.repeat && !NET.role) { netJoinLobby(NET.codeInput, NET.pick || 'Steam'); return true; }
-  if (/^[0-9]$/.test(e.key) && NET.codeInput.length < 24) { NET.codeInput += e.key; return true; }
+  if (e.code === 'Enter' && NET.codeInput && !e.repeat && !NET.role) { netJoinLobby(NET.codeInput, NET.pick || 'Internet'); return true; }
+  if (/^[0-9]$/.test(e.key) && NET.codeInput.length < 24) { NET.codeInput += e.key; kbFocus = false; return true; }
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { netPaste(); return true; }
   return true;
 }
@@ -370,17 +432,16 @@ function netCopy() {
 }
 function drawOnline(now) {
   const cx = VW / 2, maxW = Math.min(640, VW - 30);
-  const steam = netSteamBackend();
-  if (!NET.pick) NET.pick = steam && steam.available ? 'Steam' : 'Local';
+  if (!NET.pick) NET.pick = 'Internet';
   ctx.textAlign = 'center'; ctx.fillStyle = '#ff7a1a'; fitFont('🌐 ONLINE VERSUS / CO-OP', 900, 34, VW - 24); ctx.fillText('🌐 ONLINE VERSUS / CO-OP', cx, Math.max(56, VH * 0.1));
   let y = Math.max(86, VH * 0.1 + 30);
   ctx.font = '14px system-ui, sans-serif';
-  ctx.fillStyle = steam && steam.available ? '#9be564' : '#ffb347';
-  const sline = !steam ? 'Steam play needs the Curfew Buck desktop app. For Local, open two tabs of the game in the same browser.'
-    : steam.available ? `Steam: signed in as ${steam.user} (testing as Spacewar, app 480)` : 'Steam: ' + (steam.error || 'not running. Start Steam, then reopen the game.');
+  ctx.fillStyle = '#9be564';
+  const sline = NET.pick === 'Internet' ? 'Internet: play with a friend on another computer. Both of you open the game link, one hosts, the other types the 6-digit code.'
+    : 'Local: two windows of the game in this same browser (testing, or one PC with two screens).';
   y = wrapText(sline, cx, y, maxW, 19) + 26;
   y = buttonGrid([
-    { label: 'Steam', fn: () => { NET.pick = 'Steam'; }, hi: NET.pick === 'Steam', enabled: !!(steam && steam.available) && !NET.role },
+    { label: '🌍 Internet', fn: () => { NET.pick = 'Internet'; }, hi: NET.pick === 'Internet', enabled: !NET.role },
     { label: 'Local (2 windows)', fn: () => { NET.pick = 'Local'; }, hi: NET.pick === 'Local', enabled: !NET.role },
   ], y, 190, 32, 8) + 22;
   if (!NET.role) {
@@ -399,8 +460,8 @@ function drawOnline(now) {
       { label: '▶ Join', fn: () => netJoinLobby(NET.codeInput, NET.pick), hi: !!NET.codeInput, enabled: !!NET.codeInput },
     ], y, 170, 36) + 6;
     ctx.fillStyle = '#999'; ctx.font = '12px system-ui, sans-serif';
-    y = wrapText(NET.pick === 'Steam'
-      ? 'Easiest: host, then pick your friend in the Steam invite window. They accept the invite in Steam while Curfew Buck is open. Or send them the lobby code.'
+    y = wrapText(NET.pick === 'Internet'
+      ? 'Host, then text your friend the 6-digit code. They pick Internet, type the code and press Join. You both need the same version of the game (the play link is always the newest).'
       : 'Local test: open the game in a second window or tab of this browser, host in one and join with the code in the other.', cx, y + 8, maxW, 17);
   } else {
     ctx.fillStyle = '#e8e8e8'; ctx.font = '15px system-ui, sans-serif';
@@ -410,9 +471,9 @@ function drawOnline(now) {
       ctx.fillStyle = '#ffd166'; ctx.font = `bold ${NET.code.length > 10 ? 22 : 34}px ui-monospace, monospace`; ctx.fillText(NET.code, cx, y + 6); y += 26;
       y = buttonGrid([
         { label: NET.copied && now - NET.copied < 1500 ? '✓ Copied' : '📋 Copy code', fn: () => netCopy() },
-        ...(NET.backend && NET.backend.name === 'Steam' ? [{ label: '👥 Invite a Steam friend', fn: () => NET.backend.invite(), hi: true }] : []),
       ], y + 6, 210, 36) + 4;
     }
+    if (NET.role === 'client' && !NET.live && NET.joinAt && now - NET.joinAt > 20000) { netLeave(true); state = 'online'; NET.err = 'Nobody answered that code. Check it with the host, and make sure you both picked the same connection (Internet or Local).'; }   /*flow16*/
     if (NET.role === 'client' && NET.helloAt && now - NET.helloAt > 4000 && !NET.live) {
       netSend({ t: 'hello', name: (NET.backend && NET.backend.user) || 'Player 2', v: VERSION }); NET.helloAt = now;
     }
@@ -458,7 +519,7 @@ function netDrawOverlay(now) {
 (function netFromUrl() {
   const q = new URLSearchParams(location.search).get('net');
   if (!q) return;
-  const which = window.hsSteam && window.hsSteam.available ? 'Steam' : 'Local';
+  const which = new URLSearchParams(location.search).get('via') === 'internet' ? 'Internet' : 'Local';
   setTimeout(() => {
     openOnline();
     NET.pick = which;

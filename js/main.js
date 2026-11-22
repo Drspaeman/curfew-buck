@@ -35,6 +35,8 @@ function frame(now) {
   last = now;
   if (G && G.slowmo > 0 && state === 'play') { G.slowmo -= dt; dt *= 0.3; }
   update(dt);
+  if (state !== 'play') menuMusicTick();   /*fix16*/
+  if (state === 'pause' || state === 'photo' || state === 'story') musicHush();
   netClientFrame(dt);
   netHostFrame(dt);
   if (frame.lastState === 'play' && (state === 'pause' || state === 'title' || state === 'photo')) stopGameplaySounds();

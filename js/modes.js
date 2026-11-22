@@ -118,6 +118,10 @@ const GOSSIP = [
   'Phase 2 blueprints call the woods "Undeveloped Opportunity Zone." Grandpa would hate that.',
 ];
 const SCANNER = [
+  '📻 "All units, the HOA is requesting a perimeter. Linda drew it in highlighter."',
+  '📻 "K-9 is en route. K-9 has stopped for a hot dog. K-9 is en route again."',
+  '📻 "Perimeter\'s closing. Linda is asking if she can cut a ribbon."',
+  '📻 "Dispatch, the suspect is hiding in a shed. Correction: the suspect LIVES in a shed."',
   '📻 "All units: suspect is wearing blaze orange. Very easy to spot. Allegedly."',
   '📻 "Dispatch, I\'ve got hydrangea damage on Hosta Lane."',
   '📻 "Is anyone else hungry? ...Disregard."',
@@ -125,7 +129,10 @@ const SCANNER = [
   '📻 "Ma\'am, please stop calling 911 about the same guy."',
 ];
 function tylerLine() {
+  if (G.lockedDown) return 'dad there were like nine cop cars. NINE. raven livestreamed it. she called it "the summoning"';   /*write16*/
+  if (G.evicted) return 'dad the tow truck guy asked me if the shed has "sentimental value." i said yes. was that right';
   if (G.endReason === 'arrested') return 'dad. DAD. mom is SO mad. also kowalski said hi';
+  if (G.citation && Math.random() < 0.6) return 'dad u got a citation in the mail. its addressed to "THE ORANGE MENACE (DALE)"';
   if ((G.soldPacks || 0) >= 3 && Math.random() < 0.4) return 'dad i made u an invoice. it just says MEAT in 48 point font';
   if (G.legendDone) return 'OLD HOSTA??? earl is gonna lose his mind';
   if (G.stars >= 3) return 'nobody saw u at all?? ur literally a ninja';
@@ -230,21 +237,31 @@ function courtPlea(i) {
   campaign.courtUsed = true;
   if (dismissed) {
     const paid = Math.min(campaign.cash, p.fine);   // you can't pay more than you have
-    campaign.cash -= paid;
+    campaign.cash -= paid; G.courtPaid = paid;   /*flow16*/
     unlock('lawyer');
     G.court = { ok: true, text: i === 2 ? 'Earl\'s nephew objects to everything, including the judge\'s tie. Case dismissed.' : i === 1 ? 'The judge has also had raccoon problems. Case dismissed, with sympathy.' : 'The judge is a hunter. "Case dismissed. Fill that freezer, Mr. Pruitt."' };
     if (p.fine) G.court.text += p.cost ? ` (Earl's nephew bills you $${paid}.)` : paid < p.fine ? ` (Fine: $${p.fine}. You had $${paid}, so that's what you paid.)` : ` (You paid the $${p.fine} fine.)`;
     sfx.win();
   } else {
-    G.court = { ok: false, text: i === 1 ? '"Raccoons don\'t carry compound bows, Mr. Pruitt." Guilty.' : i === 2 ? 'Earl\'s nephew objects to his own client. Guilty.' : '"The freezer is not a legal defense." Guilty. Your season is over.' };
+    G.court = { ok: false, text: i === 1 ? '"Raccoons don\'t carry compound bows, Mr. Pruitt." Guilty.' : i === 2 ? 'Earl\'s nephew objects to his own client. Guilty.' : '"The freezer is not a legal defense." Guilty.' };
     sfx.lose();
-    recordScore(); G.court.recorded = true;   // on the board now, even if the tab closes before Continue
+    // Guilty: two strikes and a $100 fine. Under three strikes, Dale retries the night on probation.   /*conseq*/
+    campaign.strikes = (campaign.strikes || 0) + 2; G.strikeAdd = 2; G.retryFine = 100;
+    if (campaign.strikes >= STRIKES_MAX) {
+      G.evicted = true; G.court.text += ' That\'s three strikes. Your season is over.';
+      recordScore(); G.court.recorded = true;   // on the board now, even if the tab closes before Continue
+    } else {
+      G.retry = true; G.court.text += ` Two strikes (${campaign.strikes} of ${STRIKES_MAX}) and a $100 fine. You get to redo the night, on probation.`;
+      saveOk(store.set('hs_save', { night, campaign: retryCampaign() }));
+    }
   }
   // the verdict is final the moment it is read: a reload can't buy a second plea
-  if (G.court.ok) saveNext(); else clearSave();
+  if (G.court.ok) saveNext(); else if (!G.retry) clearSave();
 }
 function finishCourt() {
+  if (G.court.ok && G.delivered < G.quota) { G.retry = true; G.strikeAdd = 0; G.retryFine = G.courtPaid || 0; saveOk(store.set('hs_save', { night, campaign: retryCampaign() })); state = 'over'; return; }   // dismissed, but still short: redo the night, no strike
   if (G.court.ok) { pickSpecial(); state = 'shop'; saveNext(); return; }
+  if (G.retry) { state = 'over'; return; }
   if (!G.court.recorded) recordScore();
   clearSave();
   state = 'over';
@@ -266,7 +283,7 @@ function drawCourt() {
     y = buttonGrid(COURT_PLEAS.map((p, i) => ({ label: VW < 640 ? `${i + 1}. ${Math.round(p.odds * 100)}%${p.fine ? `, $${p.fine} if you win` : ''}: ${p.label.slice(3)}` : `${p.label}  ·  ${Math.round(p.odds * 100)}% to walk${p.fine ? `, then pay $${p.fine}${p.cost ? ' (only if he wins)' : ''}` : ', free'}`, fn: () => courtPlea(i), enabled: !(p.cost && campaign.cash < p.fine), hi: pad.connected && (G.courtSel || 0) === i })), y, Math.min(620, VW - 30), 42);
     if (pad.connected) { ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('D-pad ↑/↓ to choose · A to plead', VW / 2, y + 8); }
     if (G.courtMsg) { ctx.fillStyle = '#ff9f6b'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(G.courtMsg, cx, y + 14); }
-    ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText('One court date per season. If you lose, the season is over.', cx, VH - 26);
+    ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(fitText((campaign.strikes || 0) >= 1 ? 'One court date per season. Guilty is two strikes: with yours, that ends the season.' : 'One court date per season. Guilty is two strikes and a $100 fine.', VW - 24), cx, VH - 26);
   } else {
     ctx.fillStyle = G.court.ok ? '#9be564' : '#ff6b6b'; fitFont(G.court.ok ? 'CASE DISMISSED' : 'GUILTY', 900, 40, VW - 24);
     ctx.fillText(G.court.ok ? 'CASE DISMISSED' : 'GUILTY', cx, y + 10);
@@ -462,8 +479,9 @@ let tyler = null;
 function twoP() { return !!(campaign && (campaign.versus || campaign.coop)); }
 function startTwoPlayer(kind) {
   restoreRandom();
-  campaign = freshCampaign(); campaign[kind] = true;
+  campaign = freshCampaign(); campaign[kind] = true;   /*coop16*/
   campaign.seen = Object.fromEntries(Object.keys(SCENES).map(k => [k, true]));
+  aimBy = 'mouse'; player.kbAim = undefined;   // the arrow keys belong to Player 2 now
   night = 3;
   startNight();
 }
@@ -476,9 +494,17 @@ function setupTwoPlayer() {
     G.banner = { text: 'VERSUS: P1 is Dale (WASD). P2 drives the HOA cart (arrow keys, Enter = spotlight). Fill the freezer, or get him busted!', color: '#ffd166', t: 6 };
   }
   if (campaign.coop) {
-    tyler = { x: world.shed.x + world.shed.w / 2 + 40, y: world.shed.y + world.shed.h + 40, carry: null, moveAng: 0, step: 0, seenT: 0, crouch: false, quipCD: 0 };
+    // Tyler starts on open ground next to the shed (never inside a house or hedge)
+    const sh = world.shed, cx0 = sh.x + sh.w / 2, cy0 = sh.y + sh.h / 2;
+    let spot = null;
+    for (let r = 70; r <= 260 && !spot; r += 30) for (let a = 0; a < TAU && !spot; a += TAU / 16) {
+      const x = cx0 + Math.cos(a) * r, y = cy0 + Math.sin(a) * r;
+      if (x > 40 && y > 40 && x < W - 40 && y < H - 40 && clearOf(x, y, PLAYER_R + 4) && dist(x, y, player.x, player.y) > 30) spot = { x, y };
+    }
+    spot = spot || { x: player.x + 30, y: player.y };
+    tyler = { x: spot.x, y: spot.y, carry: null, moveAng: 0, step: 0, seenT: 0, crouch: false, quipCD: 0 };
     G.tylerHauls = 0;
-    G.banner = { text: 'CO-OP: Dale uses WASD. Tyler uses the arrow keys, Right Shift to sneak, and Enter to grab or drop a deer. Press Enter at the shed to deliver. Tyler can\'t shoot.', color: '#9be564', t: 6 };
+    G.banner = { text: 'CO-OP: Dale uses WASD and the mouse. Tyler (P2) uses the arrow keys, Right Shift to sneak, and Enter to grab or drop a deer. Press Enter at the shed to deliver. Tyler can\'t shoot. Controls are on the pause screen (P).', color: '#9be564', t: 10 };
   }
 }
 function p2Action() {
@@ -537,7 +563,7 @@ function updateTyler(dt) {
     if (!t.crouch && Math.random() < dt * 1.5) makeNoise(t.x, t.y, (t.carry ? 140 : 80) * noiseMult(), 'step');
   }
   if (t.carry) { const a = t.moveAng + Math.PI; t.carry.x = t.x + Math.cos(a) * 22; t.carry.y = t.y + Math.sin(a) * 22; }
-  // neighbors can spot Tyler too. He raises suspicion more slowly than Dale (he's twelve).
+  // neighbors can spot Tyler too. He raises suspicion more slowly than Dale (he's sixteen and skinny).   /*dialog16*/
   for (const w of watchers) {
     if (w.type === 'drone' || w.type === 'k9' || w.asleep > 0 || !w.poly) continue;
     const d = dist(w.x, w.y, t.x, t.y);
@@ -676,7 +702,7 @@ const RANDOM_INTRO = 'Same HOA, different streets. Roads, pools and hedges are s
 // ---------------------------------------------------------------------------
 function culSpec() {
   const hy0 = M + 1120, vx = [M + 700, M + 2300], BR = 200;
-  const spec = { format: 'hunter-sub-map', version: 1, name: 'Maple Court', seed: 777, vx, hy: [hy0, hy0],
+  const spec = { format: 'curfew-buck-map', version: 1, name: 'Maple Court', seed: 777, vx, hy: [hy0, hy0],
     roads: [{ x: M, y: hy0, w: W - 2 * M, h: ROAD }], bulbs: [], houses: [], ponds: [], pools: [], signs: [],
     woods: [{ x: vx[0] + ROAD + 420, y: 0, w: vx[1] - vx[0] - ROAD - 840, h: hy0 - 90 },
       { x: 0, y: hy0 + ROAD + 90, w: W / 2 - 700, h: H - hy0 - ROAD - 90 }, { x: W / 2 + 700, y: hy0 + ROAD + 90, w: W - M - 420 - (W / 2 + 700), h: H - hy0 - ROAD - 90 }] };
@@ -716,7 +742,7 @@ function validateMap(raw) {
     return ok;
   }).map(o => Object.assign({}, o, { x: Math.round(o.x), y: Math.round(o.y), w: Math.round(o.w || defW), h: Math.round(o.h || defH) }));
   const spec = {
-    format: 'hunter-sub-map', version: 1,
+    format: 'curfew-buck-map', version: 1,
     name: String(raw.name || 'Custom Neighborhood').slice(0, 40), author: String(raw.author || '').slice(0, 40), intro: String(raw.intro || '').slice(0, 400),
     seed: num(raw.seed) ? raw.seed | 0 : 9001,
     roads: rects('roads', ROAD, ROAD).map(r => Object.assign(r, { vert: r.vert !== undefined ? !!r.vert : r.h > r.w })),
