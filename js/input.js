@@ -226,6 +226,7 @@ function pollPad() {
 // ============================================================
 let touchMode = false;
 const touch = { menuId: null, menuY: 0, menuX: 0, menuMoved: 0, stickId: null, sx: 0, sy: 0, x: 0, y: 0, mx: 0, my: 0, aimId: null, crouch: false };
+const leaveSpot = { key: null, best: null };
 function touchButtons() {
   if (state !== 'play' || netClient()) return [];
   const r = VW < 500 ? 26 : 30;
@@ -248,13 +249,29 @@ function touchButtons() {
   out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
   out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
   if (nearTruck()) {
-    // LEAVE ends the night (and escapes a chase): its circle must never share a pixel with another button,
-    // so a tap can't land on beer or CALL instead. Start at the usual spot and slide left, then up, until it's clear.   /*r4*/
-    const lr = shortLandscape() ? 28 : 34;
-    let lx = shortLandscape() ? VW / 2 + 70 : VW / 2, ly = shortLandscape() ? VH - lr - 18 : VH - 120;
-    const clear = (cx, cy) => out.every(b => dist(cx, cy, b.x, b.y) >= lr + b.r + 10);
-    for (let k = 0; k < 40 && !clear(lx, ly); k++) { lx -= 14; if (lx < lr + 120) { lx = shortLandscape() ? VW / 2 + 70 : VW / 2; ly -= 2 * lr + 10; } }
-    out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: lx, y: ly, r: lr, hot: true });
+    // LEAVE ends the night (and escapes a chase), so its tap area (circle + 8 px, like every button) must never
+    // share a pixel with another button's, must stay on screen, and must stay out of the left-thumb movement zone
+    // (a fresh thumb there starts the stick). Pick the clear spot nearest the usual one.   /*r5*/
+    let lr = shortLandscape() ? 28 : 34;
+    const HIT = 8, moveEdge = VW * 0.45, mm = typeof minimapBox === 'function' ? minimapBox() : null;
+    const want = { x: Math.max(VW / 2, moveEdge + lr + HIT + 12), y: shortLandscape() ? VH - lr - 18 : VH - 120 };
+    const fits = (cx, cy, rr) => cx - rr - HIT >= moveEdge && cx + rr <= VW - 2 && cy - rr >= 2 && cy + rr <= VH - 2 &&
+      out.every(b => dist(cx, cy, b.x, b.y) >= rr + b.r + 2 * HIT + 4) &&
+      !(mm && cx + rr + HIT > mm.x && cy - rr - HIT < mm.y + mm.h + 6);
+    const key = VW + 'x' + VH + ':' + out.map(b => b.id + Math.round(b.x) + ',' + Math.round(b.y) + ',' + b.r).join('|');
+    let best = leaveSpot.key === key ? leaveSpot.best : null;   // same layout as last frame: reuse the spot
+    if (best) lr = best.r;
+    else for (const rr of [lr, 24, 20]) {
+      for (let cy = rr + 2; cy <= VH - rr - 2; cy += 6) for (let cx = moveEdge + rr + HIT; cx <= VW - rr - 2; cx += 6) {
+        if (!fits(cx, cy, rr)) continue;
+        const d = dist(cx, cy, want.x, want.y);
+        if (!best || d < best.d) best = { x: cx, y: cy, d };
+      }
+      if (best) { lr = rr; best.r = rr; break; }
+    }
+    if (!best) best = { x: clamp(want.x, moveEdge + lr + HIT, VW - lr - 2), y: clamp(want.y, lr + 2, VH - lr - 2), r: lr };   // a tiny window: on screen at least
+    leaveSpot.key = key; leaveSpot.best = best;
+    out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: best.x, y: best.y, r: lr, hot: true });
   }
   return out;
 }
@@ -272,7 +289,8 @@ cv.addEventListener('touchstart', e => {
       continue;
     }
     if (netClient() && t.clientX >= VW * 0.45) { NET.action++; continue; }
-    const hitBtn = touchButtons().find(b => dist(b.x, b.y, t.clientX, t.clientY) < b.r + 8);
+    // the nearest button whose tap area (circle + 8 px) holds the touch, not just the first one listed   /*r5*/
+    const hitBtn = touchButtons().filter(b => dist(b.x, b.y, t.clientX, t.clientY) < b.r + 8).sort((p, q) => dist(p.x, p.y, t.clientX, t.clientY) / p.r - dist(q.x, q.y, t.clientX, t.clientY) / q.r)[0];
     if (hitBtn) { hitBtn.fn(); continue; }
     if (t.clientX < VW * 0.45 && touch.stickId === null) {
       touch.stickId = t.identifier; touch.sx = touch.x = t.clientX; touch.sy = touch.y = t.clientY; touch.mx = touch.my = 0;

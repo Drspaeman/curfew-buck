@@ -1714,6 +1714,7 @@ function camTargetY(y) {
   let focus = VH / 2;
   const tb = narrow && G && G.tut && typeof tutorialBox === 'function' ? tutorialBox() : null;
   if (tb) focus = Math.min(VH - 150, Math.max(focus, tb.y + tb.h + 70));   // the tutorial panel would cover him
+  if (shortLandscape() && touchMode && G && G.hint) focus = VH / 2 + 50;   // a hint under the meter: keep Dale below it   /*r5*/
   return H > VH - topPad - botPad ? clamp(y - focus, -topPad - (focus - VH / 2), H - VH + botPad) : (H - VH) / 2;
 }
 

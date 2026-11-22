@@ -1202,7 +1202,7 @@ function drawHUD(now) {
   } else {
     const flash = settings.flashes ? Math.floor(now / 300) % 2 === 0 : true;
     ctx.fillStyle = flash ? '#ff5a5a' : '#6f9bff'; ctx.font = `bold ${compact ? 12 : 14}px system-ui, sans-serif`;
-    ctx.fillText(fitText(G.policeT > 0 ? `🚨 911 CALLED — COPS IN ${Math.ceil(G.policeT)}s` : `🚨 GET TO YOUR ${world.golf ? 'TRUCK' : 'SHED'} · LOCKDOWN IN ${Math.max(0, Math.ceil(G.lockT ?? lockdownSecs()))}s`, bw + 20), bcx, by + 14);   // fits with Large text too
+    ctx.fillText(fitText(policeTitle(bw + 20), bw + 20), bcx, by + 14);   // fits with Large text too
     ctx.fillStyle = '#ddd'; ctx.font = 'bold 11px system-ui, sans-serif';
     ctx.fillText('ARREST', bcx, by + 34);
     ctx.fillStyle = 'rgba(255,255,255,0.1)'; roundRect(ctx, bx, by + 42, bw, 12, 6); ctx.fill();
@@ -1240,8 +1240,9 @@ function drawHUD(now) {
   // tutorial hint
   if (G.hint) {
     ctx.globalAlpha = clamp(G.hint.t, 0, 1);
-    ctx.font = '15px system-ui, sans-serif';
     const topHint = shortLandscape() && touchMode, hcx = topHint ? minimapBox().x / 2 : VW / 2;   // top hints stop short of the minimap
+    const LH = topHint ? 18 : 21;
+    ctx.font = topHint ? '13px system-ui, sans-serif' : '15px system-ui, sans-serif';
     const maxW = topHint ? Math.min(620, minimapBox().x - 60) : Math.min(620, VW - 60);
     const lines = [];
     let line = '';
@@ -1251,11 +1252,12 @@ function drawHUD(now) {
     }
     lines.push(line);
     // touch on a short landscape screen: the bottom is the thumb buttons, so a (temporary) hint goes across the top   /*r4*/
-    const h = lines.length * 21 + 20, y = topHint ? 8 : VH - 44 - h;
+    // touch on a short screen: below the suspicion meter (and the police countdown), never over them   /*r5*/
+    const h = lines.length * LH + 20, y = topHint ? (G.police ? 98 : 74) : VH - 44 - h;
     panel(hcx - maxW / 2 - 16, y, maxW + 32, h);
     ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 1.5; roundRect(ctx, hcx - maxW / 2 - 16, y, maxW + 32, h, 10); ctx.stroke();
     ctx.fillStyle = '#fff2c4'; ctx.textAlign = 'center';
-    lines.forEach((l, i) => ctx.fillText(l, hcx, y + 26 + i * 21));
+    lines.forEach((l, i) => ctx.fillText(l, hcx, y + (topHint ? 24 : 26) + i * LH));
     ctx.globalAlpha = 1;
   }
   // controls
@@ -1344,6 +1346,12 @@ function minimapBox() {
 }
 // Wide but short (a phone on its side): little room above and below Dale
 // a landscape phone or a short window: the desktop layout, squeezed (the portrait-phone layout stacks panels down the middle)   /*r3*/
+// The police title, shortened to fit a narrow meter so the countdown itself is never the part cut off   /*r5*/
+function policeTitle(maxW) {
+  const secs = G.policeT > 0 ? Math.ceil(G.policeT) : Math.max(0, Math.ceil(G.lockT ?? lockdownSecs())), home = world.golf ? 'TRUCK' : 'SHED';
+  const tries = G.policeT > 0 ? [`🚨 911 CALLED — COPS IN ${secs}s`, `🚨 COPS IN ${secs}s`, `🚨 ${secs}s`] : [`🚨 GET TO YOUR ${home} · LOCKDOWN IN ${secs}s`, `🚨 ${home} · LOCKDOWN ${secs}s`, `🚨 LOCKDOWN ${secs}s`, `🚨 ${secs}s`];
+  return tries.find(t => ctx.measureText(t).width <= maxW) || tries[tries.length - 1];
+}
 function shortLandscape() { return VH < 500 && VW > VH; }
 // portrait phones and narrow windows: panels stack under the HUD
 function compactUI() { return VW < 760 && !shortLandscape(); }
