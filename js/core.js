@@ -41,6 +41,11 @@ function unlockAudio() {
 window.addEventListener('pointerdown', () => unlockAudio());
 window.addEventListener('touchstart', () => unlockAudio(), { passive: true });
 window.addEventListener('keydown', () => unlockAudio());
+// While the window is below the supported size the too-small notice covers everything: presses don't reach the
+// hidden screens (no tapping Restart Night blind). Releases still go through so nothing stays held.   /*r7*/
+for (const t of ['keydown', 'mousedown', 'pointerdown', 'click', 'touchstart', 'wheel', 'contextmenu']) {
+  window.addEventListener(t, e => { if (typeof screenTooSmall === 'function' && screenTooSmall()) { e.stopImmediatePropagation(); if (e.cancelable) e.preventDefault(); } }, { capture: true, passive: false });
+}
 
 // ============================================================
 // Utilities
@@ -350,7 +355,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '2.2.5';
+const VERSION = '2.2.6';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',

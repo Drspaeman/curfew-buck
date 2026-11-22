@@ -151,6 +151,7 @@ function padMenuNav(edge) {
   return false;
 }
 function pollPad() {
+  if (typeof screenTooSmall === 'function' && screenTooSmall()) return;   // the too-small notice is up   /*r7*/
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
   const gp = gps[0];
   if (!gp) {
@@ -266,20 +267,25 @@ function layoutTouchButtons(n, fixed, mmH, compact) {
   const rects = [{ x: mm.x - 6, y: 0, w: VW, h: mm.y + mm.h + 6 }];
   if (!compact) rects.push({ x: 270, y: 0, w: Math.max(0, mm.x - 270), h: G && G.police ? 96 : 72 });   // the suspicion meter
   else rects.push({ x: 0, y: 0, w: VW, h: 300 + (G && G.police ? 26 : 0) });                          // phone HUD + meter stack
-  const bottom = compact ? 64 : 4;   // portrait phones keep the thumb-help text clear
-  for (const r of [30, 26, 22, 18]) {
-    const R = r + HIT, step = 2 * R + 4, pos = [];
-    for (let cx = VW - R - 2; cx - R >= moveEdge && pos.length < n; cx -= step) {
-      for (let cy = VH - bottom - R - 2; cy - R >= 2 && pos.length < n; cy -= step) {
-        if (circles.some(o => dist(cx, cy, o.x, o.y) < R + o.r + 2)) continue;
-        if (rects.some(q => cx + R > q.x && cx - R < q.x + q.w && cy + R > q.y && cy - R < q.y + q.h)) continue;
-        pos.push({ x: cx, y: cy, r });
-      }
+  const bottom = compact ? 30 : 4;   // portrait phones: just above the thumb-help line
+  // Greedy packing on a fine 4 px grid (a coarse grid wasted the space around Pause, Map and Dale):
+  // each button takes the free spot nearest the bottom-right corner, column by column.   /*r7*/
+  const pack = (r, avoidDale) => {
+    const R = r + HIT, pos = [];
+    const ok = (cx, cy) => !circles.some((o, k) => (avoidDale || k < fixed.length) && dist(cx, cy, o.x, o.y) < R + o.r + 2) &&
+      !rects.some(q => cx + R > q.x && cx - R < q.x + q.w && cy + R > q.y && cy - R < q.y + q.h) &&
+      pos.every(p => dist(cx, cy, p.x, p.y) >= 2 * R + 4);
+    for (let k = 0; k < n; k++) {
+      let spot = null;
+      for (let cx = VW - R - 2; !spot && cx - R >= moveEdge; cx -= 4)
+        for (let cy = VH - bottom - R - 2; cy - R >= 2; cy -= 4) if (ok(cx, cy)) { spot = { x: cx, y: cy, r }; break; }
+      if (!spot) { pos.partial = true; return pos; }
+      pos.push(spot);
     }
-    if (pos.length >= n) return pos;
-    if (r === 18) return pos;   // below the supported screen size: the game asks for a bigger window instead
-  }
-  return [];
+    return pos;
+  };
+  for (const avoidDale of [true, false]) for (const r of [30, 26, 22, 18]) { const pos = pack(r, avoidDale); if (!pos.partial) return pos; }
+  return pack(18, false);   // never reached at a supported size (the tests sweep them); below it, the too-small notice covers play
 }
 // The smallest screens the controls are laid out for. Smaller than this, play pauses and asks for a bigger window.
 function screenTooSmall() { return !((VW >= 560 && VH >= 300) || (VW >= 320 && VH >= 560)); }
