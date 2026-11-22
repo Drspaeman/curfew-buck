@@ -572,7 +572,7 @@ function updateTyler(dt) {
     if (!los(w.x, w.y, t.x, t.y)) continue;
     if (t.seenT <= 0) G.timesSpotted++;
     t.seenT = 0.5; G.unseen = 0; G.anySeen = true;
-    if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) callPolice(w); }
+    if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) suspicionFull(w); }   /*ease17*/
     if (t.quipCD <= 0) { popup(w.x, w.y - 36, pick(['Is that... Tyler?!', 'Tyler, it\'s a school night!', 'Does your mother know you\'re out?']), '#ffe9a8', 2); t.quipCD = 5; }
   }
 }

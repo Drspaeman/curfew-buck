@@ -438,7 +438,7 @@ function startNight() {
   buildNav();
   const NIGHT = Math.round((330 + night * 15 + (night === 4 || night === 5 ? 30 : 0)) * diff().time);   // 4 and 5 get 30 s extra
   G = {
-    time: NIGHT, NIGHT, sus: 0, police: false, policeT: 0, copTimer: 0, cops: 0, arrest: 0,
+    time: NIGHT, NIGHT, sus: 0, warnsLeft: (DIFFICULTY[settings.difficulty] || DIFFICULTY.normal).warns || 0, /*ease17*/ police: false, policeT: 0, copTimer: 0, cops: 0, arrest: 0,
     delivered: 0, bucks: 0, quota: Math.max(1, quotaFor(night) + diff().quota), caller: null, banner: null, unseen: 0,
     shots: 0, hits: 0, sirenT: 0, respawnT: 6, endReason: null, nightScore: 0, timesSpotted: 0,
     weather: weatherFor(night), exSaw: false, legendDone: false, chirpT: 2, hint: null,

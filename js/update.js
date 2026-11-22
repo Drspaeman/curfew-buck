@@ -973,7 +973,7 @@ function updateArrows(dt) {
         popup(w.x, w.y - 36, pick(QUIPS.arrow), '#ff6b6b');
         w.stare = 2; w.lastX = player.x; w.lastY = player.y;
         if (w.type === 'cop') G.arrest = Math.min(1, G.arrest + 0.5);
-        else if (!G.police) { G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); if (G.sus >= 100) callPolice(w); }
+        else if (!G.police) { G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); if (G.sus >= 100) suspicionFull(w); }
         investigate(w, player.x, player.y);
       } else sfx.thunk();
     } else if (a.life <= 0) a.flying = false;
@@ -1365,7 +1365,7 @@ function detection(dt) {
         if (G.exNagCD <= 0) { G.exNagCD = 8; popup(w.x, w.y - 36, pick(['Dale. It\'s 5 AM. Go to bed.', 'Is that a BOW behind your back?', 'Stay on your side of the yard, Dale.', 'Why are you awake?']), '#ff9ad5', 2); }
       }
       G.sus = Math.min(100, G.sus + rate * close * diff().sus * dt * (G.halloween ? 0.6 : 1));   // Halloween: "nice costume!"
-      if (G.sus >= 100) callPolice(w);
+      if (G.sus >= 100) suspicionFull(w);
     } else {
       // Neighbors point the cops your way.
       let nearest = null, nd = 1e9;
@@ -1377,7 +1377,7 @@ function detection(dt) {
   if (anySeen) G.ghost = null;
   G.anySeen = anySeen;
   if (anySeen) G.unseen = 0; else G.unseen += dt;
-  if (!G.police && G.unseen > 1.5) G.sus = Math.max(0, G.sus - 7 * dt);
+  if (!G.police && G.unseen > 1.5) G.sus = Math.max(0, G.sus - 7 * (diff().drain || 1) * dt);
   if (!copSees) G.arrest = Math.max(0, G.arrest - dt * 0.35);
   if (G.arrest >= 1 && (campaign.items.burrito || 0) > 0) {
     // The breakfast burrito defense.
@@ -1408,6 +1408,19 @@ function saveChaseCheckpoint() {
   if (c.strikes < strikesMax()) saveOk(store.set('hs_save', { night, campaign: c }));
   else clearSave();   // that would be the third strike: the season is over either way
 }
+// Suspicion maxed out. On Easy and Normal the first time each night is a last warning, not a 911 call.   /*ease17*/
+function suspicionFull(w) {
+  if (G.warnsLeft > 0) {
+    G.warnsLeft--; G.sus = 60;
+    sfx.alert();
+    const line = w.type === 'ex' ? 'Dale. I have 9-1-1 typed in. I am NOT kidding.' : w.type === 'hoa' ? 'Final warning, Mr. Pruitt. My thumb is ON the call button.' : 'I\'m giving you ONE chance, buddy. Next time I call it in.';
+    popup(w.x, w.y - 50, line, '#ffb347', 3.2);
+    banner('⚠ LAST WARNING! Get out of sight. The next time suspicion fills, they call 911.', '#ffb347');
+    hint('warning', 'On Easy and Normal, neighbors give you one last warning each night before calling the cops. Hard has none.');
+    return;
+  }
+  callPolice(w);
+}
 function callPolice(w) {
   if (!campaign.daily) campaign.heat = 1; // tomorrow night starts with a patrol car out
   G.police = true;
@@ -1422,7 +1435,7 @@ function callPolice(w) {
   hint('police', 'The cops are coming. Get back inside your shed before the LOCKDOWN timer runs out, or you\'re arrested (two strikes). If a cruiser\'s spotlight holds on you, the ARREST bar fills. Getting away still costs a $50 citation.');
 }
 
-function lockdownSecs() { return settings.difficulty === 'easy' ? 110 : settings.difficulty === 'hard' ? 60 : 80; }
+function lockdownSecs() { return (DIFFICULTY[settings.difficulty] || DIFFICULTY.normal).lock || 95; }
 function updatePolice(dt) {
   if (G.sirenCap > 0) G.sirenCap -= dt;   /*siren15*/
   if (!G.police) return;

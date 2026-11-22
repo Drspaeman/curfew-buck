@@ -327,9 +327,10 @@ const NOTICES = [
 ];
 const MOM_LINES = ['DALE? Are you HUNTING? I can hear crickets!', 'Dale honey, did you eat? You sound skinny.', 'Darlene called me. Call me back, mister.'];
 const DIFFICULTY = {
-  easy: { label: 'Easy', sus: 0.6, quota: -1, time: 1.2, strikes: 5 },
-  normal: { label: 'Normal', sus: 1, quota: 0, time: 1, strikes: 3 },
-  hard: { label: 'Hard', sus: 1.4, quota: 1, time: 0.9, strikes: 3 },
+  // sus: how fast neighbors get suspicious; drain: how fast it fades out of sight; warns: last warnings per night before a 911 call; lock: lockdown seconds   /*ease17*/
+  easy: { label: 'Easy', sus: 0.5, drain: 1.5, warns: 1, lock: 120, quota: -1, time: 1.2, strikes: 5 },
+  normal: { label: 'Normal', sus: 0.85, drain: 1.3, warns: 1, lock: 95, quota: 0, time: 1, strikes: 3 },
+  hard: { label: 'Hard', sus: 1.4, drain: 1, warns: 0, lock: 60, quota: 1, time: 0.9, strikes: 3 },
 };
 const settings = Object.assign({ difficulty: 'normal', shake: true, music: true, sfxVol: 1, musicVol: 1, cbCones: false, flashes: true, hints: true, bigText: false }, store.get('hs_settings', {}));
 // Larger-text option: every font set on the main canvas is scaled up 20%.
@@ -349,7 +350,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '2.0.1';
+const VERSION = '2.0.2';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
