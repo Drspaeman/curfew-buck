@@ -304,7 +304,7 @@ function ctl(what) {
     use: { kb: k('KeyE'), pad: 'A', touch: 'USE' },
     leave: { kb: k('KeyQ'), pad: 'Y', touch: 'LEAVE' },
     sneak: { kb: `Hold ${k('ShiftLeft').toUpperCase()} and move (${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')})`, pad: 'Hold LB and move the left stick', touch: 'Push the left stick just a little' },
-    draw: { kb: 'HOLD the mouse button', pad: 'HOLD the right trigger (aim with the right stick)', touch: 'HOLD your thumb on the right side of the screen' },
+    draw: { kb: `HOLD the mouse button (or ${k('Space')})`, pad: 'HOLD the right trigger (aim with the right stick)', touch: 'HOLD your thumb on the right side of the screen' },
     release: { kb: 'Release', pad: 'Let go', touch: 'Lift your thumb' },
     press: { kb: 'press', pad: 'press', touch: 'tap' },
   };
@@ -315,7 +315,8 @@ function adaptControls(t) {
   const dev = inputKind(), press = ctl('press'), Press = press[0].toUpperCase() + press.slice(1);
   t = t.replace(/\bPress E\b/g, `${Press} ${ctl('use')}`).replace(/\bpress E\b/g, `${press} ${ctl('use')}`).replace(/\(E\)/g, `(${ctl('use')})`);
   if (dev === 'touch') t = t.replace(/\b[Pp]ress T( \(or Y on a gamepad\))?/g, 'Tap 📵').replace(/\bpress T\b/g, 'tap 📵').replace(/\bPress N again\b/g, 'Tap NVG again');
-  if (dev === 'pad') t = t.replace(/\bPress T \(or Y on a gamepad\)/g, 'Press Y').replace(/\bpress T\b/g, 'press Y');
+  if (dev === 'pad') t = t.replace(/\bPress T \(or Y on a gamepad\)/g, 'Press Y').replace(/\bpress T\b/g, 'press Y').replace(/\bPress N again\b/g, 'Press D-pad Down again');
+  if (dev !== 'touch' && dev !== 'pad') t = t.replace(/\bPress N again\b/g, `Press ${keyLabel(boundKey('KeyN'))} again`);   // a rebound night-vision key
   return t;
 }
 // ============================================================

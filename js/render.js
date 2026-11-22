@@ -73,6 +73,11 @@ function render(now) {
   if (G && (state === 'play' || state === 'pause')) { drawVignette(); drawHUD(now); drawMinimap(); if (G.mapOpen) { ctx.fillStyle = 'rgba(5,8,14,0.75)'; ctx.fillRect(0, 0, VW, VH); drawMinimap(true); } drawTutorial(); drawTouchControls(); drawCrosshair(); }
   drawScreens(now);
   drawToasts();
+  if (screenTooSmall()) {   // below the supported size: say so instead of a broken layout   /*r6*/
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(5,8,14,0.94)'; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = '#ff7a1a'; ctx.textAlign = 'center'; ctx.font = 'bold 18px system-ui, sans-serif'; ctx.fillText('CURFEW BUCK', VW / 2, VH / 2 - 24);
+    ctx.fillStyle = '#e8e8e8'; ctx.font = '13px system-ui, sans-serif'; wrapText('This window is too small to play. Rotate your phone or make the window bigger.', VW / 2, VH / 2, VW - 20, 17);
+  }
   if (state !== lastState) { fadeT = 0.3; lastState = state; }
   const fdt = clamp((now - (render.prevNow || now)) / 1000, 0, 0.05); render.prevNow = now;
   if (fadeT > 0) { fadeT -= fdt; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = `rgba(0,0,0,${clamp(fadeT / 0.3, 0, 1) * 0.6})`; ctx.fillRect(0, 0, VW, VH); }

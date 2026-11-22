@@ -226,55 +226,63 @@ function pollPad() {
 // ============================================================
 let touchMode = false;
 const touch = { menuId: null, menuY: 0, menuX: 0, menuMoved: 0, stickId: null, sx: 0, sy: 0, x: 0, y: 0, mx: 0, my: 0, aimId: null, crouch: false };
-const leaveSpot = { key: null, best: null };
+// Touch controls: one layout solver for every action button (LEAVE included).   /*r6*/
+// Every button's whole tap area (circle + 8 px) stays on screen, out of the left-thumb movement zone (a fresh
+// thumb there starts the stick), off the minimap, the suspicion meter, Pause/Map and Dale, and never touches
+// another button's. Buttons fill columns from the bottom-right corner; if they don't all fit, they shrink a size.
+const TOUCH_HIT = 8;
+const touchLayout = { key: null, pos: null };
 function touchButtons() {
   if (state !== 'play' || netClient()) return [];
-  const r = VW < 500 ? 26 : 30;
-  let x = VW - r - 16, y = VH - r - 70;
   const list = [
     { id: 'drag', label: player.carry ? 'DROP' : player.fishing ? 'REEL' : nearVan() ? 'STEVE' : 'USE', fn: interact },
     { id: 'cone', label: '🌰', fn: throwCone },
     { id: 'grunt', label: 'CALL', fn: grunt },
   ];
+  // LEAVE right after USE: ending the night is the second most important thumb action at the shed
+  if (nearTruck()) list.splice(1, 0, { id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, hot: true });
   if (has('corn')) list.push({ id: 'corn', label: 'CORN', fn: dropCorn });
   if (campaign.items.beer) list.push({ id: 'beer', label: '🍺', fn: drinkBeer });
   if (has('nvg')) list.push({ id: 'nvg', label: 'NVG', fn: toggleNVG, hot: G.nvgOn });
   if (campaign.items.jerky && world.dogs.some(g => !g.quiet && dist(g.ax, g.ay, player.x, player.y) < 140)) list.push({ id: 'jerky', label: 'JERKY', fn: feedDog, hot: true });
   if (G.mom && G.mom.state === 'buzz') list.unshift({ id: 'mom', label: '📵', fn: declineCall, hot: true });
-  const out = [];
   const mmH = Math.max(70, Math.min(220, VW * 0.25, VW - 300)) * H / W;
-  // a tall stack wraps into a second column instead of sliding under Pause and Map
-  const topLimit = 16 + mmH + 80 + 18 + r + 10;
-  for (const b of list) { if (y < topLimit) { x -= r * 2 + 12; y = VH - r - 70; } out.push(Object.assign({ x, y, r }, b)); y -= r * 2 + 12; }
-  out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
-  out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
-  if (nearTruck()) {
-    // LEAVE ends the night (and escapes a chase), so its tap area (circle + 8 px, like every button) must never
-    // share a pixel with another button's, must stay on screen, and must stay out of the left-thumb movement zone
-    // (a fresh thumb there starts the stick). Pick the clear spot nearest the usual one.   /*r5*/
-    let lr = shortLandscape() ? 28 : 34;
-    const HIT = 8, moveEdge = VW * 0.45, mm = typeof minimapBox === 'function' ? minimapBox() : null;
-    const want = { x: Math.max(VW / 2, moveEdge + lr + HIT + 12), y: shortLandscape() ? VH - lr - 18 : VH - 120 };
-    const fits = (cx, cy, rr) => cx - rr - HIT >= moveEdge && cx + rr <= VW - 2 && cy - rr >= 2 && cy + rr <= VH - 2 &&
-      out.every(b => dist(cx, cy, b.x, b.y) >= rr + b.r + 2 * HIT + 4) &&
-      !(mm && cx + rr + HIT > mm.x && cy - rr - HIT < mm.y + mm.h + 6);
-    const key = VW + 'x' + VH + ':' + out.map(b => b.id + Math.round(b.x) + ',' + Math.round(b.y) + ',' + b.r).join('|');
-    let best = leaveSpot.key === key ? leaveSpot.best : null;   // same layout as last frame: reuse the spot
-    if (best) lr = best.r;
-    else for (const rr of [lr, 24, 20]) {
-      for (let cy = rr + 2; cy <= VH - rr - 2; cy += 6) for (let cx = moveEdge + rr + HIT; cx <= VW - rr - 2; cx += 6) {
-        if (!fits(cx, cy, rr)) continue;
-        const d = dist(cx, cy, want.x, want.y);
-        if (!best || d < best.d) best = { x: cx, y: cy, d };
-      }
-      if (best) { lr = rr; best.r = rr; break; }
-    }
-    if (!best) best = { x: clamp(want.x, moveEdge + lr + HIT, VW - lr - 2), y: clamp(want.y, lr + 2, VH - lr - 2), r: lr };   // a tiny window: on screen at least
-    leaveSpot.key = key; leaveSpot.best = best;
-    out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: best.x, y: best.y, r: lr, hot: true });
-  }
-  return out;
+  const fixed = [
+    { id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 },
+    { id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 90, r: 18 },   // 56 px below Pause: their tap areas never touch
+  ];
+  const compact = compactUI(), hintUp = !!(G.hint && shortLandscape());
+  const key = VW + 'x' + VH + ':' + list.map(b => b.id).join(',') + (compact ? 'c' : '') + (G.police ? 'p' : '') + (hintUp ? 'h' : '');
+  if (touchLayout.key !== key) { touchLayout.key = key; touchLayout.pos = layoutTouchButtons(list.length, fixed, mmH, compact); }
+  const pos = touchLayout.pos;
+  const out = [];
+  list.forEach((b, k) => { if (pos[k]) out.push(Object.assign({}, b, pos[k])); });
+  return out.concat(fixed);
 }
+function layoutTouchButtons(n, fixed, mmH, compact) {
+  const HIT = TOUCH_HIT, moveEdge = VW * 0.45, mm = minimapBox();
+  const circles = fixed.map(b => ({ x: b.x, y: b.y, r: b.r + HIT }));
+  if (!compact) circles.push({ x: VW / 2, y: VH / 2 + 25, r: 50 });   // Dale (the camera keeps him mid-screen)
+  const rects = [{ x: mm.x - 6, y: 0, w: VW, h: mm.y + mm.h + 6 }];
+  if (!compact) rects.push({ x: 270, y: 0, w: Math.max(0, mm.x - 270), h: G && G.police ? 96 : 72 });   // the suspicion meter
+  else rects.push({ x: 0, y: 0, w: VW, h: 300 + (G && G.police ? 26 : 0) });                          // phone HUD + meter stack
+  const bottom = compact ? 64 : 4;   // portrait phones keep the thumb-help text clear
+  for (const r of [30, 26, 22, 18]) {
+    const R = r + HIT, step = 2 * R + 4, pos = [];
+    for (let cx = VW - R - 2; cx - R >= moveEdge && pos.length < n; cx -= step) {
+      for (let cy = VH - bottom - R - 2; cy - R >= 2 && pos.length < n; cy -= step) {
+        if (circles.some(o => dist(cx, cy, o.x, o.y) < R + o.r + 2)) continue;
+        if (rects.some(q => cx + R > q.x && cx - R < q.x + q.w && cy + R > q.y && cy - R < q.y + q.h)) continue;
+        pos.push({ x: cx, y: cy, r });
+      }
+    }
+    if (pos.length >= n) return pos;
+    if (r === 18) return pos;   // below the supported screen size: the game asks for a bigger window instead
+  }
+  return [];
+}
+// The smallest screens the controls are laid out for. Smaller than this, play pauses and asks for a bigger window.
+function screenTooSmall() { return !((VW >= 560 && VH >= 300) || (VW >= 320 && VH >= 560)); }
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
 cv.addEventListener('touchstart', e => {
   e.preventDefault();

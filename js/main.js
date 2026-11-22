@@ -30,6 +30,7 @@ if (location.hash.startsWith('#demo')) {
 }
 let last = performance.now();
 function frame(now) {
+  if (typeof screenTooSmall === 'function' && screenTooSmall() && state === 'play') { player.drawing = false; state = 'pause'; }   // too small to play: wait in the pause menu   /*r6*/
   requestAnimationFrame(frame);   // first, so one bad frame can't stop the game
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
