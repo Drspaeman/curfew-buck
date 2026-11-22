@@ -1127,9 +1127,10 @@ function applyNightPlan() {
     G.party = { x: (x0 + x1) / 2, y, r: 520 };
     world.lights.push({ x: G.party.x - 120, y }, { x: G.party.x + 120, y });
     const names = ['Party guest (Todd\'s cousin)', 'Party guest (with sparkler)', 'Party guest (dancing)', 'DJ Kevin'];
-    for (let i = 0; i < 4; i++) {
-      const px = lerp(x0, x1, (i + 0.5) / 4);
-      watchers.push(makeWatcher('watch', [{ x: px - 40, y: y + (i % 2 ? 22 : -22) }, { x: px + 40, y: y + (i % 2 ? -22 : 22) }], { extra: true, speed: 28, fov: 1.5, range: 200, pause: 3, rate: 20, label: names[i] }));
+    const hardParty = settings.difficulty === 'hard', guests = hardParty ? 4 : 3;   // Easy/Normal: a smaller, more distracted crowd
+    for (let i = 0; i < guests; i++) {
+      const px = lerp(x0, x1, (i + 0.5) / guests);
+      watchers.push(makeWatcher('watch', [{ x: px - 40, y: y + (i % 2 ? 22 : -22) }, { x: px + 40, y: y + (i % 2 ? -22 : 22) }], { extra: true, speed: 28, fov: 1.5, range: hardParty ? 200 : 170, pause: 3, rate: hardParty ? 20 : 14, label: names[i] }));
     }
   }
   if (G.twist === 'rut') for (let i = 0; i < 3; i++) spawnDeer(false);

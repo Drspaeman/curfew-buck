@@ -1303,7 +1303,7 @@ function sightMult() {
   let m = 1;
   if (player.crouch) m *= 0.65;
   if (player.lit) m *= 1.35;
-  if (player.carry && !has('tarp')) m *= 1.25;
+  if (player.carry && !has('tarp') && !(rushOpen() && settings.difficulty !== 'hard')) m *= 1.25;   // a rush-order deer is wrapped for Steve: no extra visibility on the long drag (Easy/Normal)
   if (player.cooler) m *= 1.15;
   if (G && G.buzz > 0) m *= 1.1;
   if (has('ghillie')) m *= 0.8;
@@ -1371,7 +1371,8 @@ function detection(dt) {
         G.exNagCD -= dt;
         if (G.exNagCD <= 0) { G.exNagCD = 8; popup(w.x, w.y - 36, pick(['Dale. It\'s 5 AM. Go to bed.', 'Is that a BOW behind your back?', 'Stay on your side of the yard, Dale.', 'Why are you awake?']), '#ff9ad5', 2); }
       }
-      G.sus = Math.min(100, G.sus + rate * close * diff().sus * dt * (G.halloween ? 0.6 : 1));   // Halloween: "nice costume!"
+      const grace = G.playT < 25 && settings.difficulty !== 'hard' ? 0.5 : 1;   // the first 25 s: the neighborhood is still waking up, so you can slip away from the shed (Easy/Normal)
+      G.sus = Math.min(100, G.sus + rate * close * diff().sus * dt * (G.halloween ? 0.6 : 1) * grace);   // Halloween: "nice costume!"
       if (G.sus >= 100) suspicionFull(w);
     } else {
       // Neighbors point the cops your way.
