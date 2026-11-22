@@ -366,7 +366,7 @@ frame = function () {};
     out.textContent = `Curfew Buck play bot: ${iss.length} issues (${iss.filter(x => x.kind === 'crash').length} crashes), ${runs.length} scenarios in ${((performance.now() - t0) / 1000).toFixed(0)} s · wedged on a corner and wiggled free ${bot.wiggles || 0} times (a spot only counts as an issue at 3 times in one night)\n\n` +
       'ISSUES\n' + (iss.length ? iss.map(x => `[${x.kind}] ${x.where}: ${x.detail}${x.count > 1 ? '  (x' + x.count + ')' : ''}`).join('\n') : '(none)') +
       '\n\nRUNS\n' + runs.map(r => `${r.name}: ${r.end || '?'} · won ${r.won || 0}/${r.played || 0} nights${r.retries ? ` · ${r.retries} retries` : ''}\n    ${r.nights.join('\n    ')}`).join('\n') +
-      '\n\nPLAY DIARY (season runs)\n' + runs.filter(r => /^Season/.test(r.name)).map(r => r.name + '\n' + diaryText(r)).join('\n\n');
+      '\n\nPLAY DIARY (season runs)\n' + runs.filter(r => /^Season|^Endless from/.test(r.name)).map(r => r.name + '\n' + diaryText(r)).join('\n\n');
     document.title = 'BOT ' + iss.length;
     window.botReport = { issues: iss, runs };
   }

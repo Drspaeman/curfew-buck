@@ -1104,7 +1104,7 @@ const TWISTS = {
   karaoke: { label: '🎤 Todd\'s karaoke night: the whole street is loud, so your noise carries half as far.' },
 };
 function goalNeed(id) { const d = settings.difficulty; return id === 'trophy' || id === 'rush' ? (d === 'hard' ? 2 : 1) : 0; }
-function goalText(g) { return g ? GOALS[g.id].brief.replace(':N', g.need) : ''; }
+function goalText(g) { return g ? GOALS[g.id].brief.replace(':N', g.need) + (g.id === 'party' && G && G.partyGoer ? ` ${G.partyGoer} skipped patrol for it.` : '') : ''; }
 // Pick tonight's goal and twist (before deer spawn: the rut and the trophy order change the herd)
 function chooseNightPlan() {
   G.goal = null; G.twist = null; G.vanDeer = 0;
@@ -1132,7 +1132,9 @@ function applyNightPlan() {
     const y = hy[0] + ROAD / 2, x0 = vx[0] + ROAD + 120, x1 = vx[1] - 120;
     G.party = { x: (x0 + x1) / 2, y, r: 520 };
     world.lights.push({ x: G.party.x - 120, y }, { x: G.party.x + 120, y });
-    const names = ['Party guest (Todd\'s cousin)', 'Party guest (with sparkler)', 'Party guest (dancing)', 'DJ Kevin'];
+    // Easy/Normal: one Neighborhood Watch volunteer skips patrol for the party (one patrol fewer on the finale's streets)   /*fin*/
+    if (settings.difficulty !== 'hard') { const k = watchers.map(w => w.type === 'watch' && !w.extra && !w.cart).lastIndexOf(true); if (k >= 0) { G.partyGoer = (watchers[k].label || 'A Watch volunteer').split(',')[0]; watchers.splice(k, 1); } }
+    const names =['Party guest (Todd\'s cousin)', 'Party guest (with sparkler)', 'Party guest (dancing)', 'DJ Kevin'];
     const hardParty = settings.difficulty === 'hard', guests = hardParty ? 4 : 3;   // Easy/Normal: a smaller, more distracted crowd
     for (let i = 0; i < guests; i++) {
       const px = lerp(x0, x1, (i + 0.5) / guests);
