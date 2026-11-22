@@ -151,15 +151,14 @@ function padMenuNav(edge) {
   return false;
 }
 function pollPad() {
-  // the too-small notice is up: no button acts, but remember what's held, so a button still held when the window
-  // grows back isn't read as a fresh press (it has to be let go and pressed again)   /*r8*/
-  if (typeof screenTooSmall === 'function' && screenTooSmall()) {
-    const g = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
-    if (g) pad.prev = g.buttons.map(x => x.pressed);
-    pad.mx = pad.my = 0; pad.draw = false;
-    return;
-  }
+  // the too-small notice is up, or just cleared: no button acts until every button on every controller is let go
+  // (a button held through the notice, or on a controller swapped in meanwhile, is never read as a fresh press)   /*r9*/
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+  if ((typeof screenTooSmall === 'function' && screenTooSmall()) || pad.needRelease) {
+    pad.needRelease = true; pad.mx = pad.my = 0; pad.draw = false;
+    if (gps.some(g => g.buttons.some(x => x.pressed)) || screenTooSmall()) { pad.prev = gps[0] ? gps[0].buttons.map(x => x.pressed) : []; if (gps[0]) pad.index = gps[0].index; return; }
+    pad.needRelease = false; pad.prev = gps[0] ? gps[0].buttons.map(x => x.pressed) : [];
+  }
   const gp = gps[0];
   if (!gp) {
     if (pad.draw && player) player.drawing = false;
@@ -295,6 +294,19 @@ function layoutTouchButtons(n, fixed, mmH, compact) {
   return pack(18, false);   // never reached at a supported size (the tests sweep them); below it, the too-small notice covers play
 }
 // The smallest screens the controls are laid out for. Smaller than this, play pauses and asks for a bigger window.
+// Crossing the supported minimum (either way) cancels every input in progress: pending menu taps, the stick, the
+// aim/draw, held keys, and every gamepad button must be let go (on any controller) before the next press counts.   /*r9*/
+let wasTooSmall = false;
+function onScreenSizeChange() {
+  const small = screenTooSmall();
+  if (small === wasTooSmall) return;
+  wasTooSmall = small;
+  touch.menuId = touch.stickId = touch.aimId = null; touch.mx = touch.my = 0; touch.crouch = false;
+  for (const k in keys) keys[k] = false;
+  if (typeof player !== 'undefined' && player) player.drawing = false;
+  pad.needRelease = true; pad.mx = pad.my = 0; pad.draw = false;
+  if (typeof noticeCrossed !== 'undefined') noticeCrossed = true;
+}
 function screenTooSmall() { return !((VW >= 560 && VH >= 300) || (VW >= 320 && VH >= 560)); }
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }
 cv.addEventListener('touchstart', e => {
@@ -338,7 +350,7 @@ function endTouch(e) {
   for (const t of e.changedTouches) {
     if (t.identifier === touch.menuId) {
       touch.menuId = null;
-      if (touch.menuMoved < 10 && e.type === 'touchend') cv.dispatchEvent(new MouseEvent('mousedown', { clientX: touch.menuX, clientY: touch.menuY, button: 0 }));
+      if (touch.menuMoved < 10 && e.type === 'touchend' && !screenTooSmall()) cv.dispatchEvent(new MouseEvent('mousedown', { clientX: touch.menuX, clientY: touch.menuY, button: 0 }));
       continue;
     }
     if (t.identifier === touch.stickId) { touch.stickId = null; touch.mx = touch.my = 0; touch.crouch = false; }
