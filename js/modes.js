@@ -247,11 +247,11 @@ function courtPlea(i) {
     sfx.lose();
     // Guilty: two strikes and a $100 fine. Under three strikes, Dale retries the night on probation.   /*conseq*/
     campaign.strikes = (campaign.strikes || 0) + 2; G.strikeAdd = 2; G.retryFine = 100;
-    if (campaign.strikes >= STRIKES_MAX) {
+    if (campaign.strikes >= strikesMax()) {
       G.evicted = true; G.court.text += ' That\'s three strikes. Your season is over.';
       recordScore(); G.court.recorded = true;   // on the board now, even if the tab closes before Continue
     } else {
-      G.retry = true; G.court.text += ` Two strikes (${campaign.strikes} of ${STRIKES_MAX}) and a $100 fine. You get to redo the night, on probation.`;
+      G.retry = true; G.court.text += ` Two strikes (${campaign.strikes} of ${strikesMax()}) and a $100 fine. You get to redo the night, on probation.`;
       saveOk(store.set('hs_save', { night, campaign: retryCampaign() }));
     }
   }
@@ -283,7 +283,7 @@ function drawCourt() {
     y = buttonGrid(COURT_PLEAS.map((p, i) => ({ label: VW < 640 ? `${i + 1}. ${Math.round(p.odds * 100)}%${p.fine ? `, $${p.fine} if you win` : ''}: ${p.label.slice(3)}` : `${p.label}  ·  ${Math.round(p.odds * 100)}% to walk${p.fine ? `, then pay $${p.fine}${p.cost ? ' (only if he wins)' : ''}` : ', free'}`, fn: () => courtPlea(i), enabled: !(p.cost && campaign.cash < p.fine), hi: pad.connected && (G.courtSel || 0) === i })), y, Math.min(620, VW - 30), 42);
     if (pad.connected) { ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('D-pad ↑/↓ to choose · A to plead', VW / 2, y + 8); }
     if (G.courtMsg) { ctx.fillStyle = '#ff9f6b'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(G.courtMsg, cx, y + 14); }
-    ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(fitText((campaign.strikes || 0) >= 1 ? 'One court date per season. Guilty is two strikes: with yours, that ends the season.' : 'One court date per season. Guilty is two strikes and a $100 fine.', VW - 24), cx, VH - 26);
+    ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.fillText(fitText((campaign.strikes || 0) + 2 >= strikesMax() ? 'One court date per season. Guilty is two strikes: with yours, that ends the season.' : 'One court date per season. Guilty is two strikes and a $100 fine.', VW - 24), cx, VH - 26);
   } else {
     ctx.fillStyle = G.court.ok ? '#9be564' : '#ff6b6b'; fitFont(G.court.ok ? 'CASE DISMISSED' : 'GUILTY', 900, 40, VW - 24);
     ctx.fillText(G.court.ok ? 'CASE DISMISSED' : 'GUILTY', cx, y + 10);

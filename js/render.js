@@ -1104,7 +1104,7 @@ function drawHUD(now) {
   ctx.textAlign = 'left';
   panel(14, 14, 250, 196);
   ctx.fillStyle = '#fff'; ctx.font = 'bold 15px system-ui, sans-serif';
-  ctx.fillText(fitText(`${campaign.halloween ? '🎃 HALLOWEEN' : 'NIGHT ' + night}  ·  ${clockText()}${!oneNightMode() && night <= 5 && campaign.strikes ? '  ·  ⚠' + campaign.strikes + '/' + STRIKES_MAX : ''}`, 226), 28, 38);   // strikes: 3 and the shed is towed
+  ctx.fillText(fitText(`${campaign.halloween ? '🎃 HALLOWEEN' : 'NIGHT ' + night}  ·  ${clockText()}${!oneNightMode() && night <= 5 && campaign.strikes ? '  ·  ⚠' + campaign.strikes + '/' + strikesMax() : ''}`, 226), 28, 38);   // strikes: 3 and the shed is towed
   ctx.font = '13px system-ui, sans-serif';
   ctx.fillStyle = G.delivered >= G.quota ? '#9be564' : '#e8e8e8';
   ctx.fillText(`Quota: ${G.delivered} / ${G.quota} deer${G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 28, 60);
@@ -1491,7 +1491,7 @@ function drawScreenBody(now) {
     ctx.fillStyle = '#e8e8e8'; ctx.font = '17px system-ui, sans-serif';
     let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : campaign.halloween ? HALLOWEEN_INTRO : campaign.map === 'custom' ? (campaign.customSpec.intro || `A custom neighborhood${campaign.customSpec.author ? ' by ' + campaign.customSpec.author : ''}. Same HOA. Same ex-wife. Good luck.`) : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
     ctx.fillStyle = '#9be564'; ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.fillText(fitText(`Quota: ${G.quota} deer before sunrise${!oneNightMode() && night <= 5 ? `  ·  Strikes: ${campaign.strikes || 0} of ${STRIKES_MAX}` : ''}`, maxW), cx, y + 50);
+    ctx.fillText(fitText(`Quota: ${G.quota} deer before sunrise${!oneNightMode() && night <= 5 ? `  ·  Strikes: ${campaign.strikes || 0} of ${strikesMax()}` : ''}`, maxW), cx, y + 50);
     ctx.fillStyle = '#9ecbff'; ctx.font = '15px system-ui, sans-serif';
     const wEnd = wrapText(WEATHER_TEXT[G.weather], cx, y + 78, maxW, 19);   // the snow warning is long on a phone
     ctx.fillStyle = '#c9d6ff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(moonFx().label, cx, wEnd + 20); y = wEnd - 58;
@@ -1630,7 +1630,7 @@ function drawScreenBody(now) {
     if (state === 'over' && (G.retry || G.evicted)) {
       const k = campaign.strikes || 0;
       ctx.fillStyle = G.evicted ? '#ff5a5a' : '#ffb347'; ctx.font = 'bold 16px system-ui, sans-serif';
-      ctx.fillText(`Strikes: ${'⚠'.repeat(Math.min(k, STRIKES_MAX))}${'·'.repeat(Math.max(0, STRIKES_MAX - k))}  (${Math.min(k, STRIKES_MAX)} of ${STRIKES_MAX}${G.strikeAdd > 1 ? ', an arrest counts twice' : ''})`, cx, y - 8);
+      ctx.fillText(`Strikes: ${'⚠'.repeat(Math.min(k, strikesMax()))}${'·'.repeat(Math.max(0, strikesMax() - k))}  (${Math.min(k, strikesMax())} of ${strikesMax()}${G.strikeAdd > 1 ? ', an arrest counts twice' : ''})`, cx, y - 8);
       ctx.fillStyle = '#e8e8e8'; ctx.font = '14px system-ui, sans-serif';
       y = wrapText(G.evicted ? 'The HOA towed the shed. Darlene talked them into leaving your cot on the porch. The season is over.'   /*write16*/
         : `You can redo Night ${night} from the start, minus a $${G.retryFine} fine. Tonight's deer and cash are gone. A third strike ends the season.`, cx, y + 16, maxW, 20) + 26;
@@ -1762,7 +1762,7 @@ function button(x, y, w, h, label, fn, enabled = true, highlight = false) {
   ctx.fillStyle = highlight ? '#111' : enabled ? '#fff' : '#888';
   ctx.font = 'bold 14px system-ui, sans-serif'; ctx.textAlign = 'center';
   ctx.fillText(fitText(label, w - 14), x + w / 2, y + h / 2 + 5);   // long labels shrink to fit the button
-  if (enabled) uiButtons.push({ x, y: y - drawScroll, w, h, fn });
+  if (enabled) uiButtons.push({ x, y: y - drawScroll, w, h, fn, label });   // the label lets the play bot (bot.js) press buttons by name
   if (y + h > menuBottom) menuBottom = y + h;
 }
 

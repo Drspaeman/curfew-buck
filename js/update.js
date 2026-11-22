@@ -1405,7 +1405,7 @@ function saveChaseCheckpoint() {
   const keepFine = G.retryFine; G.retryFine = 50;
   const c = retryCampaign(); c.strikes = (campaign.strikes || 0) + 1; c.lastFail = 'escaped';
   G.retryFine = keepFine;
-  if (c.strikes < STRIKES_MAX) saveOk(store.set('hs_save', { night, campaign: c }));
+  if (c.strikes < strikesMax()) saveOk(store.set('hs_save', { night, campaign: c }));
   else clearSave();   // that would be the third strike: the season is over either way
 }
 function callPolice(w) {
@@ -1543,11 +1543,12 @@ function endNight(reason) {
 
 // Failed nights in a season: each one is a strike (an arrest is two). Under three strikes you can retry
 // the night from its start, minus a fine. The third strike ends the season.
-const STRIKES_MAX = 3;
+// Strikes before the shed is towed: three (five on Easy, so a new player has room to learn)
+function strikesMax() { return (DIFFICULTY[settings.difficulty] || DIFFICULTY.normal).strikes || 3; }
 function strikeOut(n, fine) {
   campaign.strikes = (campaign.strikes || 0) + n;
   G.strikeAdd = n; G.retryFine = fine;
-  if (campaign.strikes >= STRIKES_MAX) { G.evicted = true; return false; }   // season over: the caller records it
+  if (campaign.strikes >= strikesMax()) { G.evicted = true; return false; }   // season over: the caller records it
   G.retry = true;
   if (G.bestBefore !== undefined && best !== G.bestBefore) { best = G.bestBefore; store.set('hs_best', best); }   // the attempt is rolled back, so is its score
   saveOk(store.set('hs_save', { night, campaign: retryCampaign() }));   // Continue goes straight to the retry
@@ -1565,7 +1566,7 @@ function retryCampaign() {
 // A scene's lines for the current season (lines with a condition only when it holds), with :FINE / :STRIKES filled in   /*dialog16*/
 function storyLines(id, vars = {}) {
   return (SCENES[id] || []).filter(l => typeof l[2] !== 'function' || l[2](campaign))
-    .map(l => [l[0], l[1].replace(':FINE', '$' + (vars.fine ?? 0)).replace(':STRIKES', `${campaign.strikes || 0} of ${STRIKES_MAX}`)]);
+    .map(l => [l[0], l[1].replace(':FINE', '$' + (vars.fine ?? 0)).replace(':STRIKES', `${campaign.strikes || 0} of ${strikesMax()}`)]);
 }
 function retryNight() {
   if (!G || !G.retry) return;
@@ -1573,7 +1574,7 @@ function retryNight() {
   campaign = retryCampaign(); campaign.lastFail = why;
   startNight();
   if (!netLive()) { const after = state; playScene(storyLines('retry', { fine }), () => { state = after; }); }
-  banner(`↻ Night ${night}, take two. Strike ${campaign.strikes} of ${STRIKES_MAX}.`, '#ffd166');
+  banner(`↻ Night ${night}, take two. Strike ${campaign.strikes} of ${strikesMax()}.`, '#ffd166');
 }
 function saveGame() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night, campaign })); }
 // Between nights (results and Earl's shop): Continue starts the next night with everything kept.
@@ -1608,7 +1609,7 @@ function loadGame() {
   night = s.night;
   campaign = s.campaign;
   startNight();
-  if (!s.court && campaign.strikes && !oneNightMode()) banner(`⚠ Strike ${campaign.strikes} of ${STRIKES_MAX}. One more failed night${campaign.strikes >= 2 ? '' : ' or an arrest'} and the HOA tows the shed.`, '#ffb347');
+  if (!s.court && campaign.strikes && !oneNightMode()) banner(`⚠ Strike ${campaign.strikes} of ${strikesMax()}. ${strikesMax() - campaign.strikes === 1 ? 'One more failed night' : strikesMax() - campaign.strikes === 2 ? 'Two more failed nights, or one arrest,' : 'A few more failed nights'} and the HOA tows the shed.`, '#ffb347');
   if (s.court) {   // reloaded mid-court: straight back to the judge, with the court record (and the night's real start) kept
     story = null; G.court = null; state = 'court';
     if (s.start) nightStart = { night, campaign: JSON.parse(JSON.stringify(s.start)) };
