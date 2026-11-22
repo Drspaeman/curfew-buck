@@ -49,7 +49,7 @@ const RAVEN_LINES = [
 function ravenPost() {
   if (G.goth && G.goth.concert) return pick(['VELVET CASKET LIVE: 3 attendees, 1 cryptid. best show of our career.', 'played a garage show. the orange menace was in the crowd. he did not clap. iconic.']);
   if (G.police) return pick(['saw the cops chase the cryptid tonight. he is faster than he looks. sketching it now.', 'sirens at 5 AM. the neighborhood is finally interesting.']);
-  if (G.delivered >= G.quota) return pick(['freezer report: ' + G.delivered + ' deer. the cryptid is preparing for winter.', 'spotted: the orange menace, thriving.']);
+  if (quotaMet()) return pick(   /*vary18*/['freezer report: ' + G.delivered + ' deer. the cryptid is preparing for winter.', 'spotted: the orange menace, thriving.']);
   return pick(['quiet night. the cryptid lurked. finally, someone who gets it.', 'my dad\'s drone hit a tree again. no further questions.']);
 }
 const RAVEN_COLOR = '#b48cff';
@@ -250,7 +250,7 @@ function setupGoth() {
   if (R.raven && leftS.length && !campaign.daily) {   // not in the Daily Hunt: a pinecone and $10 would make the day uneven
     for (let k = 0; k < 300; k++) {
       const x = M + 60 + rand() * (W - 2 * M - 120), y = M + 60 + rand() * (H - 2 * M - 120);
-      if (world.blocked(x, y, 22) || dist(x, y, world.shed.x, world.shed.y) < 500 || dist(x, y, R.raven.x, R.raven.y) < 300) continue;
+      if (world.blocked(x, y, 22) || dist(x, y, world.shed.x, world.shed.y) < 500 || dist(x, y, R.raven.x, R.raven.y) < 300 || !canReach(x, y)) continue;
       R.shinies.push({ x, y, idx: leftS[Math.floor(rand() * leftS.length)], got: false });
       break;
     }

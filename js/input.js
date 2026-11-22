@@ -246,7 +246,7 @@ function touchButtons() {
   for (const b of list) { if (y < topLimit) { x -= r * 2 + 12; y = VH - r - 70; } out.push(Object.assign({ x, y, r }, b)); y -= r * 2 + 12; }
   out.push({ id: 'pause', label: '❚❚', fn: () => { player.drawing = false; state = 'pause'; }, x: VW - 34, y: 16 + mmH + 34, r: 18 });
   out.push({ id: 'map', label: 'MAP', fn: () => { G.mapOpen = !G.mapOpen; }, x: VW - 34, y: 16 + mmH + 80, r: 18 });
-  if (nearTruck()) out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && G.delivered < G.quota ? 'CONFIRM?' : 'LEAVE', fn: tryLeave, x: VW / 2, y: VH - 120, r: 34, hot: true });
+  if (nearTruck()) out.push({ id: 'leave', label: G.leaveAsk !== undefined && G.playT - G.leaveAsk <= 3 && !quotaMet() ? 'CONFIRM?'   /*vary18*/ : 'LEAVE', fn: tryLeave, x: VW / 2, y: VH - 120, r: 34, hot: true });
   return out;
 }
 function touchToMouse(t) { mouse.x = t.clientX; mouse.y = t.clientY; }

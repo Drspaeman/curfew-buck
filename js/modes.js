@@ -65,7 +65,7 @@ const MOON = {
   gibbous: { dark: -0.04, range: 1.04, label: '🌔 Gibbous moon: a little brighter tonight.' },
   full: { dark: -0.1, range: 1.08, label: '🌕 Full moon: bright, and everyone sees farther.' },
 };
-function moonFx() { return MOON[['new', 'crescent', 'half', 'gibbous', 'full'][(night - 1) % 5]] || MOON.half; }
+function moonFx() { if (G && G.moon && MOON[G.moon]) return MOON[G.moon]; return MOON[['new', 'crescent', 'half', 'gibbous', 'full'][(night - 1) % 5]] || MOON.half; }
 function rumble(ms, strength) {
   try {
     const gp = navigator.getGamepads && Array.from(navigator.getGamepads()).find(Boolean);
@@ -259,7 +259,7 @@ function courtPlea(i) {
   if (G.court.ok) saveNext(); else if (!G.retry) clearSave();
 }
 function finishCourt() {
-  if (G.court.ok && G.delivered < G.quota) { G.retry = true; G.strikeAdd = 0; G.retryFine = G.courtPaid || 0; saveOk(store.set('hs_save', { night, campaign: retryCampaign() })); state = 'over'; return; }   // dismissed, but still short: redo the night, no strike
+  if (G.court.ok && !quotaMet()) { G.retry = true; G.strikeAdd = 0; G.retryFine = G.courtPaid || 0; saveOk(store.set('hs_save', { night, campaign: retryCampaign() })); state = 'over'; return; }   // dismissed, but still short: redo the night, no strike
   if (G.court.ok) { pickSpecial(); state = 'shop'; saveNext(); return; }
   if (G.retry) { state = 'over'; return; }
   if (!G.court.recorded) recordScore();
@@ -572,7 +572,7 @@ function updateTyler(dt) {
     if (!los(w.x, w.y, t.x, t.y)) continue;
     if (t.seenT <= 0) G.timesSpotted++;
     t.seenT = 0.5; G.unseen = 0; G.anySeen = true;
-    if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) suspicionFull(w); }   /*ease17*/
+    if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) suspicionFull(w); }   /*ease17*/ /*vary18*/
     if (t.quipCD <= 0) { popup(w.x, w.y - 36, pick(['Is that... Tyler?!', 'Tyler, it\'s a school night!', 'Does your mother know you\'re out?']), '#ffe9a8', 2); t.quipCD = 5; }
   }
 }
@@ -1075,3 +1075,87 @@ function drawShop(now) {
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center';
   ctx.fillText(pad.connected ? 'D-pad ↑/↓ to choose · A to buy or equip · X sell to Earl · Start to continue' : touchMode ? 'Tap an item to buy' : 'Click an item to buy or equip · keys 1–9 for the first nine · Enter to continue', cx, y + 66);
 }
+
+// ---------------------------------------------------------------- every night plays differently   /*vary18*/
+// Each season night has its own job from Steve (GOALS), and nights 2+ roll a TWIST from a pool, so a retry
+// or an Endless night is never the same as the last one.
+const GOALS = {
+  freezer: { title: 'Fill the freezer', brief: 'Bring the deer home to your shed.' },
+  trophy: { title: 'Trophy order', brief: 'Steve has a buyer who wants antlers. Bucks are out tonight, and at least :N of your deer must be a buck.' },
+  rush: { title: 'Rush order', brief: 'Steve can\'t wait for the freezer. Drag :N deer straight to his van on the east logging road. He pays $75 extra each, on the spot.' },
+  blackout: { title: 'Blackout', brief: 'The power\'s out. No streetlights, no floodlights, and the neighbors carry flashlights: long, narrow beams.' },
+  party: { title: 'Block party', brief: 'Linda\'s "Neighborhood Unity" party fills the north street. Lit up and crowded, but the music drowns out your noise nearby.' },
+};
+const GOAL_BY_NIGHT = { 1: 'freezer', 2: 'trophy', 3: 'rush', 4: 'blackout', 5: 'party' };
+const TWISTS = {
+  fullmoon: { label: '🌕 Full moon: everyone sees farther tonight.' },
+  newmoon: { label: '🌑 New moon: pitch dark. Easier to hide, harder to aim at things you can\'t see.' },
+  rut: { label: '🦌 The rut: bucks everywhere, and more deer than usual.' },
+  donuts: { label: '🍩 Donut run: two Watch volunteers stop for donuts at the start of the night.' },
+  surge: { label: '💰 Steve\'s surge pricing: he pays 40% more per pack tonight.' },
+  inspection: { label: '📋 Lawn inspection: an extra HOA inspector walks the north street.' },
+  gusty: { label: '🍃 Gusty: the wind keeps changing. Watch the WIND arrow.' },
+  karaoke: { label: '🎤 Todd\'s karaoke night: the whole street is loud, so your noise carries half as far.' },
+};
+function goalNeed(id) { const d = settings.difficulty; return id === 'trophy' || id === 'rush' ? (d === 'hard' ? 2 : 1) : 0; }
+function goalText(g) { return g ? GOALS[g.id].brief.replace(':N', g.need) : ''; }
+// Pick tonight's goal and twist (before deer spawn: the rut and the trophy order change the herd)
+function chooseNightPlan() {
+  G.goal = null; G.twist = null; G.vanDeer = 0;
+  if (oneNightMode()) return;
+  const id = night <= 5 ? GOAL_BY_NIGHT[night] : pick(['trophy', 'rush', 'blackout', 'party', 'freezer']);
+  if (id && id !== 'freezer') G.goal = { id, need: goalNeed(id) };
+  // a twist is rolled once per night: Restart, a retry and Continue get the same one (no rerolling for surge pricing)
+  const tf = campaign.twistFor;
+  if (night >= 2) G.twist = tf && tf.night === night && TWISTS[tf.twist] ? tf.twist : pick(Object.keys(TWISTS).filter(t => !(id === 'blackout' && t === 'newmoon')));
+  if (G.twist) campaign.twistFor = { night, twist: G.twist };
+  G.buckChance = (G.goal && G.goal.id === 'trophy') || G.twist === 'rut' ? 0.45 : 0.22;
+  if (G.twist === 'fullmoon') G.moon = 'full';
+  if (G.twist === 'newmoon') G.moon = 'new';
+  if (G.goal && G.goal.id === 'trophy') G.tags.buck = Math.max(G.tags.buck, G.goal.need + 1);
+}
+// Change the world and the watchers for tonight's goal and twist (after they're built)
+function applyNightPlan() {
+  const g = G.goal && G.goal.id, { vx, hy } = world;
+  if (g === 'blackout') {
+    G.blackout = true; world.lights = []; world.floods = [];
+    for (const h of world.houses) { h.lit = [false, false, false]; h.tv = false; }
+    for (const w of watchers) if (!['cop', 'drone', 'cam', 'k9', 'window'].includes(w.type)) { w.fov *= 0.7; w.range *= 1.15; w.flashlight = true; }
+  }
+  if (g === 'party') {
+    const y = hy[0] + ROAD / 2, x0 = vx[0] + ROAD + 120, x1 = vx[1] - 120;
+    G.party = { x: (x0 + x1) / 2, y, r: 520 };
+    world.lights.push({ x: G.party.x - 120, y }, { x: G.party.x + 120, y });
+    const names = ['Party guest (Todd\'s cousin)', 'Party guest (with sparkler)', 'Party guest (dancing)', 'DJ Kevin'];
+    for (let i = 0; i < 4; i++) {
+      const px = lerp(x0, x1, (i + 0.5) / 4);
+      watchers.push(makeWatcher('watch', [{ x: px - 40, y: y + (i % 2 ? 22 : -22) }, { x: px + 40, y: y + (i % 2 ? -22 : 22) }], { extra: true, speed: 28, fov: 1.5, range: 200, pause: 3, rate: 20, label: names[i] }));
+    }
+  }
+  if (G.twist === 'rut') for (let i = 0; i < 3; i++) spawnDeer(false);
+  if (G.twist === 'donuts') {
+    const vols = watchers.filter(w => w.type === 'watch' && !w.cart).slice(0, 2);
+    for (const w of vols) { w.eating = rnd(70, 110); w.label = (w.label || 'Watch') + ' (donut break)'; }
+  }
+  if (G.twist === 'surge' && !G.haggled) G.price = Math.round(G.price * 1.4);   // a haggled quote already has the surge in it
+  if (G.twist === 'inspection') watchers.push(makeWatcher('watch', [{ x: M + 60, y: hy[0] + 28 }, { x: W - M - 60, y: hy[0] + 28 }], { extra: true, speed: 70, fov: 1.25, range: 240, pause: 2.5, rate: 26, label: 'HOA lawn inspector' }));
+}
+function goalMet() {
+  const g = G && G.goal;
+  if (!g) return true;
+  if (g.id === 'trophy') return G.bucks >= g.need;
+  if (g.id === 'rush') return (G.vanDeer || 0) >= g.need;
+  return true;
+}
+// The night is won when the quota is in and Steve's order is filled
+function quotaMet() { return !!G && G.delivered >= G.quota && goalMet(); }
+function goalProgress() {
+  const g = G && G.goal;
+  if (!g) return '';
+  if (g.id === 'trophy') return `Bucks ${Math.min(G.bucks, g.need)}/${g.need}`;
+  if (g.id === 'rush') return `To Steve's van ${Math.min(G.vanDeer || 0, g.need)}/${g.need}`;
+  return GOALS[g.id].title;
+}
+function rushOpen() { return !!(G && G.goal && G.goal.id === 'rush' && (G.vanDeer || 0) < G.goal.need && !G.police); }
+function nearVanDrop() { const v = world.van; return dist(player.x, player.y, v.x + v.w / 2, v.y + v.h / 2) < 140; }
+function partyNoise() { return G && G.party && player && dist(player.x, player.y, G.party.x, G.party.y) < G.party.r ? 0.45 : 1; }

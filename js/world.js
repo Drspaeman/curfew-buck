@@ -10,9 +10,11 @@ const HW = 230, HH = 160;
 let world = null;
 
 function buildWorld() {
-  const SEED = campaign && campaign.map === 'random' && campaign.mapSeed ? campaign.mapSeed : 1337;
+  const SEED = campaign && campaign.map === 'random' && campaign.mapSeed ? campaign.mapSeed : seasonMapSeed();   /*vary18*/
   const R = mulberry32(SEED);
-  const J = a => SEED === 1337 ? 0 : Math.round((R() * 2 - 1) * a);
+  // season nights shift the same neighborhood a little (streets move up to ~a third as far as a Random map), so blocks keep room for yards and the shed
+  const shift = campaign && campaign.map === 'random' ? 1 : 0.3;
+  const J = a => SEED === 1337 ? 0 : Math.round((R() * 2 - 1) * a * shift);
   const shuffled = n => { const a = [...Array(n).keys()]; if (SEED !== 1337) for (let i = n - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const vx = [M + 1000 + J(150), M + 2100 + J(150)];
   const hy = [M + 650 + J(70), M + 1350 + J(70)];
@@ -66,7 +68,10 @@ function buildWorld() {
   for (const bi of (SEED === 1337 ? [0, 2, 5, 6, 7] : shuffled(9).slice(0, 3 + Math.floor(R() * 4)))) {
     const b = blocks[bi];
     const yardTop = b.y + 34 + HH, yardBot = b.y + b.h - 34 - HH;
-    pools.push({ x: Math.round(b.x + b.w * 0.75 - 60), y: Math.round((yardTop + yardBot) / 2 - 32), w: 120, h: 64, pool: true, noLos: true });
+    // a shifted street can squeeze the backyard: keep a walkable gap (46 px) past the pool on both sides, or skip it   /*vary18*/
+    const ph = Math.min(64, yardBot - yardTop - 92);
+    if (ph < 30) continue;
+    pools.push({ x: Math.round(b.x + b.w * 0.75 - 60), y: Math.round((yardTop + yardBot) / 2 - ph / 2), w: 120, h: ph, pool: true, noLos: true });
   }
   // Fishing ponds: a quiet one in the west woods, and the HOA clubhouse koi pond in the north woods.
   const ponds = [
@@ -431,6 +436,12 @@ function nextHint() {
   while (q && q.length) { const h = q.shift(); if (!campaign.hints[h.id]) { campaign.hints[h.id] = true; G.hint = { id: h.id, text: h.text, t: 6 }; return; } }
 }
 
+function seasonMapSeed() {
+  if (!campaign || night <= 1 || campaign.daily || oneNightMode()) return 1337;
+  return (((campaign.sid || 1) % 1000003) * 31 + night * 7919) % 2147483647 || 7;
+}
+// Can Dale walk from his shed to here? (collectibles must never land in a fenced-off pocket)
+function canReach(x, y) { const sh = world.shed; return reachable(sh.x + sh.w / 2, sh.y + sh.h + 30, x, y, 22); }
 function startNight() {
   if (campaign.daily) Math.random = mulberry32(dailySeed(campaign.daily));   // a Restart rebuilds the same Daily
   if (!oneNightMode()) campaign.diffLow = easierDiff(campaign.diffLow, settings.difficulty);   // the season's easiest difficulty
@@ -454,6 +465,7 @@ function startNight() {
     tags: { buck: 2, doe: 0 }, poached: 0, holiday: isHolidayNight(night),
   };
   G.tags.doe = G.quota + 1;
+  chooseNightPlan();
   if (campaign.truckDeer && !oneNightMode()) {
     G.delivered += campaign.truckDeer; G.fromTruck = campaign.truckDeer;
     G.banner = { text: `🛻 ${campaign.truckDeer} deer from the truck bed already count toward tonight`, color: '#9be564', t: 4 };
@@ -467,7 +479,7 @@ function startNight() {
   // Three HOA violation notices blow around the yards each night.
   for (let k = 0; k < 500 && G.notices.length < 3; k++) {
     const x = rnd(M + 40, W - M - 40), y = rnd(M + 40, H - M - 40);
-    if (world.blocked(x, y, 24) || G.notices.some(n => dist(n.x, n.y, x, y) < 700)) continue;
+    if (world.blocked(x, y, 24) || G.notices.some(n => dist(n.x, n.y, x, y) < 700) || !canReach(x, y)) continue;   /* the bot found a note no one could walk to */
     G.notices.push({ x, y, text: pick(NOTICES), got: false, rot: rnd(-0.5, 0.5) });
   }
   // Gossip notes: collectible neighborhood secrets that stay collected across seasons
@@ -476,7 +488,7 @@ function startNight() {
   G.gossip = [];
   for (let k = 0; k < 400 && G.gossip.length < Math.min(3, left.length); k++) {
     const x = rnd(M + 40, W - M - 40), y = rnd(M + 40, H - M - 40);
-    if (world.blocked(x, y, 24) || G.gossip.some(n => dist(n.x, n.y, x, y) < 600) || G.notices.some(n => dist(n.x, n.y, x, y) < 200)) continue;
+    if (world.blocked(x, y, 24) || G.gossip.some(n => dist(n.x, n.y, x, y) < 600) || G.notices.some(n => dist(n.x, n.y, x, y) < 200) || !canReach(x, y)) continue;
     G.gossip.push({ x, y, idx: left[G.gossip.length], got: false });
   }
   setupGoth();   // Raven, her hidden trading cards and a band poster (js/goth.js)
@@ -519,6 +531,7 @@ function startNight() {
     G.heatPatrol = true;
     spawnCop();
     const pc = watchers[watchers.length - 1]; pc.label = 'Patrol car';
+    pc.wait = 20;   // it idles at the edge of town first: a head start, so it can't bust you in the first seconds (the bot kept getting arrested at 4:45)
     G.banner = { text: '🚔 Heightened patrols tonight: a cruiser is already out after last night.', color: '#9ecbff', t: 4 };
   }
   if (night > 5) {
@@ -531,6 +544,7 @@ function startNight() {
         { speed: 60, fov: 1.3, range: 230, pause: 2, rate: 24, label: 'Volunteer #' + (i + 1) }));
     }
   }
+  applyNightPlan();
   setupTwoPlayer();
   if (campaign.halloween) setupHalloween();
   cam.shake = 0;
@@ -564,7 +578,7 @@ function spawnDeer(woodsOnly, legend) {
     if ((woodsOnly || legend) && !world.inWoods(x, y)) continue;
     if (player && dist(x, y, player.x, player.y) < 600) continue;
     if (dist(x, y, 130, world.hy[0] + 60) < (legend ? 1400 : 500)) continue;
-    const buck = legend || Math.random() < 0.22;
+    const buck = legend || Math.random() < (G && G.buckChance || 0.22);
     const points = legend ? 14 : buck ? pick([6, 8, 8, 10, 10, 12]) : 0;
     deer.push({ id: (spawnDeer.next = (spawnDeer.next || 0) + 1), x, y, ang: rnd(0, TAU), state: 'graze', t: rnd(1, 4), dead: false, buck, legend: !!legend, hp: legend ? 2 : 1, carried: false, bob: rnd(0, TAU), points,
       fawn: !buck && Math.random() < 0.3 ? { x: x - 20, y: y + 10, gone: 0 } : null,

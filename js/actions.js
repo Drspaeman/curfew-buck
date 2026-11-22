@@ -90,7 +90,7 @@ function noiseMult() {
   if (!G) return 1;
   const chad = watchers.find(w => w.type === 'chad');
   const blower = chad && dist(chad.x, chad.y, player.x, player.y) < 240 ? 0.4 : 1; // Chad's leaf blower drowns you out
-  return (G.weather === 'rain' ? 0.7 : G.weather === 'snow' ? 0.85 : 1) * blower * gothNoiseMult();   // Velvet Casket\'s garage show (js/goth.js)
+  return (G.weather === 'rain' ? 0.7 : G.weather === 'snow' ? 0.85 : 1) * blower * gothNoiseMult() * partyNoise() * (G.twist === 'karaoke' ? 0.5 : 1);   /*vary18*/   // Velvet Casket\'s garage show (js/goth.js)
 }
 function weatherVis() { return !G ? 1 : G.weather === 'fog' ? 0.72 : G.weather === 'rain' ? 0.85 : G.weather === 'snow' ? 0.95 : 1; }
 
@@ -148,12 +148,12 @@ function nearTruck() {
 function tryLeave() {
   if (!nearTruck()) { popup(player.x, player.y - 30, `Get back to your shed to end the night (${ctl('leave')})`, '#ffd166', 1.4); return; }
   if (player.carry) deliver();   // the deer you just picked up at the shed counts before the quota check
-  if (G.delivered >= G.quota) { endNight('win'); return; }
+  if (quotaMet()) { endNight('win'); return; }
   if (G.police) { endNight('escaped'); return; }
   const short = G.quota - G.delivered;
   if (G.leaveAsk === undefined || G.playT - G.leaveAsk > 3) {
     G.leaveAsk = G.playT;
-    popup(player.x, player.y - 30, `${short} deer short. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} again to end the night.`, '#ff9f6b', 3);
+    popup(player.x, player.y - 30, `${short > 0 ? short + ' deer short' : 'Steve\'s order isn\'t filled (' + goalProgress() + ')'}. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('leave')} again to end the night.`, '#ff9f6b', 3);
     sfx.thunk();
     return;
   }

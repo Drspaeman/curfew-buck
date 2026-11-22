@@ -261,10 +261,10 @@ QUIPS.cam = ['*ding dong* Motion detected.', '📷 *click* Clip saved to the clo
 QUIPS.chad = ['Bro. BRO. Are you hunting?', 'Babe! Your ex is in the yard again!', 'Can\'t hear you over the blower, dude!', 'Is that a crossbow? Sick. Also: no.'];
 const NIGHT_INTROS = [
   'Opening night. Darlene got the house and the dog. Her lawyer got the hunting lease. You got a bow and a grudge. The deer of Whispering Pines have gotten fat on hostas. Fill the freezer before sunrise.',
-  'The NO HUNTING signs stayed up. Now Linda has made Neighborhood Watch patrols mandatory, and Todd brought his own whistle. Stay low.',
-  'The HOA called an emergency meeting about "the Orange Menace." There are more of them out tonight.',
-  'Fog tonight. More motion lights on the lawns, and Gary has a drone in the air, bought with HOA dues.',
-  'Last night of the season. The whole subdivision is on alert. One more haul and the freezer\'s full for the year.',
+  'The NO HUNTING signs stayed up, Linda made Neighborhood Watch patrols mandatory, and Todd brought his own whistle. Steve texted: a "client" wants antlers. Bring him a buck.',   /*vary18*/
+  'The HOA called an emergency meeting about "the Orange Menace," so there are more of them out. Steve has a rush order: drag a deer straight to his van. No freezer, no questions.',
+  'Fog tonight, and Gary flew his first drone into the transformer. The power is out: no streetlights, no floodlights, and every neighbor has a flashlight. His second drone is already up.',
+  'Last night of the season. Linda is throwing a "Neighborhood Unity" block party on the north street to keep an eye out. The music is loud. One more haul and the freezer\'s full for the year.',
 ];
 const ENDLESS_INTROS = [
   'Endless season. Linda has declared a "permanent state of emergency." Nobody in Whispering Pines sleeps anymore.',
@@ -350,7 +350,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '2.0.2';
+const VERSION = '2.1.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',

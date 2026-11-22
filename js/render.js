@@ -809,7 +809,7 @@ function glow(c, x, y, r, a) {
 
 function drawLighting(now) {
   const p = state === 'title' ? 0 : progress();
-  const a = clamp(lerp(0.74, 0.12, Math.pow(p, 1.4)) + (G ? moonFx().dark : 0), 0.05, 0.86) * (G && G.nvgOn ? 0.3 : 1);
+  const a = clamp(lerp(0.74, 0.12, Math.pow(p, 1.4)) + (G ? moonFx().dark + (G.blackout ? 0.07 : 0) : 0), 0.05, 0.86) * (G && G.nvgOn ? 0.3 : 1);
   const r = Math.round(lerp(6, 70, p)), g = Math.round(lerp(10, 45, p)), b = Math.round(lerp(32, 50, p));
   lctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   lctx.globalCompositeOperation = 'source-over';
@@ -1106,8 +1106,8 @@ function drawHUD(now) {
   ctx.fillStyle = '#fff'; ctx.font = 'bold 15px system-ui, sans-serif';
   ctx.fillText(fitText(`${campaign.halloween ? '🎃 HALLOWEEN' : 'NIGHT ' + night}  ·  ${clockText()}${!oneNightMode() && night <= 5 && campaign.strikes ? '  ·  ⚠' + campaign.strikes + '/' + strikesMax() : ''}`, 226), 28, 38);   // strikes: 3 and the shed is towed
   ctx.font = '13px system-ui, sans-serif';
-  ctx.fillStyle = G.delivered >= G.quota ? '#9be564' : '#e8e8e8';
-  ctx.fillText(`Quota: ${G.delivered} / ${G.quota} deer${G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 28, 60);
+  ctx.fillStyle = quotaMet() ? '#9be564' : '#e8e8e8';   /*vary18*/
+  ctx.fillText(fitText(`Quota: ${G.delivered} / ${G.quota} deer${G.goal && (G.goal.id === 'trophy' || G.goal.id === 'rush') ? '  ·  ' + goalProgress() : G.bucks ? `  (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}`, 226), 28, 60);
   ctx.fillStyle = '#e8e8e8';
   ctx.fillText(`Score: ${campaign.score + G.nightScore}   ·   Cash: $${campaign.cash + G.earned}`, 28, 80);
   ctx.fillStyle = player.arrows > 2 ? '#e8e8e8' : !settings.flashes ? '#ff6b6b' : (Math.floor(performance.now() / 300) % 2 ? '#ff6b6b' : '#ffd166');
@@ -1225,8 +1225,8 @@ function drawHUD(now) {
     ctx.globalAlpha = 1;
   }
   // pointers: shed when dragging/police/quota met, Steve's van when carrying a cooler, objective spot
-  if (player.cooler && !G.police) drawTruckPointer(world.van, 'STEVE', '#b5e86a');
-  else if (player.carry || player.bag > 3 || G.police || G.delivered >= G.quota) drawTruckPointer(world.shed, 'SHED', '#ffd166');
+  if ((player.cooler && !G.police) || (player.carry && rushOpen())) drawTruckPointer(world.van, 'STEVE', '#b5e86a');
+  else if (player.carry || player.bag > 3 || G.police || quotaMet()) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   if (player.cooler && G.police) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   if (player.arrows <= 0 && !player.carry) {
     let best = null, bd = 1e9;
@@ -1492,9 +1492,11 @@ function drawScreenBody(now) {
     let y = wrapText(campaign.map === 'golf' ? GOLF_INTRO : campaign.map === 'cul' ? CUL_INTRO : campaign.map === 'random' ? RANDOM_INTRO : campaign.halloween ? HALLOWEEN_INTRO : campaign.map === 'custom' ? (campaign.customSpec.intro || `A custom neighborhood${campaign.customSpec.author ? ' by ' + campaign.customSpec.author : ''}. Same HOA. Same ex-wife. Good luck.`) : introFor(night), cx, VH * 0.26 + 46, maxW, 24);
     ctx.fillStyle = '#9be564'; ctx.font = 'bold 18px system-ui, sans-serif';
     ctx.fillText(fitText(`Quota: ${G.quota} deer before sunrise${!oneNightMode() && night <= 5 ? `  ·  Strikes: ${campaign.strikes || 0} of ${strikesMax()}` : ''}`, maxW), cx, y + 50);
+    if (G.goal) { ctx.fillStyle = '#7cf'; ctx.font = 'bold 15px system-ui, sans-serif'; y = wrapText(`${GOALS[G.goal.id].title.toUpperCase()}: ${goalText(G.goal)}`, cx, y + 74, maxW, 19) - 52; }
     ctx.fillStyle = '#9ecbff'; ctx.font = '15px system-ui, sans-serif';
     const wEnd = wrapText(WEATHER_TEXT[G.weather], cx, y + 78, maxW, 19);   // the snow warning is long on a phone
-    ctx.fillStyle = '#c9d6ff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(moonFx().label, cx, wEnd + 20); y = wEnd - 58;
+    ctx.fillStyle = '#c9d6ff'; ctx.font = '14px system-ui, sans-serif'; ctx.fillText(fitText(moonFx().label, maxW), cx, wEnd + 20); y = wEnd - 58;
+    if (G.twist && !G.moon) { ctx.fillStyle = '#ffd38a'; const tEnd = wrapText('Tonight: ' + TWISTS[G.twist].label, cx, wEnd + 42, maxW, 18); y += tEnd - (wEnd + 42) + 22; }   // wraps on a phone
     if (G.objective) {
       ctx.fillStyle = '#7cf'; ctx.font = 'bold 15px system-ui, sans-serif';
       ctx.fillText(fitText(`★ Optional objective: ${G.objective.text}${G.objective.reward ? ` (+$${G.objective.reward})` : ''}`, maxW), cx, y + 102);
@@ -1639,6 +1641,7 @@ function drawScreenBody(now) {
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : 0;
     const rows = [
       `Deer delivered: ${G.delivered} / ${G.quota}${G.bucks ? ` (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}${G.legendDone ? ' + OLD HOSTA' : ''}`,
+      G.goal && (G.goal.id === 'trophy' || G.goal.id === 'rush') ? `${GOALS[G.goal.id].title}: ${goalProgress()} ${goalMet() ? '✓' : '✗ not filled'}` : '',
       `Arrows fired: ${G.shots}  ·  Accuracy: ${acc}%  ·  Times spotted: ${G.timesSpotted}`,
       `Sold to Steve: ${packsText(G.soldPacks || 0)}  ·  Freezer: ${packsText(campaign.freezer)}  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
       campaign.versus ? (G.endReason === 'win' ? '🏆 Dale (Player 1) wins!' : '🏆 The HOA (Player 2) wins!') : campaign.coop ? `Co-op: ${G.delivered} deer, Tyler hauled ${G.tylerHauls || 0}` :
@@ -1839,7 +1842,7 @@ function contextLabel() {
   if (player.cooler) return nearTruck() ? '[E] put cooler back' : '';
   if (nearTruck() && G.freezer > 0) return '[E] pack a cooler';
   if (pondNear()) return '[E] fish';
-  if (nearTruck() && G.delivered >= G.quota) return '[Q] end the night';
+  if (nearTruck() && quotaMet()) return '[Q] end the night';
   return '';
 }
 function drawPlayerOverlay() {
