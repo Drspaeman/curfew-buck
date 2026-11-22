@@ -318,8 +318,9 @@ const TUTORIAL = [
   { text: 'Find a deer. The green arrow points to the nearest one.', done: () => deer.some(d => d.dead) || G.delivered > 0 || (nearestDeer() && dist(player.x, player.y, nearestDeer().x, nearestDeer().y) < 320 && los(player.x, player.y, nearestDeer().x, nearestDeer().y)) },
   { text: () => `${ctl('draw')} to draw your bow. ${ctl('release')} when the ring turns GREEN.`, done: () => deer.some(d => d.dead) || G.delivered > 0 },
   { text: () => `Walk to the deer and ${ctl('press')} ${ctl('use')} to drag it. Bring it home to your shed (yellow arrow).`, done: () => G.delivered > 0 },
-  { text: () => `At your shed, ${ctl('press')} ${ctl('use')} to pack a cooler of venison from the freezer.`, done: () => player.cooler > 0 || G.packedCooler },
-  { text: () => G.police ? `Steve won't open with cops around. Bring the cooler back to your shed and ${ctl('press')} ${ctl('use')} to unpack it. Sell another night.` : `Follow the green arrow to Steve's van. ${ctl('press') === 'tap' ? 'Tap' : 'Press'} ${ctl('use')} to open his menu, then choose Sell.`, done: () => (G.soldPacks || 0) > 0 || (G.police && G.packedCooler && !player.cooler) },
+  // the win condition comes right after the first haul; selling is an optional extra (Codex: players were sent across town first)   /*tut19*/
+  { text: () => `That's ${G.delivered} of ${G.quota}. Bring ${G.quota} deer home before sunrise, then ${ctl('press')} ${ctl('leave')} at the shed to end the night.`, done: () => G.delivered >= Math.min(2, G.quota) || G.playT - (G.tutStepAt || 0) > 9 },
+  { text: () => `Optional, for cash: ${ctl('press')} ${ctl('use')} at the shed to pack a cooler, then sell it at Steve's van (east logging road). Or just keep hunting.`, done: () => player.cooler > 0 || G.packedCooler || (G.soldPacks || 0) > 0 || G.playT - (G.tutStepAt || 0) > 10 },
 ];
 function nearestDeer() {
   let best = null, bd = 1e9;
@@ -330,7 +331,7 @@ function updateTutorial() {
   if (!G.tut) return;
   const step = TUTORIAL[G.tut.step];
   if (step && step.done()) {
-    G.tut.step++; G.tutT = 0; sfx.grab();
+    G.tut.step++; G.tutT = 0; G.tutStepAt = G.playT; sfx.grab();
     if (G.tut.step >= TUTORIAL.length) { G.tut = null; store.set('hs_tut_done', true); banner('Tutorial complete! Now fill your quota before sunrise.', '#9be564'); }
   }
 }

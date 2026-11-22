@@ -351,6 +351,8 @@ function remapKeyEvent(e) {
     else if (e.code === 'Escape') state = 'settings';
     return;
   }
+  // outside gameplay, Enter, Space and Escape always mean confirm and back, whatever was rebound (so menus can't be locked out)   /*keys19*/
+  if (state !== 'play' && ['Enter', 'NumpadEnter', 'Space', 'Escape'].includes(e.code)) return;
   // local 2-player: arrows, Right Shift and Enter belong to Player 2, whatever Dale's bindings say
   const P2_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftRight', 'Enter', 'NumpadEnter'];
   if (typeof twoP === 'function' && twoP() && P2_KEYS.includes(e.code)) return;

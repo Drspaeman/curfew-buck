@@ -1439,7 +1439,7 @@ function callPolice(w) {
   saveChaseCheckpoint();
   sfx.alert();
   popup(w.x, w.y - 50, w.type === 'ex' ? QUIPS.callEx : w.type === 'cop' ? 'Dispatch, I have eyes on the orange vest! Send everybody.' : QUIPS.callHoa, '#ff6b6b', 3.5);
-  banner(world.golf ? '911 CALLED! Cops arrive in 7 seconds. Get back to Earl\'s truck!' : quotaMet() || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');
+  banner(world.golf ? '911 CALLED! Cops arrive in 7 seconds. Get back to Earl\'s truck!' : quotaMet() || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : G.delivered >= G.quota ? `911 CALLED! Cops in 7 seconds, and Steve's van is closed with cops out. His order isn't filled (${goalProgress()}), so escaping ends the night short.` : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');   /*msg19*/
   hint('police', 'The cops are coming. Get back inside your shed before the LOCKDOWN timer runs out, or you\'re arrested (two strikes). If a cruiser\'s spotlight holds on you, the ARREST bar fills. Getting away still costs a $50 citation.');
 }
 
@@ -1532,7 +1532,7 @@ function endNight(reason) {
     if (reason === 'arrested' && night < 5 && !oneNightMode() && !campaign.courtUsed) {
       // First arrest of the season: you get your day in court. The save remembers, so a reload goes to court too.
       state = 'over'; sfx.lose();
-      saveOk(store.set('hs_save', { night, campaign, court: true, start: nightStart && nightStart.night === night ? nightStart.campaign : null }));   /*fix16*/
+      saveOk(store.set('hs_save', { night, campaign, court: true, start: nightStart && nightStart.night === night ? nightStart.campaign : null, result: nightResult() }));   /*fix16*/ /*save19*/
       playScene(storyLines('busted'), () => { G.court = null; state = 'court'; });
       story.jail = true;
       return;
@@ -1553,7 +1553,7 @@ function endNight(reason) {
       if (campaign.freezer > 0) { campaign.earlLast = { packs: campaign.freezer, cash: campaign.freezer * 12 }; campaign.cash += campaign.earlLast.cash; campaign.freezer = 0; }
       if (settings.difficulty === 'easy') { campaign.earlChip = 300; campaign.cash += 300; }
     }
-    if (!oneNightMode()) { recordScore(); clearSave(); }
+    if (!oneNightMode()) { recordScore(); if (reason === 'win' && night === 5) saveOk(store.set('hs_save', { night: 6, campaign, phase: 'ended' })); else clearSave(); }
     state = 'over'; reason === 'win' ? sfx.win() : sfx.lose();
     if (reason === 'win' && night === 5) {
       if (campaign.cash >= CABIN_GOAL) unlock('cabin');
@@ -1599,7 +1599,9 @@ function retryNight() {
 }
 function saveGame() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night, campaign })); }
 // Between nights (results and Earl's shop): Continue starts the next night with everything kept.
-function saveNext() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night: night + 1, campaign })); }
+function saveNext() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night: night + 1, campaign, phase: 'shop' })); }
+// What the night achieved, for a court date that's reloaded before the verdict
+function nightResult() { return G ? { delivered: G.delivered, quota: G.quota, bucks: G.bucks, vanDeer: G.vanDeer || 0, goal: G.goal ? Object.assign({}, G.goal) : null } : null; }
 // Storage full or blocked (private mode, quota): say so once, instead of losing the season silently on reload
 let saveWarned = false;
 function saveOk(ok) {
@@ -1620,19 +1622,35 @@ function readSave() {
     if (want && typeof want === 'object') { if (!c[k] || typeof c[k] !== 'object' || Array.isArray(c[k]) !== Array.isArray(want)) c[k] = want; }
     else if (typeof want === 'number') { const v = Number(c[k]); c[k] = Number.isFinite(v) ? v : want; }
   }
-  return { night: n, campaign: c, court: !!s.court, start: s.court && s.start && typeof s.start === 'object' && !Array.isArray(s.start) ? s.start : null };
+  const result = s.court && s.result && typeof s.result === 'object' && Number.isFinite(Number(s.result.delivered)) ? s.result : null;
+  return { night: n, campaign: c, court: !!s.court, start: s.court && s.start && typeof s.start === 'object' && !Array.isArray(s.start) ? s.start : null, result, phase: ['shop', 'ended'].includes(s.phase) ? s.phase : null };
 }
 function clearSave() { if (previewMode) return; try { localStorage.removeItem('hs_save'); } catch (e) { /* no storage */ } }
 function loadGame() {
   restoreRandom();
   const s = readSave();
   if (!s) return false;
+  // between nights: back to Earl's shop for the night you won (no hunt is rebuilt, so tomorrow's patrol is kept)
+  if (s.phase === 'shop' && s.night > 1) {
+    night = s.night - 1; campaign = s.campaign; story = null;
+    goShop();
+    return true;
+  }
+  // the season is over: the ending plays again, then Endless picks up at Night 6
+  if (s.phase === 'ended') {
+    night = 5; campaign = s.campaign;
+    playScene(buildEnding(campaign), () => { startEndless(); });
+    return true;
+  }
   night = s.night;
   campaign = s.campaign;
+  const heatKeep = campaign.heat;
   startNight();
+  if (s.court) campaign.heat = heatKeep;   // the arrest's 911 call still puts a patrol out tomorrow
   if (!s.court && campaign.strikes && !oneNightMode()) banner(`⚠ Strike ${campaign.strikes} of ${strikesMax()}. ${strikesMax() - campaign.strikes === 1 ? 'One more failed night' : strikesMax() - campaign.strikes === 2 ? 'Two more failed nights, or one arrest,' : 'A few more failed nights'} and the HOA tows the shed.`, '#ffb347');
   if (s.court) {   // reloaded mid-court: straight back to the judge, with the court record (and the night's real start) kept
-    story = null; G.court = null; state = 'court';
+    story = null; G.court = null; state = 'court'; G.endReason = 'arrested'; G.settled = true;
+    if (s.result) { G.delivered = Number(s.result.delivered) || 0; G.quota = Number(s.result.quota) || G.quota; G.bucks = Number(s.result.bucks) || 0; G.vanDeer = Number(s.result.vanDeer) || 0; G.goal = s.result.goal && GOALS[s.result.goal.id] ? s.result.goal : null; }
     if (s.start) nightStart = { night, campaign: JSON.parse(JSON.stringify(s.start)) };
     saveOk(store.set('hs_save', s));
   }

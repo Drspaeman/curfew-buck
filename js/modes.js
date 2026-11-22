@@ -248,18 +248,19 @@ function courtPlea(i) {
     // Guilty: two strikes and a $100 fine. Under three strikes, Dale retries the night on probation.   /*conseq*/
     campaign.strikes = (campaign.strikes || 0) + 2; G.strikeAdd = 2; G.retryFine = 100;
     if (campaign.strikes >= strikesMax()) {
-      G.evicted = true; G.court.text += ' That\'s three strikes. Your season is over.';
+      G.evicted = true; G.court.text += ` That's ${campaign.strikes} strikes, and the limit is ${strikesMax()}. Your season is over.`;
       recordScore(); G.court.recorded = true;   // on the board now, even if the tab closes before Continue
     } else {
       G.retry = true; G.court.text += ` Two strikes (${campaign.strikes} of ${strikesMax()}) and a $100 fine. You get to redo the night, on probation.`;
       saveOk(store.set('hs_save', { night, campaign: retryCampaign() }));
     }
   }
-  // the verdict is final the moment it is read: a reload can't buy a second plea
-  if (G.court.ok) saveNext(); else if (!G.retry) clearSave();
+  // the verdict is final the moment it is read: a reload can't buy a second plea   /*save19*/
+  if (G.court.ok && !quotaMet()) { G.retry = true; G.strikeAdd = 0; G.retryFine = G.courtPaid || 0; G.court.text += ' But you\'re still short tonight, so you redo the night. No strike.'; saveOk(store.set('hs_save', { night, campaign: retryCampaign() })); }
+  else if (G.court.ok) saveNext(); else if (!G.retry) clearSave();
 }
 function finishCourt() {
-  if (G.court.ok && !quotaMet()) { G.retry = true; G.strikeAdd = 0; G.retryFine = G.courtPaid || 0; saveOk(store.set('hs_save', { night, campaign: retryCampaign() })); state = 'over'; return; }   // dismissed, but still short: redo the night, no strike
+  if (G.court.ok && G.retry) { state = 'over'; return; }   // dismissed, but still short: redo the night, no strike (saved at the verdict)
   if (G.court.ok) { pickSpecial(); state = 'shop'; saveNext(); return; }
   if (G.retry) { state = 'over'; return; }
   if (!G.court.recorded) recordScore();
@@ -308,7 +309,7 @@ function drawSettings() {
     ...(gothBinderDone() ? [{ label: `Vest: ${settings.gothVest ? 'Raven\'s black 🦇' : 'Blaze orange'}`, fn: () => { settings.gothVest = !settings.gothVest; saveSettings(); } }] : []),
     { label: '⌨ Controls…', fn: () => { state = 'keys'; keyWait = null; } },
     { label: `Tutorial: ${store.get('hs_tut_done', false) ? 'Done (reset)' : 'Ready'}`, fn: () => store.del('hs_tut_done') },
-    { label: 'Fullscreen', fn: () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) { /* not allowed */ } } },
+    { label: document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen', fn: toggleFullscreen },   /*fs19*/
   ], Math.max(110, VH * 0.18 + 40), 200, 42);
   buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; }, hi: true }], y + 20, 200, 42);
 }
@@ -909,7 +910,7 @@ function customMapMenu() {
     const q = new URLSearchParams(location.search);
     const m = q.get('map');
     if (q.get('custom') === '1') { const saved = store.get('hs_custom_map', null); if (saved) setTimeout(() => startCustomMap(saved), 0); }
-    else if (m && /^maps\/[\w-]+\.json$/.test(m)) fetch(m).then(r => r.json()).then(spec => startCustomMap(spec)).catch(() => {});
+    else if (m && /^maps\/[\w-]+\.json$/.test(m)) fetch(m).then(r => r.json()).then(spec => startCustomMap(spec)).catch(() => toasts.push({ title: 'THAT MAP DID NOT LOAD', desc: 'Pick Custom map, then load the .json file from there.', t: 5 }));
   } catch (e) { /* no URL support */ }
 })();
 function setupCulWatchers() {
@@ -1086,6 +1087,8 @@ const GOALS = {
   blackout: { title: 'Blackout', brief: 'The power\'s out. No streetlights, no floodlights, and the neighbors carry flashlights: long, narrow beams.' },
   party: { title: 'Block party', brief: 'Linda\'s "Neighborhood Unity" party fills the north street. Lit up and crowded, but the music drowns out your noise nearby.' },
 };
+// the self-tests pin this (null = no twist) so a random twist never changes what a test measures
+let forcedTwist;
 const GOAL_BY_NIGHT = { 1: 'freezer', 2: 'trophy', 3: 'rush', 4: 'blackout', 5: 'party' };
 const TWISTS = {
   fullmoon: { label: '🌕 Full moon: everyone sees farther tonight.' },
@@ -1107,7 +1110,7 @@ function chooseNightPlan() {
   if (id && id !== 'freezer') G.goal = { id, need: goalNeed(id) };
   // a twist is rolled once per night: Restart, a retry and Continue get the same one (no rerolling for surge pricing)
   const tf = campaign.twistFor;
-  if (night >= 2) G.twist = tf && tf.night === night && TWISTS[tf.twist] ? tf.twist : pick(Object.keys(TWISTS).filter(t => !(id === 'blackout' && t === 'newmoon')));
+  if (night >= 2) G.twist = forcedTwist !== undefined ? forcedTwist : tf && tf.night === night && TWISTS[tf.twist] ? tf.twist : pick(Object.keys(TWISTS).filter(t => !(id === 'blackout' && t === 'newmoon')));
   if (G.twist) campaign.twistFor = { night, twist: G.twist };
   G.buckChance = (G.goal && G.goal.id === 'trophy') || G.twist === 'rut' ? 0.45 : 0.22;
   if (G.twist === 'fullmoon') G.moon = 'full';
@@ -1160,3 +1163,13 @@ function goalProgress() {
 function rushOpen() { return !!(G && G.goal && G.goal.id === 'rush' && (G.vanDeer || 0) < G.goal.need && !G.police); }
 function nearVanDrop() { const v = world.van; return dist(player.x, player.y, v.x + v.w / 2, v.y + v.h / 2) < 140; }
 function partyNoise() { return G && G.party && player && dist(player.x, player.y, G.party.x, G.party.y) < G.party.r ? 0.45 : 1; }
+
+// Fullscreen, with a message when the browser (or the page embedding the game) says no   /*fs19*/
+function toggleFullscreen() {
+  const fail = () => { toasts.push({ title: 'FULLSCREEN NOT ALLOWED HERE', desc: 'Use the browser fullscreen (F11), or the fullscreen button under the game on its page.', t: 5 }); sfx.thunk(); };
+  try {
+    const el = document.documentElement;
+    const p = document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null);
+    if (p && p.catch) p.catch(fail); else if (!document.fullscreenElement && !el.requestFullscreen && !el.webkitRequestFullscreen) fail();
+  } catch (e) { fail(); }
+}

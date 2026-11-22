@@ -39,7 +39,8 @@ const SCENES = {
     ['dale', 'Fifteen hundred bucks. I have a bow, a freezer, and a cousin of a cousin who buys meat out of a van.'],
     ['steve', '(text) its steve. IF u get deer, van is on the east logging road. u bring meat. i bring cash. delete this'],
     ['narrator', 'Stapled under the auction notice, in red pen: "FINAL WARNING. Miss your quota or get chased home: one strike. Get arrested: two."'],   /*dialog16*/ /*write16*/
-    ['narrator', '"Three strikes and this structure will be TOWED. Please empty the freezer before pickup. — L. Vance, HOA."'],
+    ['narrator', '"Three strikes and this structure will be TOWED. Please empty the freezer before pickup. — L. Vance, HOA."', () => settings.difficulty !== 'easy'],
+    ['narrator', '"Five strikes (the HOA is feeling generous) and this structure will be TOWED. — L. Vance, HOA."', () => settings.difficulty === 'easy'],
     ['dale', '(text) Steve, hypothetically, how much room is in the van?'],
     ['steve', '(text) theres room. u would have to sleep in the cooler aisle'],
   ],
@@ -117,12 +118,12 @@ const SCENES = {
     ['kowalski', 'Dale. Buddy. We\'ve talked about this.', c => !c.strikes],
     ['dale', 'I was taking out the trash.', c => !c.strikes],
     ['kowalski', 'With a bow. At 5 AM. In Gary\'s hydrangeas.', c => !c.strikes],
-    ['kowalski', 'Dale. I made you a punch card. Linda already stamped it twice.', c => c.strikes === 1 || c.strikes === 2],
-    ['dale', 'Do I get a sandwich with that?', c => c.strikes === 1 || c.strikes === 2],
-    ['kowalski', 'You get a bologna sandwich and Linda reading your file out loud at the next meeting.', c => c.strikes === 1 || c.strikes === 2],
-    ['kowalski', 'That\'s three strikes, Dale. Linda\'s already on the phone with the tow company. She\'s using her happy voice.', c => c.strikes >= 3],
-    ['dale', 'She has a happy voice?', c => c.strikes >= 3],
-    ['kowalski', 'Nobody\'s ever heard it before. It\'s horrifying.', c => c.strikes >= 3],
+    ['kowalski', 'Dale. I made you a punch card. Linda already stamped it twice.', c => c.strikes >= 1 && c.strikes < strikesMax()],
+    ['dale', 'Do I get a sandwich with that?', c => c.strikes >= 1 && c.strikes < strikesMax()],
+    ['kowalski', 'You get a bologna sandwich and Linda reading your file out loud at the next meeting.', c => c.strikes >= 1 && c.strikes < strikesMax()],
+    ['kowalski', 'That\'s the last strike, Dale. Linda\'s already on the phone with the tow company. She\'s using her happy voice.', c => c.strikes >= strikesMax()],
+    ['dale', 'She has a happy voice?', c => c.strikes >= strikesMax()],
+    ['kowalski', 'Nobody\'s ever heard it before. It\'s horrifying.', c => c.strikes >= strikesMax()],
   ],
   // Retrying a failed night: a short "take two", depending on how the night went wrong
   retry: [

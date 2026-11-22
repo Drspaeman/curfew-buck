@@ -1465,7 +1465,7 @@ function drawScreenBody(now) {
     const save = readSave();
     if (save) {
       y = buttonGrid([
-        { label: save.court ? `Continue (court date, Night ${save.night})` : `Continue (Night ${save.night})`, fn: () => loadGame(), hi: true },
+        { label: save.court ? `Continue (court date, Night ${save.night})` : save.phase === 'shop' ? `Continue (Earl's shop, before Night ${save.night})` : save.phase === 'ended' ? 'Continue (the ending, then Endless)' : `Continue (Night ${save.night})`, fn: () => loadGame(), hi: true },   /*save19*/
         { label: confirmNewAt && performance.now() - confirmNewAt < 3000 ? 'Click again: erase save?' : 'New season', fn: () => { if (confirmNewAt && performance.now() - confirmNewAt < 3000) { confirmNewAt = 0; newCampaign(); } else confirmNewAt = performance.now(); } },
       ], y - 8, 220, 42) - 10;
       ctx.fillStyle = '#e0b83a'; ctx.font = '13px system-ui, sans-serif';
@@ -1635,7 +1635,7 @@ function drawScreenBody(now) {
       ctx.fillText(`Strikes: ${'⚠'.repeat(Math.min(k, strikesMax()))}${'·'.repeat(Math.max(0, strikesMax() - k))}  (${Math.min(k, strikesMax())} of ${strikesMax()}${G.strikeAdd > 1 ? ', an arrest counts twice' : ''})`, cx, y - 8);
       ctx.fillStyle = '#e8e8e8'; ctx.font = '14px system-ui, sans-serif';
       y = wrapText(G.evicted ? 'The HOA towed the shed. Darlene talked them into leaving your cot on the porch. The season is over.'   /*write16*/
-        : `You can redo Night ${night} from the start, minus a $${G.retryFine} fine. Tonight's deer and cash are gone. A third strike ends the season.`, cx, y + 16, maxW, 20) + 26;
+        : `You can redo Night ${night} from the start, minus a $${G.retryFine} fine. Tonight's deer and cash are gone. ${strikesMax() - (campaign.strikes || 0) === 1 ? "One more strike ends the season." : `${strikesMax() - (campaign.strikes || 0)} more strikes end the season.`}`, cx, y + 16, maxW, 20) + 26;
     }
     ctx.font = '15px system-ui, sans-serif'; ctx.fillStyle = '#ccc';
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : 0;

@@ -103,7 +103,7 @@ frame = function () {};
       if (threat || (G.sus > 55 && !(bot.braveT > 0))) {
         const w0 = threat || nearest(watchers.filter(q => q.type !== 'cop'), player.x, player.y);
         // a bush nearby that's further from them: duck into it
-        const bush = w0 && !player.carry && nearest(world.bushes.filter(b => dist(b.x, b.y, player.x, player.y) < 230 && dist(b.x, b.y, w0.x, w0.y) > dist(player.x, player.y, w0.x, w0.y) - 10), player.x, player.y);
+        const bush = w0 && !player.carry && nearest(world.bushes.filter(b => dist(b.x, b.y, player.x, player.y) < 230 && walkable(player.x, player.y, b.x, b.y) && dist(b.x, b.y, w0.x, w0.y) > dist(player.x, player.y, w0.x, w0.y) - 10), player.x, player.y);
         if (bush) { bot.plan = 'hide in a bush'; bot.evades = (bot.evades || 0) + 1; if (player.drawing) player.drawing = false; if (player.hidden && G.sus > 5) { clearMove(); keys.ShiftLeft = true; } else goTo(bush.x, bush.y, true); return; }
         const w = threat || watchers.filter(q => q.type !== 'cop').sort((a, b) => dist(a.x, a.y, player.x, player.y) - dist(b.x, b.y, player.x, player.y))[0];
         if (w) {

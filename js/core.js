@@ -257,7 +257,7 @@ QUIPS.watch.push('Todd to base! Todd to... I don\'t have a base.', 'This is the 
 QUIPS.cop.push('Dale, my shift ends at six. Help me out here.', 'Don\'t make me call the dog, Dale.', 'Sarge! SARGE! Over here, boy!');
 QUIPS.investigate.push('If that\'s you, Dale, I\'m not mad. I\'m disappointed.', 'Deer? Raccoon? Dale?', 'I\'m getting the BIG flashlight.');
 QUIPS.kill.push('Grandpa would be proud.', 'That\'s rent.', 'Steve\'s gonna love this one.');
-QUIPS.cam = ['*ding dong* Motion detected.', '📷 *click* Clip saved to the cloud.', 'Ring! Someone is at your front door.'];
+QUIPS.cam = ['*ding dong* Motion detected.', '📷 *click* Clip saved to the cloud.', '*chime* Someone is at your front door.'];
 QUIPS.chad = ['Bro. BRO. Are you hunting?', 'Babe! Your ex is in the yard again!', 'Can\'t hear you over the blower, dude!', 'Is that a crossbow? Sick. Also: no.'];
 const NIGHT_INTROS = [
   'Opening night. Darlene got the house and the dog. Her lawyer got the hunting lease. You got a bow and a grudge. The deer of Whispering Pines have gotten fat on hostas. Fill the freezer before sunrise.',
@@ -350,7 +350,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '2.1.1';
+const VERSION = '2.2.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
@@ -367,7 +367,7 @@ const TIPS = [
 ];
 const CREDITS = [
   ['CURFEW BUCK', 'A game about deer, divorce, and HOA bylaws.'],
-  ['Engine', 'Plain JavaScript + HTML5 canvas. No libraries.'],
+  ['Engine', 'Plain JavaScript + HTML5 canvas. Internet co-op uses PeerJS (MIT license), loaded only when you pick it.'],
   ['Sound', 'Every beep, bark and burp, and the whole ambient-to-EDM score, is synthesized live.'],
   ['Built with', 'Claude Code, with bug hunts and joke reviews from Codex.'],
   ['Music', 'Velvet Casket appears courtesy of Gary\'s garage. Gary was not consulted.'],
