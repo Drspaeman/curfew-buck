@@ -320,8 +320,11 @@ const VOICEMAILS = {
 };
 const SHOP = [
   { id: 'ghillie', name: 'Ghillie Suit', price: 150, desc: 'Lose the orange vest. Watchers have to get 20% closer to spot you.' },
-  { id: 'boots', name: 'Quiet Boots', price: 100, desc: 'Dogs and deer notice you from much closer.' },
+  { id: 'tarp', name: 'Camo Tarp', price: 70, desc: 'Wrap your deer: dragging doesn\'t draw eyes, and you can hide while dragging.' },
   { id: 'sled', name: 'Drag Sled', price: 120, desc: 'Drag deer at 80% speed instead of 60%.' },
+  { id: 'boots', name: 'Quiet Boots', price: 100, desc: 'Dogs and deer notice you from much closer.' },
+  { id: 'trailcam', name: 'Trail Cam Network', price: 110, desc: 'Live deer show up on your minimap.' },
+  { id: 'nvg', name: 'Night-Vision Goggles', price: 180, desc: 'Press N to see in the dark. 90 seconds of battery per night.' },
   { id: 'truckbed', name: 'Truck Bed Extender', price: 125, desc: 'Up to 2 deer past tonight\'s quota ride in the truck and count toward tomorrow\'s.' },
   { id: 'recurve', weapon: 'recurve', name: 'Whisper Recurve (weapon)', price: 220, desc: 'Half as loud as your compound. Slower draw.' },
   { id: 'carbon', weapon: 'carbon', name: 'Carbon Compound (weapon)', price: 200, desc: 'Faster arrows, quicker draw, shorter reload.' },
@@ -331,10 +334,7 @@ const SHOP = [
   { id: 'quiver', name: 'Big Quiver', price: 80, desc: '+6 arrows each night.' },
   { id: 'pouch', name: 'Pinecone Pouch', price: 60, desc: '+3 pinecones each night. That bulk-bin feeling.' },
   { id: 'scent', name: 'Scent Blocker Spray', price: 90, desc: 'Deer downwind can barely smell you.' },
-  { id: 'trailcam', name: 'Trail Cam Network', price: 110, desc: 'Live deer show up on your minimap.' },
-  { id: 'tarp', name: 'Camo Tarp', price: 70, desc: 'Wrap your deer: dragging doesn\'t draw eyes, and you can hide while dragging.' },
   { id: 'corn', name: 'Corn Feeder Bags', price: 50, desc: '2 corn piles per night (B to drop). Deer flock to them.' },
-  { id: 'nvg', name: 'Night-Vision Goggles', price: 180, desc: 'Press N to see in the dark. 90 seconds of battery per night.' },
   { id: 'jerky', name: 'Beef Jerky', price: 8, desc: 'Press J near a dog: it stays quiet the rest of the night.', consumable: true, max: 5 },
   { id: 'burrito', name: 'Breakfast Burrito', price: 40, desc: 'One-time bribe: saves you from one arrest. Officer Kowalski can\'t resist.', consumable: true, max: 3 },
 ];
@@ -374,7 +374,7 @@ const diff = () => DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
 const VOL_STEPS = [1, 0.6, 0.3, 0];
 const cycleVol = v => VOL_STEPS[(VOL_STEPS.indexOf(VOL_STEPS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a)) + 1) % VOL_STEPS.length];
 const pct = v => v > 0 ? Math.round(v * 100) + '%' : 'Off';
-const VERSION = '2.3.1';
+const VERSION = '2.4.0';
 const TIPS = [
   'Pinecones never raise suspicion. Throw one to pull a watcher off your path.',
   'Bucks are worth more points the more antler points they have. Look for the big racks.',
@@ -404,6 +404,7 @@ const ACH = {
   exproof: ['Darlene-Proof', 'Meet quota without Darlene seeing you'],
   trophy: ['Trophy Room', 'Deliver a buck'],
   legend: ['Legend Slayer', 'Bag Old Hosta'],
+  letbe: ['Some Deer You Let Be', 'Let Old Hosta walk'],
   getaway: ['Getaway Driver', 'Escape with the cops on scene'],
   robin: ['Robin Hood', '100% accuracy in a night (3+ arrows)'],
   decoy: ['Raccoons Again?', 'Lure a watcher with a pinecone'],

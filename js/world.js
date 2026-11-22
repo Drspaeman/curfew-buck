@@ -389,7 +389,7 @@ function fillTag(d) {
   if (G.tags[k] > 0) { G.tags[k]--; if (G.tags[k] === 0) { popup(d.x, d.y - 48, `Last ${k} tag used.`, '#ffd166', 1.6); banner(`No ${k} tags left tonight. Another ${k} would be poaching: it scores nothing and raises suspicion.`, '#ffd166'); } return; }
   d.poached = true;
   G.poached++;
-  if (!G.police) G.sus = Math.min(99, G.sus + 25);
+  if (!G.police) { logAlarm('Poaching', null, Math.max(0, Math.min(25, 99 - G.sus))); G.sus = Math.min(99, G.sus + 25); }
   popup(d.x, d.y - 48, `No ${k} tag left! That's poaching, Dale. (+25 suspicion)`, '#ff6b6b', 2.2);
   hint('tags', 'You get 2 buck tags and (quota + 1) doe tags a night. A deer with no tag is poached: it scores nothing, and the neighbors get twitchy.');
 }
@@ -517,7 +517,7 @@ function startNight() {
   if (campaign.daily) Math.random = mulberry32(dailySeed(campaign.daily) ^ 0x5bd1e995);
   for (let i = 0; i < 9 + night; i++) spawnDeer(false);
   const legendChance = night >= 5 ? 1 : night >= 3 ? 0.5 : 0;
-  if (Math.random() < legendChance && !(campaign.flags && campaign.flags.hostaDone && !oneNightMode())) spawnDeer(false, true);   // once he's in the freezer, he stays there
+  if (Math.random() < legendChance && !(campaign.flags && (campaign.flags.hostaDone || campaign.flags.hostaSpared) && !oneNightMode())) spawnDeer(false, true);   // once he's in the freezer (or you let him walk), he's gone for the season
   if (campaign.map === 'golf') setupGolfWatchers(); else if (campaign.map === 'cul') setupCulWatchers(); else if (campaign.map === 'custom') setupSpecWatchers(); else setupWatchers();
   spawnCritters();
   setupObjective();
@@ -548,6 +548,12 @@ function startNight() {
     }
   }
   applyNightPlan();
+  const kp = campaign.keep;   // a second-chance night: the deer already brought in still count   /*keep24*/
+  if (kp && kp.night === night && !oneNightMode()) {
+    G.keep = true; G.delivered = kp.delivered; G.bucks = kp.bucks; G.vanDeer = kp.vanDeer;
+    G.tags.buck = Math.max(0, G.tags.buck - kp.bucks); G.tags.doe = Math.max(1, G.tags.doe - (kp.delivered - kp.bucks));
+    G.time = Math.round(G.NIGHT * 0.5);
+  } else if (kp) delete campaign.keep;
   setupTwoPlayer();
   if (campaign.halloween) setupHalloween();
   cam.shake = 0;

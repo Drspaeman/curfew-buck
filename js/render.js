@@ -480,6 +480,12 @@ function drawVan() {
     for (let i = 0; i < 3; i++) { const bx = v.x - 61, by = v.y - 30 + i * 46; ctx.fillStyle = '#eee'; ctx.fillRect(bx, by, 10, 34); ctx.fillStyle = '#e33'; ctx.fillRect(bx, by + 6, 10, 6); ctx.fillRect(bx, by + 20, 10, 6); }
     ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('POLICE ROADBLOCK', v.x - 56, v.y - 40);
   }
+  const dp = rushDropOpen() && rushDropSpot();
+  if (dp && inView(dp.x + dp.w / 2, dp.y, 200)) {   // Steve's emergency tarp drop   /*drop24*/
+    ctx.fillStyle = '#3d6fb8'; roundRect(ctx, dp.x, dp.y, dp.w, dp.h, 4); ctx.fill();
+    ctx.strokeStyle = '#b5e86a'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); roundRect(ctx, dp.x - 6, dp.y - 6, dp.w + 12, dp.h + 12, 8); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#b5e86a'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('STEVE\'S TARP DROP', dp.x + dp.w / 2, dp.y - 12);
+  }
   if (!inView(v.x + v.w / 2, v.y, 200)) return;
   ctx.save(); ctx.translate(v.x, v.y);
   ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(6, 6, v.w, v.h);
@@ -642,6 +648,9 @@ function drawDeer(now) {
     if (d.legend && !d.dead) {
       ctx.fillStyle = '#ffd166'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('OLD HOSTA', d.x, d.y - 30);
+      if (G && G.hostaWatch > 0.1) {   // letting him be: a ring fills while you stay crouched nearby   /*hosta24*/
+        ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(d.x, d.y - 48, 9, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, G.hostaWatch / 4)); ctx.stroke();
+      }
     }
     if (d.albino && !d.dead) { ctx.fillStyle = '#f1ece2'; ctx.font = 'bold 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ALBINO', d.x, d.y - 30); }
     if (!d.dead && d.alertT > 0.05) { ctx.fillStyle = '#ffe9a8'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('?', d.x, d.y - 22); }
@@ -1196,7 +1205,7 @@ function drawHUD(now) {
   if (!G.police) {
     ctx.fillStyle = '#ddd'; ctx.font = 'bold 12px system-ui, sans-serif';
     const seers = watchers.filter(w => w.seeing);
-    const head = seers.length ? `👁 SEEN BY ${String(seers[0].label || NAMES[seers[0].type] || seers[0].type).toUpperCase()}${seers.length > 1 ? ' +' + (seers.length - 1) : ''}`
+    const head = seers.length ? `👁 ${whoName(seers[0]).toUpperCase()}${seers.length > 1 ? ' +' + (seers.length - 1) : ''} ${(seers[0].spotWhy || 'sees you').toUpperCase()}`
       : G.sus > 0.5 ? (G.unseen < 1.5 ? 'OUT OF SIGHT…' : 'COOLING OFF ↓') : 'NEIGHBORHOOD SUSPICION';
     if (seers.length) ctx.fillStyle = '#ff9f6b'; else if (G.sus > 0.5) ctx.fillStyle = G.unseen < 1.5 ? '#ffd166' : '#9be564';
     ctx.fillText(fitText(head, bw), bcx, by + 12);
@@ -1231,6 +1240,7 @@ function drawHUD(now) {
   }
   // pointers: shed when dragging/police/quota met, Steve's van when carrying a cooler, objective spot
   if ((player.cooler && !G.police) || (player.carry && rushOpen())) drawTruckPointer(world.van, 'STEVE', '#b5e86a');
+  else if (player.carry && rushDropOpen()) drawTruckPointer(rushDropSpot(), 'TARP DROP', '#b5e86a');
   else if (player.carry || player.bag > 3 || G.police || quotaMet()) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   if (player.cooler && G.police) drawTruckPointer(world.shed, 'SHED', '#ffd166');
   if (player.arrows <= 0 && !player.carry) {
@@ -1655,7 +1665,7 @@ function drawScreenBody(now) {
       ctx.fillText(`Strikes: ${'⚠'.repeat(Math.min(k, strikesMax()))}${'·'.repeat(Math.max(0, strikesMax() - k))}  (${Math.min(k, strikesMax())} of ${strikesMax()}${G.strikeAdd > 1 ? ', an arrest counts twice' : ''})`, cx, y - 8);
       ctx.fillStyle = '#e8e8e8'; ctx.font = '14px system-ui, sans-serif';
       y = wrapText(G.evicted ? 'The HOA towed the shed. Darlene talked them into leaving your cot on the porch. The season is over.'   /*write16*/
-        : `You can redo Night ${night} from the start, minus a $${G.retryFine} fine. Tonight's deer and cash are gone. ${strikesMax() - (campaign.strikes || 0) === 1 ? "One more strike ends the season." : `${strikesMax() - (campaign.strikes || 0)} more strikes end the season.`}`, cx, y + 16, maxW, 20) + 26;
+        : `You can redo Night ${night} from the start, minus a $${G.retryFine} fine. Tonight's deer and cash are gone. ${strikesMax() - (campaign.strikes || 0) === 1 ? "One more strike ends the season." : `${strikesMax() - (campaign.strikes || 0)} more strikes end the season.`}${keepRetryOK() ? ` Once a season: a second chance keeps the ${G.delivered} deer you brought in, with half a night on the clock.` : ''}`, cx, y + 16, maxW, 20) + 26;
     }
     ctx.font = '15px system-ui, sans-serif'; ctx.fillStyle = '#ccc';
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : 0;
@@ -1663,6 +1673,8 @@ function drawScreenBody(now) {
       `Deer delivered: ${G.delivered} / ${G.quota}${G.bucks ? ` (${G.bucks} buck${G.bucks > 1 ? 's' : ''})` : ''}${G.legendDone ? ' + OLD HOSTA' : ''}`,
       G.goal && (G.goal.id === 'trophy' || G.goal.id === 'rush') ? `${GOALS[G.goal.id].title}: ${goalProgress()} ${goalMet() ? '✓' : '✗ not filled'}` : '',
       `Arrows fired: ${G.shots}  ·  Accuracy: ${acc}%  ·  Times spotted: ${G.timesSpotted}`,
+      G.callWhy ? `911 called by ${G.callWhy}` : '',
+      topAlarms(2).length ? 'Suspicion from: ' + topAlarms(2).join('  ·  ') : '',
       `Sold to Steve: ${packsText(G.soldPacks || 0)}  ·  Freezer: ${packsText(campaign.freezer)}  ·  Squirrels ${G.squirrels || 0} · Fish ${G.fish || 0}`,
       campaign.versus ? (G.endReason === 'win' ? '🏆 Dale (Player 1) wins!' : '🏆 The HOA (Player 2) wins!') : campaign.coop ? `Co-op: ${G.delivered} deer, Tyler hauled ${G.tylerHauls || 0}` :
       campaign.map === 'golf' ? `Country Club best: ${store.get('hs_golf_best', 0)}` : campaign.map === 'cul' ? `Cul-de-sac best: ${store.get('hs_cul_best', 0)}` : campaign.map === 'random' ? `Random neighborhood best: ${store.get('hs_random_best', 0)}` : campaign.daily ? `Daily Hunt ${campaign.daily}${settings.difficulty !== 'normal' ? ' (' + settings.difficulty + ')' : ''}: best today ${(store.get('hs_daily', {})[dailyRecordKey()] || 0)}` : night < 5 ? `Cabin fund: $${campaign.cash} / $${CABIN_GOAL}` : '',
@@ -1709,7 +1721,9 @@ function drawScreenBody(now) {
       const kind = campaign.coop ? 'coop' : 'versus';
       buttonGrid([{ label: `▶ Play ${kind === 'coop' ? 'co-op' : 'versus'} again`, fn: () => startTwoPlayer(kind), hi: true }, { label: 'Main menu', fn: () => { if (NET.role) netLeave(true); restoreRandom(); campaign = freshCampaign(); tyler = null; state = 'title'; } }   /*fix16*/], y + 24, 220, 44);
     } else if (state === 'over' && G.retry && !netClient()) {
-      buttonGrid([{ label: `↻ Retry Night ${night} (−$${G.retryFine})`, fn: () => retryNight(), hi: true }, { label: 'New season', fn: () => newCampaign() }], y + 24, 240, 44);
+      const opts = [{ label: `↻ Retry Night ${night} (−$${G.retryFine})`, fn: () => retryNight(), hi: true }, { label: 'New season', fn: () => newCampaign() }];
+      if (keepRetryOK()) { opts[0].hi = false; opts.unshift({ label: `⏩ Keep ${G.delivered} deer, half a night`, fn: () => keepRetry(), hi: true }); }
+      buttonGrid(opts, y + 24, 240, 44);
     } else if (state === 'over' && r === 'win' && night === 5) {
       buttonGrid([{ label: 'Endless Mode ▶', fn: () => startEndless(), hi: true }, { label: 'New season', fn: () => newCampaign() }], y + 24, 220, 44);
     } else if (state === 'over' && night > 5) {

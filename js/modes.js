@@ -576,7 +576,7 @@ function updateTyler(dt) {
     if (!los(w.x, w.y, t.x, t.y)) continue;
     if (t.seenT <= 0) G.timesSpotted++;
     t.seenT = 0.5; G.unseen = 0; G.anySeen = true;
-    if (!G.police) { G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); if (G.sus >= 100) suspicionFull(w); }   /*ease17*/ /*vary18*/
+    if (!G.police) { const s0 = G.sus; G.sus = Math.min(100, G.sus + (w.rate || 22) * 0.5 * diff().sus * dt); logAlarm(whoName(w), 'saw Tyler', G.sus - s0); if (G.sus >= 100) suspicionFull(w); }   /*ease17*/ /*vary18*/
     if (t.quipCD <= 0) { popup(w.x, w.y - 36, pick(['Is that... Tyler?!', 'Tyler, it\'s a school night!', 'Does your mother know you\'re out?']), '#ffe9a8', 2); t.quipCD = 5; }
   }
 }
@@ -1025,8 +1025,14 @@ function drawShop(now) {
     roundRect(ctx, fx, fy, Math.max(10, fw * clamp(campaign.cash / CABIN_GOAL, 0, 1)), 10, 5); ctx.fill();
     ctx.fillStyle = '#bbb'; ctx.font = '12px system-ui, sans-serif';
     ctx.fillText(fitText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL} (auction after Night 5${settings.difficulty === 'easy' ? '; Earl chips in $300 on Easy' : ''}). Every dollar you spend here comes out of it.`, VW - 30), cx, fy + 26);
+    // the trade-off in numbers: what the freezer is worth, and how far you are from the deposit   /*shop24*/
+    if (campaign.freezer > 0 || campaign.cash < CABIN_GOAL) {
+      const sp = (campaign.quote && campaign.quote.price) || 27, fz = campaign.freezer || 0;
+      ctx.fillStyle = '#9ecbff';
+      ctx.fillText(fitText(`${fz ? `Freezer: ${packsText(fz)} ≈ $${fz * sp} at Steve's (or $${fz * 12} from Earl).  ` : ''}${campaign.cash + fz * sp >= CABIN_GOAL ? 'That covers the deposit.' : `Still short: $${CABIN_GOAL - campaign.cash - fz * sp}.`}`, VW - 30), cx, fy + 42);
+    }
   }
-  y = fy + 36;
+  y = fy + (night < 5 && (campaign.freezer > 0 || campaign.cash < CABIN_GOAL) ? 52 : 36);
   if (night < 5 && !campaign.daily) {
     const nn = night + 1;
     const wx = weatherFor(nn), mo = MOON[['new', 'crescent', 'half', 'gibbous', 'full'][(nn - 1) % 5]];
@@ -1047,6 +1053,7 @@ function drawShop(now) {
   const rows = Math.ceil(SHOP.length / cols);
   const rowH = clamp((VH - y - 100) / rows - 4, 34, 50);
   const x0 = cx - (cols * bw + (cols - 1) * 12) / 2;
+  let hoverItem = null;
   SHOP.forEach((item, i) => {
     const count = item.consumable ? (campaign.items[item.id] || 0) : 0;
     const isWeapon = !!item.weapon;
@@ -1072,8 +1079,16 @@ function drawShop(now) {
     const tag = isWeapon ? (equipped ? 'EQUIPPED' : ownedW ? 'EQUIP' : `$${priceOf(item)}`) : owned ? (item.consumable ? 'MAXED' : 'OWNED') : `$${priceOf(item)}`;
     ctx.fillText(tag, x + bw - 12, rowY + rowH / 2 + 5);
     if (!owned && afford) uiButtons.push({ x, y: rowY - drawScroll, w: bw, h: rowH, fn: () => buy(item) });
+    if (hover && !owned && !ownedW) hoverItem = item;
   });
   y += rows * (rowH + 4) + 8;
+  if (night < 5 && !campaign.daily && !oneNightMode()) {   // what this buy does to the auction deposit
+    const it = hoverItem, after = it ? campaign.cash - priceOf(it) : campaign.cash;
+    ctx.textAlign = 'center'; ctx.font = '13px system-ui, sans-serif';
+    ctx.fillStyle = it ? (after >= CABIN_GOAL ? '#9be564' : '#ffb347') : '#888';
+    ctx.fillText(fitText(it ? `${it.name}: cabin fund $${campaign.cash} → $${after} of $${CABIN_GOAL}${after < CABIN_GOAL ? ` (short $${CABIN_GOAL - after} before the freezer)` : ''}` : 'Gear near the top changes how you move through the neighborhood. Every buy comes out of the auction deposit.', VW - 30), cx, y + 6);
+    y += 22;
+  }
   button(cx - 130, y, 260, 42, `Start Night ${night + 1}  ▶`, () => { night++; startNight(); }, true, true);
   y -= 6;
   ctx.fillStyle = '#888'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center';
@@ -1133,7 +1148,7 @@ function applyNightPlan() {
     G.party = { x: (x0 + x1) / 2, y, r: 520 };
     world.lights.push({ x: G.party.x - 120, y }, { x: G.party.x + 120, y });
     // Easy/Normal: one Neighborhood Watch volunteer skips patrol for the party (one patrol fewer on the finale's streets)   /*fin*/
-    if (settings.difficulty !== 'hard') { const k = watchers.map(w => w.type === 'watch' && !w.extra && !w.cart).lastIndexOf(true); if (k >= 0) { G.partyGoer = (watchers[k].label || 'A Watch volunteer').split(',')[0]; watchers.splice(k, 1); } }
+    if (settings.difficulty !== 'hard' && night === 5) { const k = watchers.map(w => w.type === 'watch' && !w.extra && !w.cart).lastIndexOf(true); if (k >= 0) { G.partyGoer = (watchers[k].label || 'A Watch volunteer').split(',')[0]; watchers.splice(k, 1); } }
     const names =['Party guest (Todd\'s cousin)', 'Party guest (with sparkler)', 'Party guest (dancing)', 'DJ Kevin'];
     const hardParty = settings.difficulty === 'hard', guests = hardParty ? 4 : 3;   // Easy/Normal: a smaller, more distracted crowd
     for (let i = 0; i < guests; i++) {
@@ -1166,6 +1181,21 @@ function goalProgress() {
   return GOALS[g.id].title;
 }
 function rushOpen() { return !!(G && G.goal && G.goal.id === 'rush' && (G.vanDeer || 0) < G.goal.need && !G.police); }
+// With the cops out, Steve's van sits behind a roadblock. For an unfilled Rush order he leaves a tarp in the east woods:
+// drop the deer there and it still counts, paid at the normal price (no $75 rush bonus).   /*drop24*/
+function rushDropOpen() { return !!(G && G.goal && G.goal.id === 'rush' && (G.vanDeer || 0) < G.goal.need && G.police && !world.golf && rushDropSpot()); }
+function rushDropSpot() {
+  if (world.drop !== undefined) return world.drop;
+  world.drop = null;
+  const v = world.van, s = world.shed;
+  for (let y = v.y + v.h + 200; y < H - 80 && !world.drop; y += 40) for (const x of [v.x + 40, v.x + 90, v.x - 10]) {
+    if (world.blocked(x, y, 34)) continue;
+    if (!findPath(s.x + s.w / 2, s.y + s.h + 22, x, y)) continue;
+    world.drop = { x: x - 30, y: y - 20, w: 60, h: 40 }; break;
+  }
+  return world.drop;
+}
+function nearRushDrop() { const t = rushDropSpot(); return !!t && dist(player.x, player.y, t.x + t.w / 2, t.y + t.h / 2) < 90; }
 function nearVanDrop() { const v = world.van; return dist(player.x, player.y, v.x + v.w / 2, v.y + v.h / 2) < 140; }
 function partyNoise() { return G && G.party && player && dist(player.x, player.y, G.party.x, G.party.y) < G.party.r ? 0.45 : 1; }
 

@@ -97,10 +97,11 @@ const SCENES = {
     ['narrator', 'Tyler digs up the HOA\'s koi invoice. One fish: $1,200. Suddenly the dues make sense.'],
     ['tyler', '(text) steve sent his pickup sheet. same tag batch. LINDA SIGNED IT. its in the hoa group chat. chaos', c => c.flags.koi],
     ['tyler', '(text) i sent the koi bill to the HOA group chat. gary says the invoice only proves we bought them. need a tag', c => !c.flags.koi],
-    ['earl', 'Last night of the season tomorrow. They say Old Hosta\'s been seen by the creek. Fourteen points. Every hunter in the county has missed him.', c => !c.flags.hostaDone],
-    ['dale', 'Grandpa never missed him. Grandpa never shot him either. Said some deer you just let be.', c => !c.flags.hostaDone],
-    ['dale', '...I could really use the money though.', c => !c.flags.hostaDone],
+    ['earl', 'Last night of the season tomorrow. They say Old Hosta\'s been seen by the creek. Fourteen points. Every hunter in the county has missed him.', c => !c.flags.hostaDone && !c.flags.hostaSpared],
+    ['dale', 'Grandpa never missed him. Grandpa never shot him either. Said some deer you just let be.', c => !c.flags.hostaDone && !c.flags.hostaSpared],
+    ['dale', '...I could really use the money though.', c => !c.flags.hostaDone && !c.flags.hostaSpared],
     ['earl', 'Last night of the season tomorrow. I cleared a spot over the register for Old Hosta. Had to move the fishing licenses.', c => c.flags.hostaDone],
+    ['earl', 'Last night of the season tomorrow. Heard you let Old Hosta walk. Your grandpa would\'ve bought you a beer.', c => c.flags.hostaSpared && !c.flags.hostaDone],
   ],
   intro5: [
     ['narrator', 'The first snow of the year falls overnight. Perfectly quiet. Perfectly white. Every footprint shows.'],
@@ -109,8 +110,8 @@ const SCENES = {
     ['linda', 'Tomorrow at noon, the Pruitt Woods go to auction, and the HOA WILL win. Tonight, everyone is on patrol. EVERYONE.'],
     ['kowalski', 'Ma\'am, I\'m one guy with a dog.'],
     ['linda', 'Then bring the dog, Raymond.'],
-    ['dale', 'Last night. Fill the freezer. Sell everything. Find Old Hosta.', c => !c.flags.hostaDone],
-    ['dale', 'Last night. Fill the freezer. Sell everything. Get to the auction.', c => c.flags.hostaDone],
+    ['dale', 'Last night. Fill the freezer. Sell everything. Find Old Hosta.', c => !c.flags.hostaDone && !c.flags.hostaSpared],
+    ['dale', 'Last night. Fill the freezer. Sell everything. Get to the auction.', c => c.flags.hostaDone || c.flags.hostaSpared],
     ['darlene', '(from the kitchen window) Dale. Be careful. And for God\'s sake take off the orange vest.'],
     ['dale', 'Never.'],
   ],
@@ -159,7 +160,7 @@ function buildEnding(c) {
   const koi = c.flags.koi;
   const friendly = c.exSightings <= 3;   // Darlene saw you on 3 nights or fewer (of 5)
   // Secret ending: every story objective done, the deposit raised, and Darlene barely caught you.
-  const secret = rich && ['sell', 'squirrels', 'longbow', 'koi', 'hosta'].every(f => c.flags[f]) && friendly;
+  const secret = rich && ['sell', 'squirrels', 'longbow', 'koi', 'hosta'].every(f => c.flags[f] || (f === 'hosta' && c.flags.hostaSpared)) && friendly;
   if (koi) {
     lines.push(['gary', 'Before we begin: I have... a report. On the koi.']);
     lines.push(['linda', 'GARY. Sit DOWN.']);
@@ -202,7 +203,13 @@ function buildEnding(c) {
       lines.push(['dale', 'Earl. Don\'t give me ideas.']);
     }
   }
-  if (c.flags.hosta || c.flags.hostaDone) {
+  if (c.flags.hostaSpared) {   // you let him walk   /*hosta24*/
+    lines.push(['narrator', 'At dawn, a fourteen-point buck steps out of the treeline behind the shed.']);
+    lines.push(['dale', 'Morning, old man.']);
+    lines.push(['narrator', 'Old Hosta looks at him for a long moment, the way he used to look at Grandpa. Then he walks back into the woods.']);
+    lines.push(['tyler', 'You had him. I saw it. Why didn\'t you shoot?']);
+    lines.push(['dale', 'Some deer you just let be.']);
+  } else if (c.flags.hosta || c.flags.hostaDone) {
     lines.push(['narrator', 'Old Hosta\'s antlers hang over the register at Earl\'s Bait & Tackle. People drive from three counties to see them.']);
   } else {
     lines.push(['narrator', 'At dawn, a fourteen-point buck steps out of the treeline, looks at the shed for a long moment, and walks back into the woods. Old Hosta is still out there.']);

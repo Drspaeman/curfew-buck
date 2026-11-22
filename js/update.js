@@ -53,9 +53,10 @@ function update(dt) {
   updateCritters(dt);
   updateFishing(dt);
   updateObjective();
+  updateHostaSpare(dt);
   updateGoth(dt);
   updateTutorial();
-  if (!G.hostaSeen) { const L = deer.find(d => d.legend && !d.dead && inView(d.x, d.y, -80)); if (L) { G.hostaSeen = true; G.slowmo = 1.4; banner('🦌 OLD HOSTA. Fourteen points. Don\'t. Breathe.', '#ffd166'); tone(98, 1.2, 'triangle', 0.08, 73); tone(147, 1.0, 'triangle', 0.05, null, 0.2); } }
+  if (!G.hostaSeen) { const L = deer.find(d => d.legend && !d.dead && inView(d.x, d.y, -80)); if (L) { G.hostaSeen = true; G.slowmo = 1.4; banner('🦌 OLD HOSTA. Fourteen points. Don\'t. Breathe.', '#ffd166'); if (!oneNightMode()) hint('hostaspare', 'Old Hosta: shoot him for the payday, or crouch near him with your bow lowered and let him be. Grandpa always did.'); tone(98, 1.2, 'triangle', 0.08, 73); tone(147, 1.0, 'triangle', 0.05, null, 0.2); } }
   updateAmbience(dt);
   updateWeatherTerrain(dt);
   G.routeT = (G.routeT || 0) - dt;
@@ -242,6 +243,7 @@ function trackPrints(dt) {
     if (!best || (w.trackBorn || -1) >= best.born) continue;
     w.trackBorn = best.born;
     G.tracked = true;
+    setWhy(w, 'followed your footprints');
     investigate(w, best.x, best.y);
     if (w.quipCD <= 0) { w.quipCD = 6; popup(w.x, w.y - 34, pick(['Footprints...? Fresh ones.', 'Who\'s been tromping through the yards?', 'These tracks are BOOT-sized.', 'Somebody\'s out here.']), '#ffe9a8'); sfx.huh(); }
   }
@@ -343,7 +345,7 @@ function updateWorldEvents(dt) {
     sfx.grab();
     popup(n.x, n.y - 24, n.text + ' (+$15)', '#ffe38a', 3);
     if (G.noticesGot === 3) { G.earned += 25; unlock('paperwork'); banner('All 3 HOA notices collected! +$25 bonus', '#ffe38a'); }
-    hint('notice', 'HOA notices pay cash when you pick them up. Grab all 3 tonight for a $50 bonus.');
+    hint('notice', 'HOA notices pay cash when you pick them up. Grab all 3 tonight for a $25 bonus.');
   }
 }
 
@@ -591,6 +593,7 @@ function setupObjective() {
   if (G.objective && o.id === 'longbow' && campaign.weapons.longbow) G.objective = null;
   // Old Hosta is already in the freezer from an earlier night: that counts (no second one to chase)
   if (G.objective && o.id === 'hosta' && campaign.flags.hostaDone) { campaign.flags.hosta = true; G.objective = null; }
+  if (G.objective && o.id === 'hosta' && campaign.flags.hostaSpared) G.objective = null;   // you already let him walk
 }
 function objectiveEvent(kind, arg) {
   const o = G.objective;
@@ -615,6 +618,25 @@ function objectivePlace() {
   if (o.place === 'koi') { const p = world.ponds.find(q => q.koi); return { x: p.x + p.w / 2, y: p.y + p.h / 2 }; }
   if (o.id === 'sell') return { x: world.van.x + world.van.w / 2, y: world.van.y + world.van.h / 2 };
   return null;
+}
+// Grandpa's way: crouch near Old Hosta, bow lowered, and let him walk. He's gone for the season, and the ending remembers.   /*hosta24*/
+function updateHostaSpare(dt) {
+  if (oneNightMode()) return;
+  const L = deer.find(d => d.legend && !d.dead && !d.carried);
+  if (!L) { G.hostaWatch = 0; return; }
+  const near = dist(player.x, player.y, L.x, L.y) < 170 && player.crouch && !player.drawing && !player.carry && L.state !== 'flee';
+  G.hostaWatch = near ? (G.hostaWatch || 0) + dt : Math.max(0, (G.hostaWatch || 0) - dt * 0.5);
+  if (G.hostaWatch < 4) return;
+  G.hostaWatch = 0;
+  deer.splice(deer.indexOf(L), 1);
+  campaign.flags.hostaSpared = true; G.hostaSpared = true;
+  G.nightScore += 500;
+  sfx.win(); G.slowmo = 1.2;
+  popup(L.x, L.y - 40, 'Old Hosta looks at you for a long moment. Then he walks into the trees.', '#ffd166', 4);
+  banner('🦌 YOU LET OLD HOSTA BE (+500 pts). Grandpa would\'ve done the same.', '#ffd166');
+  unlock('letbe');
+  const o = G.objective;
+  if (o && o.id === 'hosta' && !o.done) { o.done = true; o.text = 'Let Old Hosta be'; }
 }
 function updateObjective() {
   const o = G.objective;
@@ -801,10 +823,11 @@ function updatePlayer(dt) {
     d.y = lerp(d.y, ty, Math.min(1, dt * 10));
     d.ang = back + Math.PI;
     G.dragPathT = (G.dragPathT || 0) - dt;
-    if (G.dragPathT <= 0) { G.dragPathT = 0.5; const sh = rushOpen() ? world.van : world.shed; G.dragPath = findPath(player.x, player.y, sh.x + sh.w / 2, sh.y + sh.h + 22); }
+    if (G.dragPathT <= 0) { G.dragPathT = 0.5; const sh = rushOpen() ? world.van : rushDropOpen() ? rushDropSpot() : world.shed; G.dragPath = findPath(player.x, player.y, sh.x + sh.w / 2, sh.y + sh.h + 22); }
     if (player.moving && Math.random() < dt * 14) { marks.push({ x: d.x + rnd(-5, 5), y: d.y + rnd(-5, 5) }); if (marks.length > 500) marks.shift(); }
     if (nearTruck()) deliver();
     else if (rushOpen() && nearVanDrop()) deliver(true);
+    else if (rushDropOpen() && nearRushDrop()) deliver(true, true);
   }
   // Small game in your bag goes straight into the freezer at home.
   if (player.bag > 0 && nearTruck()) {
@@ -821,7 +844,7 @@ function updatePlayer(dt) {
   }
 }
 
-function deliver(toVan) {
+function deliver(toVan, tarp) {
   const d = player.carry;
   player.carry = null;
   deer.splice(deer.indexOf(d), 1);
@@ -832,9 +855,9 @@ function deliver(toVan) {
   const packs = d.legend ? 8 : d.buck ? 4 : 3;
   G.nightScore += pts;
   if (toVan) {   // Steve's rush order: straight into his van, paid on the spot
-    const cash = packs * G.price + 75;
+    const cash = packs * G.price + (tarp ? 0 : 75);
     G.earned += cash; G.vanDeer = (G.vanDeer || 0) + 1; G.soldPacks = (G.soldPacks || 0) + packs; sfx.buy();
-    popup(player.x, player.y - 120, `Steve: "Rush job! $${cash}, no questions." (${goalProgress()})`, '#b5e86a', 2.6);
+    popup(player.x, player.y - 120, tarp ? `Steve (by text): "Got it. $${cash}, no rush bonus. Cops, man." (${goalProgress()})` : `Steve: "Rush job! $${cash}, no questions." (${goalProgress()})`, '#b5e86a', 2.6);
   } else G.freezer += packs;
   player.arrows++; // pull the arrow back out
   sfx.deliver();
@@ -980,7 +1003,7 @@ function updateArrows(dt) {
         popup(w.x, w.y - 36, pick(QUIPS.arrow), '#ff6b6b');
         w.stare = 2; w.lastX = player.x; w.lastY = player.y;
         if (w.type === 'cop') G.arrest = Math.min(1, G.arrest + 0.5);
-        else if (!G.police) { G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); if (G.sus >= 100) suspicionFull(w); }
+        else if (!G.police) { logAlarm(whoName(w), 'hit by a stray arrow', Math.min(40, 100 - G.sus)); G.sus = Math.min(100, G.sus + 40); popup(w.x, w.y - 54, '+40 suspicion (stray arrow)', '#ff6b6b', 1.8); if (G.sus >= 100) suspicionFull(w); }
         investigate(w, player.x, player.y);
       } else sfx.thunk();
     } else if (a.life <= 0) a.flying = false;
@@ -1323,6 +1346,14 @@ function canSee(w) {
   return los(w.x, w.y, player.x, player.y);
 }
 
+// What raised the alarm tonight: shown under the meter and in the recap   /*why24*/
+const NOISE_WHY = { twang: 'heard your bow', step: 'heard footsteps', grunt: 'heard your grunt call', burp: 'heard you burp', ring: 'heard your phone', prop: 'heard you knock something over', splash: 'heard a splash', slip: 'heard you slip', rustle: 'heard a sign rustle', squelch: 'heard squelching', garage: 'heard the garage', flood: 'saw the floodlight', thrash: 'heard a deer thrash', bark: 'heard a dog bark', crows: 'heard the crows', raccoon: 'heard a raccoon', meow: 'heard a cat', chitter: 'heard a squirrel', cone: 'heard a pinecone' };
+function setWhy(w, why) { w.why = why; w.whyAt = G.playT; }
+function alarmWhy(w) { return w.why && G.playT - (w.whyAt == null ? -99 : w.whyAt) < 12 ? w.why : null; }
+function whoName(w) { return String(w.label || NAMES[w.type] || w.type); }
+function logAlarm(who, why, amt) { if (!(amt > 0)) return; const k = why ? who + ' (' + why + ')' : who; const a = G.alarms || (G.alarms = {}); a[k] = (a[k] || 0) + amt; }
+function topAlarms(n) { const a = G.alarms || {}; return Object.keys(a).filter(k => a[k] >= 1).sort((x, y) => a[y] - a[x]).slice(0, n).map(k => k + ' +' + Math.round(a[k])); }
+
 function detection(dt) {
   let anySeen = false, copSees = false;
   for (const w of watchers) {
@@ -1333,6 +1364,7 @@ function detection(dt) {
     w.lastX = player.x; w.lastY = player.y; w.stare = 1.4;
     if (!w.wasSeeing) {
       G.timesSpotted++;
+      w.spotWhy = alarmWhy(w) || (d < 80 ? 'saw you up close' : null);
       G.streak = 0;
       rumble(120, 0.4);
       sfx.alert();
@@ -1349,7 +1381,7 @@ function detection(dt) {
       if (w.type !== 'ex' && w.type !== 'cop') {
         for (const o of watchers) {
           if (o === w || o.type === 'cop' || o.seeing || dist(o.x, o.y, player.x, player.y) > 1000) continue;
-          o.look = 3; o.lookAng = Math.atan2(player.y - o.y, player.x - o.x);
+          o.look = 3; o.lookAng = Math.atan2(player.y - o.y, player.x - o.x); setWhy(o, 'got a radio call');
         }
         if (G.radioCD <= 0) { G.radioCD = 8; sfx.radio(); popup(w.x, w.y - 56, pick(RADIO), '#b8e0ff', 2.2); }
       }
@@ -1372,7 +1404,9 @@ function detection(dt) {
         if (G.exNagCD <= 0) { G.exNagCD = 8; popup(w.x, w.y - 36, pick(['Dale. It\'s 5 AM. Go to bed.', 'Is that a BOW behind your back?', 'Stay on your side of the yard, Dale.', 'Why are you awake?']), '#ff9ad5', 2); }
       }
       const grace = G.playT < 25 && settings.difficulty !== 'hard' ? 0.5 : 1;   // the first 25 s: the neighborhood is still waking up, so you can slip away from the shed (Easy/Normal)
+      const s0 = G.sus;
       G.sus = Math.min(100, G.sus + rate * close * diff().sus * dt * (G.halloween ? 0.6 : 1) * grace);   // Halloween: "nice costume!"
+      logAlarm(whoName(w), w.spotWhy, G.sus - s0);
       if (G.sus >= 100) suspicionFull(w);
     } else {
       // Neighbors point the cops your way.
@@ -1436,10 +1470,11 @@ function callPolice(w) {
   G.copTimer = 50;
   G.sus = 100;
   G.caller = w.type;
+  G.callWhy = whoName(w) + (w.spotWhy ? ' (' + w.spotWhy + ')' : '');
   saveChaseCheckpoint();
   sfx.alert();
   popup(w.x, w.y - 50, w.type === 'ex' ? QUIPS.callEx : w.type === 'cop' ? 'Dispatch, I have eyes on the orange vest! Send everybody.' : QUIPS.callHoa, '#ff6b6b', 3.5);
-  banner(world.golf ? '911 CALLED! Cops arrive in 7 seconds. Get back to Earl\'s truck!' : quotaMet() || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : G.delivered >= G.quota ? `911 CALLED! Cops in 7 seconds, and Steve's van is closed with cops out. His order isn't filled (${goalProgress()}), so escaping ends the night short.` : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');   /*msg19*/
+  banner(world.golf ? '911 CALLED! Cops arrive in 7 seconds. Get back to Earl\'s truck!' : quotaMet() || oneNightMode() ? '911 CALLED! Cops arrive in 7 seconds. Get back to your shed!' : rushDropOpen() ? `911 CALLED! Cops in 7 seconds. Steve's van is behind a roadblock, but he left a tarp in the east woods: drag his rush order there (${goalProgress()}, no bonus), then get home.` : G.delivered >= G.quota ? `911 CALLED! Cops in 7 seconds, and Steve's van is closed with cops out. His order isn't filled (${goalProgress()}), so escaping ends the night short.` : `911 CALLED! Cops in 7 seconds. Get to your shed (you're ${G.quota - G.delivered} deer short, so escaping ends the night).`, '#ff5a5a');   /*msg19*/
   hint('police', 'The cops are coming. Get back inside your shed before the LOCKDOWN timer runs out, or you\'re arrested (two strikes). If a cruiser\'s spotlight holds on you, the ARREST bar fills. Getting away still costs a $50 citation.');
 }
 
@@ -1582,6 +1617,7 @@ function retryCampaign() {
   const c = JSON.parse(JSON.stringify(nightStart && nightStart.night === night ? nightStart.campaign : campaign));
   c.strikes = campaign.strikes || 0; c.courtUsed = !!campaign.courtUsed; c.heat = 0; /* a retry is a clean take: no patrol car from the failed attempt (the bot showed it snowballs) */ c.seen = Object.assign({}, campaign.seen); c.sid = campaign.sid;
   c.cash = Math.max(0, (c.cash || 0) - ((G && G.retryFine) || 0));
+  if (c.keep) { c.freezer = c.keep.freezer0; delete c.keep; }   // failing a second-chance night: an ordinary retry from the night's real start
   return c;
 }
 // A scene's lines for the current season (lines with a condition only when it holds), with :FINE / :STRIKES filled in   /*dialog16*/
@@ -1596,6 +1632,20 @@ function retryNight() {
   startNight();
   if (!netLive()) { const after = state; playScene(storyLines('retry', { fine }), () => { state = after; }); }
   banner(`↻ Night ${night}, take two. Strike ${campaign.strikes} of ${strikesMax()}.`, '#ffd166');
+}
+// Second chance (Easy/Normal, once a season): redo a failed night keeping the deer you already brought in
+// (and Steve's order progress), with half a night on the clock. The strike and the fine still count.   /*keep24*/
+function keepRetryOK() { return !!(G && G.retry && !G.evicted && seasonNight() && settings.difficulty !== 'hard' && !campaign.keepUsed && G.delivered > 0 && !netLive()); }
+function keepRetry() {
+  if (!keepRetryOK()) return;
+  const keep = { night, delivered: G.delivered, bucks: G.bucks || 0, vanDeer: G.vanDeer || 0 };
+  const fine = G.retryFine || 0, why = G.endReason, fz = G.freezer || 0;
+  campaign = retryCampaign(); campaign.lastFail = why; campaign.keepUsed = true;
+  keep.freezer0 = campaign.freezer || 0; campaign.freezer = Math.max(keep.freezer0, fz);
+  campaign.keep = keep;
+  startNight();
+  if (!netLive()) { const after = state; playScene(storyLines('retry', { fine }), () => { state = after; }); }
+  banner(`⏩ SECOND CHANCE: Night ${night} again with your ${keep.delivered} deer kept. Half a night on the clock. Strike ${campaign.strikes} of ${strikesMax()}.`, '#ffd166');
 }
 function saveGame() { if (oneNightMode()) return; saveOk(store.set('hs_save', { night, campaign })); }
 // Between nights (results and Earl's shop): Continue starts the next night with everything kept.

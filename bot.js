@@ -298,7 +298,7 @@ frame = function () {};
           }
           else if (state === 'over') {
             if (screenFrames < 8) { /* look at the results */ }
-            else if (G.retry && !sc.noRetry) { rec.retries = (rec.retries || 0) + 1; if (!clickButton(/Retry/)) note('button', label, 'no Retry button'); }
+            else if (G.retry && !sc.noRetry) { rec.retries = (rec.retries || 0) + 1; if (!clickButton(/Keep \d+ deer/) && !clickButton(/Retry/)) note('button', label, 'no Retry button'); }
             else if (seasonChoice() && night === 5 && G.endReason === 'win') { rec.end = 'season complete $' + campaign.cash; if (sc.endless) { clickButton(/Endless/); sc.endless = false; } else break; }
             else if (twoP()) { rec.end = 'two-player result'; if (!sc.again) break; sc.again = false; if (!clickButton(/again/)) note('button', label, 'no Play again button'); }
             else { rec.end = (G.evicted ? 'evicted (3 strikes)' : G.endReason) + ' on night ' + night; if (oneNightMode()) { press('Enter'); if (state !== 'title') note('flow', label, 'one-night results did not go to the title: ' + state); } break; }

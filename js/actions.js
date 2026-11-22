@@ -165,6 +165,7 @@ function makeNoise(x, y, r, kind, skipDeer) {
     if (w.seeing || w.asleep > 0 || w.eating > 0) continue;
     const d = dist(w.x, w.y, x, y);
     if (d > r) continue;
+    setWhy(w, NOISE_WHY[kind] || 'heard a noise');
     if (d < 400 && los(w.x, w.y, x, y)) investigate(w, x, y);
     else { w.look = 3; w.lookAng = Math.atan2(y - w.y, x - w.x); }
     if (w.quipCD <= 0 && w.type !== 'cop' && w.type !== 'cam') { popup(w.x, w.y - 34, pick(QUIPS.investigate), '#ffe9a8'); w.quipCD = 5; voice(w.type); }
