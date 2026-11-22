@@ -151,7 +151,14 @@ function padMenuNav(edge) {
   return false;
 }
 function pollPad() {
-  if (typeof screenTooSmall === 'function' && screenTooSmall()) return;   // the too-small notice is up   /*r7*/
+  // the too-small notice is up: no button acts, but remember what's held, so a button still held when the window
+  // grows back isn't read as a fresh press (it has to be let go and pressed again)   /*r8*/
+  if (typeof screenTooSmall === 'function' && screenTooSmall()) {
+    const g = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (g) pad.prev = g.buttons.map(x => x.pressed);
+    pad.mx = pad.my = 0; pad.draw = false;
+    return;
+  }
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
   const gp = gps[0];
   if (!gp) {
