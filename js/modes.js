@@ -99,8 +99,11 @@ function steveHaggle() {
 }
 function priceOf(item) { return campaign.special === item.id ? Math.round(item.price * 0.75) : item.price; }
 function pickSpecial() {
-  campaign.earlLine = pick(EARL_LINES);
   const pool = SHOP.filter(it => it.weapon ? !campaign.weapons[it.weapon] : it.consumable ? (campaign.items[it.id] || 0) < it.max : !has(it.id));
+  // rolled once per night, so a reload in the shop keeps the same deal (unless that deal can't be bought any more)   /*r2*/
+  if (campaign.specialFor === night && campaign.earlLine && (!campaign.special || campaign.specialBoughtFor === night || pool.some(it => it.id === campaign.special))) return;
+  campaign.specialFor = night;
+  campaign.earlLine = pick(EARL_LINES);
   campaign.special = pool.length ? pick(pool).id : null;
 }
 const GOSSIP = [
@@ -290,7 +293,7 @@ function drawCourt() {
     ctx.fillText(G.court.ok ? 'CASE DISMISSED' : 'GUILTY', cx, y + 10);
     ctx.fillStyle = '#ddd'; ctx.font = '16px system-ui, sans-serif';
     y = wrapText(G.court.text, cx, y + 44, Math.min(600, VW - 40), 22) + 24;
-    buttonGrid([{ label: G.court.ok ? 'Back to the bait shop ▶' : 'Accept your fate', fn: finishCourt, hi: true }], y, 260, 44);
+    buttonGrid([{ label: G.court.ok ? (G.retry ? 'Redo the night ▶' : 'Back to the bait shop ▶') : 'Accept your fate', fn: finishCourt, hi: true }], y, 260, 44);
   }
 }
 function drawSettings() {
@@ -309,7 +312,7 @@ function drawSettings() {
     ...(gothBinderDone() ? [{ label: `Vest: ${settings.gothVest ? 'Raven\'s black 🦇' : 'Blaze orange'}`, fn: () => { settings.gothVest = !settings.gothVest; saveSettings(); } }] : []),
     { label: '⌨ Controls…', fn: () => { state = 'keys'; keyWait = null; } },
     { label: `Tutorial: ${store.get('hs_tut_done', false) ? 'Done (reset)' : 'Ready'}`, fn: () => store.del('hs_tut_done') },
-    { label: document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen', fn: toggleFullscreen },   /*fs19*/
+    { label: document.fullscreenElement || document.webkitFullscreenElement ? 'Exit fullscreen' : 'Fullscreen', fn: toggleFullscreen },   /*fs19*/
   ], Math.max(110, VH * 0.18 + 40), 200, 42);
   buttonGrid([{ label: '◀ Back', fn: () => { state = 'title'; }, hi: true }], y + 20, 200, 42);
 }
@@ -1169,7 +1172,20 @@ function toggleFullscreen() {
   const fail = () => { toasts.push({ title: 'FULLSCREEN NOT ALLOWED HERE', desc: 'Use the browser fullscreen (F11), or the fullscreen button under the game on its page.', t: 5 }); sfx.thunk(); };
   try {
     const el = document.documentElement;
-    const p = document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null);
-    if (p && p.catch) p.catch(fail); else if (!document.fullscreenElement && !el.requestFullscreen && !el.webkitRequestFullscreen) fail();
+    const on = document.fullscreenElement || document.webkitFullscreenElement;   /*r2*/
+    if (on) { const x = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen && document.webkitExitFullscreen(); if (x && x.catch) x.catch(() => {}); return; }
+    if (!el.requestFullscreen && !el.webkitRequestFullscreen) { fail(); return; }
+    const p = el.requestFullscreen ? el.requestFullscreen() : el.webkitRequestFullscreen();
+    if (p && p.catch) p.catch(fail);
+    else setTimeout(() => { if (!document.fullscreenElement && !document.webkitFullscreenElement) fail(); }, 600);
   } catch (e) { fail(); }
+}
+
+// Season complete, reached by Continue after the ending replays: the same choice as the results screen   /*r2*/
+function drawSeasonDone() {
+  const cx = VW / 2; let y = VH * 0.3;
+  ctx.textAlign = 'center'; ctx.fillStyle = '#9be564'; fitFont('SEASON COMPLETE!', 900, 44, VW - 24); ctx.fillText('SEASON COMPLETE!', cx, y);
+  ctx.fillStyle = '#ddd'; ctx.font = '16px system-ui, sans-serif';
+  y = wrapText(`Cabin fund: $${campaign.cash} / $${CABIN_GOAL}  ·  Season score: ${campaign.score}`, cx, y + 44, Math.min(600, VW - 40), 22) + 34;
+  buttonGrid([{ label: 'Endless mode (Night 6) ▶', fn: () => startEndless(), hi: true }, { label: 'New season', fn: () => { clearSave(); newCampaign(); } }], y, 260, 44);
 }

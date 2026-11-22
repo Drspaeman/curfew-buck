@@ -1420,7 +1420,7 @@ function drawScreens(now) {
   }
   if (state !== menuState) { menuState = state; menuScroll = 0; }
   menuScroll = clamp(menuScroll, 0, menuMax);
-  ctx.fillStyle = ['shop', 'nightdone', 'over', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt', 'modes', 'players', 'extras', 'custom'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
+  ctx.fillStyle = ['shop', 'nightdone', 'over', 'seasondone', 'settings', 'trophies', 'credits', 'court', 'whoswho', 'nights', 'scores', 'keys', 'online', 'crypt', 'modes', 'players', 'extras', 'custom'].includes(state) ? 'rgba(5,8,14,0.88)' : state === 'title' ? 'rgba(5,8,14,0.82)' : 'rgba(5,8,14,0.72)';
   ctx.fillRect(0, 0, VW, VH);
   menuBottom = 0; drawScroll = menuScroll;
   const realFill = ctx.fillText;
@@ -1550,6 +1550,8 @@ function drawScreenBody(now) {
     const ay = p2 ? wrapText(p2, cx, py + 34, Math.min(640, VW - 30), 18) + 4 : py + 34;
     ctx.fillStyle = '#888';
     wrapText(p2 ? 'PLAYER 1 (Dale): ' + all.replace(' · arrows: move and aim (no mouse needed)', '') : all, cx, ay, Math.min(640, VW - 30), 18);
+  } else if (state === 'seasondone') {
+    drawSeasonDone();
   } else if (state === 'shop') {
     drawShop(now);
   } else if (state === 'story') {
@@ -1611,7 +1613,7 @@ function drawScreenBody(now) {
     let [title, color] = state === 'over' && r === 'win' ? [oneNightMode() ? 'QUOTA MET!' : 'SEASON COMPLETE!', '#9be564'] : (titles[r] || titles.home);
     if (night > 5 && r === 'win') title = `ENDLESS NIGHT ${night} CLEARED`;
     if (G.lockedDown && r === 'arrested') title = 'LOCKDOWN ARREST';
-    if (state === 'over' && G.evicted) { title = 'THREE STRIKES'; color = '#ff5a5a'; }
+    if (state === 'over' && G.evicted) { title = ({ 3: 'THREE', 5: 'FIVE' }[strikesMax()] || strikesMax()) + ' STRIKES'; color = '#ff5a5a'; }   /*r2*/
     if (!subs[r]) subs[r] = subs.home;
     if (!G.news) G.news = buildNews(r);
     if (!G.voicemail) G.voicemail = pick(VOICEMAILS.clean);

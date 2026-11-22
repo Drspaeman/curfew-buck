@@ -7,6 +7,8 @@
   frame = function () {};   // drive every frame ourselves
   const keep = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); keep[k] = localStorage.getItem(k); } } catch (e) { /* none */ }
   const STEP = 1 / 60;
+  // nearest open ground to a spot (never on a roof or inside a hedge)
+  const freeNear = (x, y) => { for (let r = 0; r < 600; r += 20) for (let a = 0; a < 6.28; a += 0.4) { const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (!world.blocked(px, py, 22)) return { x: px, y: py }; } return { x, y }; };
   const setSize = (w, h) => { cv.style.width = w + 'px'; cv.style.height = h + 'px'; resize(); };
   const settle = n => { for (let i = 0; i < n; i++) { update(STEP); updateCam(1); } };
   const night3 = () => { restoreRandom(); localStorage.removeItem('hs_save'); newCampaign(); night = 3; startNight(); story = null; state = 'play'; G.planShown = true; G.banner = null; G.time = G.NIGHT * 0.62; campaign.hints = new Proxy({}, { get: () => 1 }); };   // later in the night: lighter sky
@@ -30,7 +32,7 @@
   const shots = [
     ['screenshot-1-stalk', () => { night3(); nearDeer(); settle(40); aimBy = 'mouse'; const d = nearDeer(); if (d) { mouse.x = d.x - cam.x; mouse.y = d.y - cam.y; startDraw(); for (let i = 0; i < 40; i++) { d.state = 'graze'; update(STEP); updateCam(1); } mouse.x = d.x - cam.x; mouse.y = d.y - cam.y; } }],
     ['screenshot-2-cops', () => { night3(); const r = world.roads[0]; player.x = r.x + r.w / 2; player.y = world.hy[1] + 60; settle(10); callPolice(watchers[0]); G.policeT = 0.01; settle(90); const c = watchers.find(w => w.type === 'cop'); if (c) { player.x = c.x + 160; player.y = c.y + 40; } settle(20); }],
-    ['screenshot-3-party', () => { restoreRandom(); newCampaign(); night = 5; startNight(); story = null; state = 'play'; G.planShown = true; G.banner = null; G.time = G.NIGHT * 0.62; campaign.hints = new Proxy({}, { get: () => 1 }); if (G.party) { player.x = G.party.x - 260; player.y = G.party.y + 170; } settle(60); }],
+    ['screenshot-3-party', () => { restoreRandom(); newCampaign(); night = 5; startNight(); story = null; state = 'play'; G.planShown = true; G.banner = null; G.time = G.NIGHT * 0.62; campaign.hints = new Proxy({}, { get: () => 1 }); if (G.party) { const p = freeNear(G.party.x - 200, G.party.y + 150); player.x = p.x; player.y = p.y; player.crouch = true; keys.ShiftLeft = true; } settle(60); }],
     ['screenshot-4-orders', () => { restoreRandom(); newCampaign(); night = 3; startNight(); story = null; state = 'intro'; }],
     ['screenshot-5-steve', () => { night3(); player.cooler = 3; openSteve(); }],
   ];

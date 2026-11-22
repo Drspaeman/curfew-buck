@@ -43,6 +43,7 @@ window.addEventListener('keydown', e => {
   }
   else if (state === 'title' && (e.code === 'Enter' || e.code === 'Space')) { if (!loadGame()) newCampaign(); }
   else if (state === 'intro' && (e.code === 'Enter' || e.code === 'Space')) state = 'play';
+  else if (state === 'seasondone' && (e.code === 'Enter' || e.code === 'Space')) startEndless();   /*r2*/
   else if (state === 'play') {
     if (e.code === 'KeyE') interact();
     if ((e.code === 'Enter' || e.code === 'NumpadEnter') && twoP() && !netHost()) p2Action();
@@ -327,6 +328,7 @@ function drawTouchControls() {
 }
 
 function buy(item) {
+  if (item && item.id === campaign.special) { const before = campaign.cash; try { buyItem(item); } finally { if (campaign.cash < before) campaign.specialBoughtFor = night; if (state === 'shop') saveNext(); } return; }   // bought tonight's deal: a reload can't roll a second one
   try { buyItem(item); } finally { if (state === 'shop') saveNext(); }
 }
 function buyItem(item) {

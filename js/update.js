@@ -191,7 +191,7 @@ function musicTick(dt) {
   musicRun(danger);
 }
 // Title and menus: just the ambient pads
-function menuMusicTick() { if (['title', 'modes', 'players', 'extras', 'settings', 'shop', 'nightdone', 'crypt', 'scores', 'trophies', 'credits', 'whoswho', 'nights', 'custom'].includes(state)) musicRun(-1); }
+function menuMusicTick() { if (['title', 'seasondone', 'modes', 'players', 'extras', 'settings', 'shop', 'nightdone', 'crypt', 'scores', 'trophies', 'credits', 'whoswho', 'nights', 'custom'].includes(state)) musicRun(-1); }
 
 function grunt() {
   if (G.gruntCD > 0) { popup(player.x, player.y - 30, `Grunt call ready in ${Math.ceil(G.gruntCD)}s`, '#ffd166', 1); return; }
@@ -1639,7 +1639,7 @@ function loadGame() {
   // the season is over: the ending plays again, then Endless picks up at Night 6
   if (s.phase === 'ended') {
     night = 5; campaign = s.campaign;
-    playScene(buildEnding(campaign), () => { startEndless(); });
+    playScene(buildEnding(campaign), () => { state = 'seasondone'; });   /*r2*/
     return true;
   }
   night = s.night;
@@ -1650,7 +1650,8 @@ function loadGame() {
   if (!s.court && campaign.strikes && !oneNightMode()) banner(`⚠ Strike ${campaign.strikes} of ${strikesMax()}. ${strikesMax() - campaign.strikes === 1 ? 'One more failed night' : strikesMax() - campaign.strikes === 2 ? 'Two more failed nights, or one arrest,' : 'A few more failed nights'} and the HOA tows the shed.`, '#ffb347');
   if (s.court) {   // reloaded mid-court: straight back to the judge, with the court record (and the night's real start) kept
     story = null; G.court = null; state = 'court'; G.endReason = 'arrested'; G.settled = true;
-    if (s.result) { G.delivered = Number(s.result.delivered) || 0; G.quota = Number(s.result.quota) || G.quota; G.bucks = Number(s.result.bucks) || 0; G.vanDeer = Number(s.result.vanDeer) || 0; G.goal = s.result.goal && GOALS[s.result.goal.id] ? s.result.goal : null; }
+    if (!s.result) { G.delivered = G.quota; G.goal = null; }   // an older court save didn't record the hunt: assume the night counted, rather than force a redo
+    else { G.delivered = Number(s.result.delivered) || 0; G.quota = Number(s.result.quota) || G.quota; G.bucks = Number(s.result.bucks) || 0; G.vanDeer = Number(s.result.vanDeer) || 0; G.goal = s.result.goal && GOALS[s.result.goal.id] ? s.result.goal : null; }
     if (s.start) nightStart = { night, campaign: JSON.parse(JSON.stringify(s.start)) };
     saveOk(store.set('hs_save', s));
   }

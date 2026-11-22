@@ -340,10 +340,11 @@ function skipTutorial() { G.tut = null; store.set('hs_tut_done', true); }
 function tutorialBox() {
   if (!G || !G.tut || !TUTORIAL[G.tut.step]) return null;
   const step = TUTORIAL[G.tut.step];
-  const w = Math.min(560, VW - 28), x = VW / 2 - w / 2, y = VW < 760 ? 316 : 80;
+  const w = Math.min(560, VW - 28), x = VW / 2 - w / 2;
   ctx.font = '15px system-ui, sans-serif';
-  const lines = wrapLines(typeof step.text === 'function' ? step.text() : step.text, w - 30);
-  return { x, y, w, h: 34 + lines.length * 20, lines };
+  const lines = wrapLines(typeof step.text === 'function' ? step.text() : step.text, w - 30), h = 34 + lines.length * 20;
+  const y = VW < 760 ? Math.max(8, Math.min(316, VH - h - 70)) : 80;   // short landscape phones: keep it on screen   /*r2*/
+  return { x, y, w, h, lines };
 }
 function drawTutorial() {
   const box = tutorialBox();
