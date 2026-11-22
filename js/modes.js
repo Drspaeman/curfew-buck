@@ -65,7 +65,7 @@ const MOON = {
   gibbous: { dark: -0.04, range: 1.04, label: '🌔 Gibbous moon: a little brighter tonight.' },
   full: { dark: -0.1, range: 1.08, label: '🌕 Full moon: bright, and everyone sees farther.' },
 };
-function moonFx() { if (G && G.moon && MOON[G.moon]) return MOON[G.moon]; return MOON[['new', 'crescent', 'half', 'gibbous', 'full'][(night - 1) % 5]] || MOON.half; }
+function moonFx() { if (G && G.moon && MOON[G.moon]) return MOON[G.moon]; return MOON[['half', 'gibbous', 'new', 'crescent', 'full'][(night - 1) % 5]] || MOON.half; }   // Night 1 isn't the darkest night: it's a new player's first look
 function rumble(ms, strength) {
   try {
     const gp = navigator.getGamepads && Array.from(navigator.getGamepads()).find(Boolean);

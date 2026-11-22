@@ -1414,7 +1414,7 @@ function saveChaseCheckpoint() {
   const c = retryCampaign(); c.strikes = (campaign.strikes || 0) + 1; c.lastFail = 'escaped';
   G.retryFine = keepFine;
   if (c.strikes < strikesMax()) saveOk(store.set('hs_save', { night, campaign: c }));
-  else clearSave();   // that would be the third strike: the season is over either way
+  else saveOk(store.set('hs_save', { night, campaign: c, phase: 'chaseout' }));   // the last strike: Continue explains what happened instead of the season vanishing   /*r3*/
 }
 // Suspicion maxed out. On Easy and Normal the first time each night is a last warning, not a 911 call.   /*ease17*/
 function suspicionFull(w) {
@@ -1623,7 +1623,7 @@ function readSave() {
     else if (typeof want === 'number') { const v = Number(c[k]); c[k] = Number.isFinite(v) ? v : want; }
   }
   const result = s.court && s.result && typeof s.result === 'object' && Number.isFinite(Number(s.result.delivered)) ? s.result : null;
-  return { night: n, campaign: c, court: !!s.court, start: s.court && s.start && typeof s.start === 'object' && !Array.isArray(s.start) ? s.start : null, result, phase: ['shop', 'ended'].includes(s.phase) ? s.phase : null };
+  return { night: n, campaign: c, court: !!s.court, start: s.court && s.start && typeof s.start === 'object' && !Array.isArray(s.start) ? s.start : null, result, phase: ['shop', 'ended', 'chaseout'].includes(s.phase) ? s.phase : null };
 }
 function clearSave() { if (previewMode) return; try { localStorage.removeItem('hs_save'); } catch (e) { /* no storage */ } }
 function loadGame() {
@@ -1634,6 +1634,16 @@ function loadGame() {
   if (s.phase === 'shop' && s.night > 1) {
     night = s.night - 1; campaign = s.campaign; story = null;
     goShop();
+    return true;
+  }
+  // the game closed during a police chase on the last strike: that counts as getting away short, and the season ends   /*r3*/
+  if (s.phase === 'chaseout') {
+    night = s.night; campaign = s.campaign;
+    playScene([
+      ['narrator', `The game closed during a police chase on Night ${night}. Leaving mid-chase counts as getting away short: strike ${campaign.strikes} of ${strikesMax()}.`],
+      ['kowalski', 'That\'s the last strike, Dale. Linda\'s already on the phone with the tow company. She\'s using her happy voice.'],
+      ['narrator', 'The HOA towed the shed. Darlene talked them into leaving your cot on the porch. The season is over.'],
+    ], () => { recordScore(); clearSave(); state = 'title'; });
     return true;
   }
   // the season is over: the ending plays again, then Endless picks up at Night 6
@@ -1700,7 +1710,7 @@ function buildNews(reason) {
 // the camera may run past the map's top and bottom edges by that much (or Dale hides under them at the edge).
 // Shared with the online guest camera in net.js.
 function camTargetY(y) {
-  const narrow = VW < 760, topPad = narrow ? 320 : 0, botPad = narrow ? (G && G.hint ? 200 : 70) : 0;
+  const narrow = compactUI(), topPad = narrow ? 320 : 0, botPad = narrow ? (G && G.hint ? 200 : 70) : 0;
   let focus = VH / 2;
   const tb = narrow && G && G.tut && typeof tutorialBox === 'function' ? tutorialBox() : null;
   if (tb) focus = Math.min(VH - 150, Math.max(focus, tb.y + tb.h + 70));   // the tutorial panel would cover him

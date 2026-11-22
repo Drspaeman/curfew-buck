@@ -317,7 +317,7 @@ function seasonChoice() { return state === 'over' && G && !netClient() && ((nigh
 // Blinking prompts and warnings stay steady with Flashing: Reduced
 function blinkOn(ms) { return !settings.flashes || Math.floor(performance.now() / ms) % 2 === 0; }
 function toastLayout() {
-  const narrow = VW < 760;
+  const narrow = compactUI();
   // phones in play: below the objective chip and the police warning, not on top of them
   let y = narrow ? (G && (state === 'play' || state === 'photo') ? (G.police ? 338 : G.objective ? 314 : 300) : 300) : 220, show = narrow ? toasts.slice(-2) : toasts;
   // phone menus and results: just the newest, at the very top, above the screen's title
@@ -809,7 +809,7 @@ function glow(c, x, y, r, a) {
 
 function drawLighting(now) {
   const p = state === 'title' ? 0 : progress();
-  const a = clamp(lerp(0.74, 0.12, Math.pow(p, 1.4)) + (G ? moonFx().dark + (G.blackout ? 0.07 : 0) : 0), 0.05, 0.86) * (G && G.nvgOn ? 0.3 : 1);
+  const a = clamp(lerp(0.5, 0.08, Math.pow(p, 1.4))   /* lighter early night: the first screen a new player sees was nearly black */ + (G ? moonFx().dark + (G.blackout ? 0.07 : 0) : 0), 0.05, 0.86) * (G && G.nvgOn ? 0.3 : 1);
   const r = Math.round(lerp(6, 70, p)), g = Math.round(lerp(10, 45, p)), b = Math.round(lerp(32, 50, p));
   lctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   lctx.globalCompositeOperation = 'source-over';
@@ -1170,7 +1170,7 @@ function drawHUD(now) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
   // suspicion bar
-  const compact = VW < 760;
+  const compact = compactUI();
   let bw = compact ? VW - 52 : Math.min(380, VW - 320), bx = compact ? 26 : (VW - bw) / 2;
   const by = compact ? 222 : 16;
   // centred, unless that would run under the HUD panel (ends at x 264) or the minimap: then it fits between them
@@ -1275,7 +1275,7 @@ function drawTruckPointer(t = world.shed, label = 'SHED', color = '#ffd166') {
   const a = Math.atan2(ty - VH / 2, tx - VW / 2);
   // ride an ellipse near the screen edge, kept clear of the top HUD
   const px = clamp(VW / 2 + Math.cos(a) * (VW / 2 - 50), 40, VW - 40);
-  const top = VW < 760 ? 300 + (G.objective ? 26 : 0) + (G.police ? 26 : 0) : 100;
+  const top = compactUI() ? 300 + (G.objective ? 26 : 0) + (G.police ? 26 : 0) : 100;
   let py = clamp(VH / 2 + Math.sin(a) * (VH / 2 - 50), top, VH - 60);   // stay below the HUD panel (it's taller on phones)
   // desktop: never on top of the stats panel (top left) or the minimap (top right)
   if (VW >= 760 && ((px < 300 && py < 250) || (px > VW - 250 && py < 200))) py = px < 300 ? 250 : 200;
@@ -1341,7 +1341,10 @@ function minimapBox() {
   return { x: VW - mw - 16, y: 16, w: mw, h: mh };
 }
 // Wide but short (a phone on its side): little room above and below Dale
-function shortLandscape() { return VW >= 760 && VH < 500; }
+// a landscape phone or a short window: the desktop layout, squeezed (the portrait-phone layout stacks panels down the middle)   /*r3*/
+function shortLandscape() { return VH < 500 && VW > VH; }
+// portrait phones and narrow windows: panels stack under the HUD
+function compactUI() { return VW < 760 && !shortLandscape(); }
 
 function wrapLines(text, maxW) {
   const lines = [];
@@ -1465,7 +1468,7 @@ function drawScreenBody(now) {
     const save = readSave();
     if (save) {
       y = buttonGrid([
-        { label: save.court ? `Continue (court date, Night ${save.night})` : save.phase === 'shop' ? `Continue (Earl's shop, before Night ${save.night})` : save.phase === 'ended' ? 'Continue (the ending, then Endless)' : `Continue (Night ${save.night})`, fn: () => loadGame(), hi: true },   /*save19*/
+        { label: save.court ? `Continue (court date, Night ${save.night})` : save.phase === 'shop' ? `Continue (Earl's shop, before Night ${save.night})` : save.phase === 'ended' ? 'Continue (the ending, then Endless)' : save.phase === 'chaseout' ? `Continue (Night ${save.night}: you left during a police chase)` : `Continue (Night ${save.night})`, fn: () => loadGame(), hi: true },   /*save19*/
         { label: confirmNewAt && performance.now() - confirmNewAt < 3000 ? 'Click again: erase save?' : 'New season', fn: () => { if (confirmNewAt && performance.now() - confirmNewAt < 3000) { confirmNewAt = 0; newCampaign(); } else confirmNewAt = performance.now(); } },
       ], y - 8, 220, 42) - 10;
       ctx.fillStyle = '#e0b83a'; ctx.font = '13px system-ui, sans-serif';
