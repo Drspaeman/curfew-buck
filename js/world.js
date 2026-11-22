@@ -222,6 +222,13 @@ function buildWorld() {
     }
     if (i % 2 === 1) props.push({ x: h.x + h.w - 4, y: h.top ? h.y - 22 : h.y + h.h + 22, kind: 'trash', down: 0 });
   });
+  // dogs and gnomes never start inside a pool, hedge or other solid   /*place15*/
+  const freeSpot = (x, y, m) => !solids.some(r => x > r.x - m && x < r.x + r.w + m && y > r.y - m && y < r.y + r.h + m);
+  for (let i = dogs.length - 1; i >= 0; i--) {
+    const d = dogs[i], spot = [0, -70, 70, -140, 140].map(o => [d.ax + o, d.ay]).find(([x, y]) => freeSpot(x, y, 26));
+    if (!spot) dogs.splice(i, 1); else { d.ax = d.x = spot[0]; d.ay = d.y = spot[1]; }
+  }
+  for (let i = props.length - 1; i >= 0; i--) if (!freeSpot(props[i].x, props[i].y, 8)) props.splice(i, 1);
   world = { roads, blocks, houses, fences, truck, shed: truck, van, ponds, clubhouse, garage, cars, hedges, sprinklers, ice, puddles, creekGaps, clearing, phase2, pools, grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked };
 }
 

@@ -353,7 +353,7 @@ function drawCarvings(now) {
 function drawHouseShadows() {
   ctx.fillStyle = 'rgba(0,0,10,0.22)';
   for (const h of world.houses) {
-    if (!inView(h.x + h.w / 2, h.y + h.h, 200)) continue;
+    if (!rectInView(h.x, h.y, h.w, h.h, 140)) continue;
     ctx.beginPath(); ctx.moveTo(h.x + 14, h.y + h.h); ctx.lineTo(h.x + h.w, h.y + h.h); ctx.lineTo(h.x + h.w + 26, h.y + h.h + 52); ctx.lineTo(h.x + 40, h.y + h.h + 52); ctx.closePath(); ctx.fill();
   }
 }
@@ -757,8 +757,9 @@ function worldFromSpec(spec) {
   const truck = spec.shed ? { x: Math.round(spec.shed.x), y: Math.round(spec.shed.y), w: 100, h: 70, shed: true }
     : exHouse.top ? { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y + exHouse.h + 76, w: 100, h: 70, shed: true }
       : { x: exHouse.x + exHouse.w / 2 - 50, y: exHouse.y - 146, w: 100, h: 70, shed: true };
-  truck.x = clamp(truck.x, M + 20, W - M - 120); truck.y = clamp(truck.y, M + 20, H - M - 120);   // never off the map
-  const van = spec.van ? { x: Math.round(spec.van.x), y: Math.round(spec.van.y), w: 116, h: 56 } : { x: W - 205, y: hy[0] + 30, w: 116, h: 56 };
+  if (spec.shed) { truck.x = clamp(truck.x, 40, W - 140); truck.y = clamp(truck.y, 40, H - 110); }   // where the author put it, kept on the map
+  else { truck.x = clamp(truck.x, M + 20, W - M - 120); truck.y = clamp(truck.y, M + 20, H - M - 120); }
+  const van = spec.van ? { x: clamp(Math.round(spec.van.x), 40, W - 156), y: clamp(Math.round(spec.van.y), 40, H - 96), w: 116, h: 56 } : { x: W - 205, y: hy[0] + 30, w: 116, h: 56 };   // fully on the map, where Dale can reach it
   const ponds = (spec.ponds || []).map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, pond: true, noLos: true, name: p.name || '' }));
   const clubhouse = spec.clubhouse ? { x: Math.round(spec.clubhouse.x), y: Math.round(spec.clubhouse.y), w: 180, h: 110, clubhouse: true } : { x: -999, y: -999, w: 1, h: 1, clubhouse: true };
   const pools = (spec.pools || []).map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, pool: true, noLos: true }));
@@ -821,6 +822,13 @@ function worldFromSpec(spec) {
     if (i % 3 === 0 || h.ex) { const g = { x: h.x - 95, y: h.y + 40, w: 80, h: 80, ex: h.ex }; gardens.push(g); props.push({ x: g.x + 8, y: g.y + 8, kind: 'gnome', down: 0 }); }
     if (i % 2 === 1) props.push({ x: h.x + h.w - 4, y: h.top ? h.y - 22 : h.y + h.h + 22, kind: 'trash', down: 0 });
   });
+  // dogs and gnomes never start inside a pool, hedge or other solid   /*place15*/
+  const freeSpot = (x, y, m) => !solids.some(r => x > r.x - m && x < r.x + r.w + m && y > r.y - m && y < r.y + r.h + m);
+  for (let i = dogs.length - 1; i >= 0; i--) {
+    const d = dogs[i], spot = [0, -70, 70, -140, 140].map(o => [d.ax + o, d.ay]).find(([x, y]) => freeSpot(x, y, 26));
+    if (!spot) dogs.splice(i, 1); else { d.ax = d.x = spot[0]; d.ay = d.y = spot[1]; }
+  }
+  for (let i = props.length - 1; i >= 0; i--) if (!freeSpot(props[i].x, props[i].y, 8)) props.splice(i, 1);
   world = { cul: true, custom: !!spec.custom, mapName: spec.name, roads, bulbs, blocks, houses, fences: [], truck, shed: truck, van, ponds, clubhouse, garage, cars, hedges, sprinklers, ice, puddles, creekGaps: [], clearing: null, phase2: [], pools, grass, solids, trees, bushes, lights, dogs, signs, floods, gardens, props, exHouse, vx, hy, inWoods, blocked };
 }
 function buildCulWorld() {
@@ -857,6 +865,7 @@ function startCustomMap(spec) {
   const problems = [];
   if (!deer.length) problems.push('There\'s nowhere for deer to live (water or buildings cover every open spot). Add some open ground or woods.');
   if (!nearTruck()) problems.push('Dale can\'t reach his shed from where he starts. Move the shed into open ground.');
+  else if (deer.length && !deer.some(d => reachable(player.x, player.y, d.x, d.y, 60))) problems.push('Dale is walled in: he can\'t walk from his shed to any deer. Open a gap in the hedges or buildings around the shed.');
   if (problems.length) { story = null; state = 'title'; alert('That map can\'t be played:\n' + problems.join('\n')); return false; }
   return true;
 }

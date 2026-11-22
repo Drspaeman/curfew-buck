@@ -13,6 +13,8 @@ window.addEventListener('keydown', e => {
     if (step) { scrollMenu(step); e.preventDefault(); return; }
   }
   if (netOnlineKey(e) || netClientKey(e)) return;
+  if (kbMenuKey(e)) return;   /*kbfocus*/
+  if (!twoP() && state === 'play' && e.code.startsWith('Arrow')) aimBy = 'keys';
   if (e.repeat) return;
   if (state === 'story') { if (e.code === 'Escape') advanceStory(true); else if (['Enter', 'Space', 'KeyE'].includes(e.code)) advanceStory(); return; }
   if (state === 'steve') {
@@ -70,7 +72,7 @@ window.addEventListener('keyup', e => {
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; stopGameplaySounds(); } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; touch.mx = touch.my = 0; if (netClient()) { NET.lastIn = ''; NET.inT = 0; } if (state === 'play' && !netLive()) { player.drawing = false; state = 'pause'; stopGameplaySounds(); } });
-cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; aimBy = 'mouse'; });
+cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; aimBy = 'mouse'; kbFocus = false; });
 cv.addEventListener('mousedown', e => {
   mouse.x = e.clientX; mouse.y = e.clientY;
   if (state === 'play' && e.button === 2) { throwCone(); return; }
@@ -101,7 +103,19 @@ let shopSel = 0, titleEgg = '';
 // Aiming follows whichever device was used last, so an idle controller can't steal the mouse or touch aim
 let aimBy = 'mouse';
 // Gamepad menu focus: the D-pad moves between the buttons on any menu screen, A presses the focused one
-let padFocus = -1, padFocusState = null;
+let padFocus = -1, padFocusState = null, kbFocus = false;
+// Keyboard menu focus: Tab / Shift+Tab move between a screen's buttons, Enter or Space presses the focused one
+function kbMenuKey(e) {
+  if (['play', 'story', 'keys', 'photo', 'steve'].includes(state) || netClient()) return false;
+  if (state !== padFocusState) { padFocus = -1; padFocusState = state; kbFocus = false; }
+  if (e.code === 'Tab' && uiButtons.length) {
+    const n = uiButtons.length;
+    padFocus = padFocus < 0 || !uiButtons[padFocus] ? (e.shiftKey ? n - 1 : 0) : (padFocus + (e.shiftKey ? n - 1 : 1)) % n;
+    kbFocus = true; padScrollTo(uiButtons[padFocus]); return true;
+  }
+  if (kbFocus && (e.code === 'Enter' || e.code === 'Space') && !e.repeat && uiButtons[padFocus]) { uiButtons[padFocus].fn(); return true; }
+  return false;
+}
 function padNeighbor(i, dx, dy) {
   const c = b => [b.x + b.w / 2, b.y + b.h / 2], [x0, y0] = c(uiButtons[i]);
   let best = i, bs = Infinity;

@@ -275,7 +275,7 @@ function spawnCritters() {
   for (let i = 0; i < 5; i++) { const p = woodsSpot(); critters.push({ type: 'turkey', x: p.x, y: p.y, state: 'walk', t: rnd(1, 4), ang: rnd(0, TAU), gobT: rnd(3, 12), dead: false }); }
   for (let i = 0; i < 6; i++) { const p = yardSpot(); critters.push({ type: 'crows', x: p.x, y: p.y, flown: false, t: 0, birds: Array.from({ length: 5 }, () => ({ dx: rnd(-18, 18), dy: rnd(-14, 14), a: rnd(0, TAU) })) }); }
   const cans = world.props.filter(p => p.kind === 'trash');
-  for (let i = 0; i < 3; i++) { const c = pick(cans); critters.push({ type: 'raccoon', x: c.x + 30, y: c.y + 20, target: c, state: 'sneak', t: rnd(15, 35), ang: 0, hissCD: 0 }); }
+  if (cans.length) for (let i = 0; i < 3; i++) { const c = pick(cans); critters.push({ type: 'raccoon', x: c.x + 30, y: c.y + 20, target: c, state: 'sneak', t: rnd(15, 35), ang: 0, hissCD: 0 }); }
   if (night >= 2) for (let i = 0; i < (night >= 4 ? 2 : 1); i++) { const p = yardSpot(); critters.push({ type: 'skunk', x: p.x, y: p.y, state: 'walk', t: rnd(2, 5), ang: rnd(0, TAU), sprayed: false }); }
 }
 
@@ -611,6 +611,12 @@ function updatePlayer(dt) {
   if (keys.KeyS || (useArrows && keys.ArrowDown)) my += 1;
   if (keys.KeyA || (useArrows && keys.ArrowLeft)) mx -= 1;
   if (keys.KeyD || (useArrows && keys.ArrowRight)) mx += 1;
+  // Keyboard-only aim (one player): the arrow keys aim. While the bow is drawn they turn the aim without walking.
+  const ax = useArrows ? (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0) : 0, ay = useArrows ? (keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0) : 0;   /*kbaim*/
+  if (aimBy === 'keys' && (ax || ay)) {
+    player.kbAim = Math.atan2(ay, ax);
+    if (player.drawing) { mx -= ax; my -= ay; }
+  }
   if (pad.connected) { mx += pad.mx; my += pad.my; }
   if (touch.stickId !== null) { mx += touch.mx; my += touch.my; }
   player.crouch = !!(keys.ShiftLeft || (!twoP() && keys.ShiftRight) || keys.KeyC || pad.crouch || touch.crouch);
@@ -667,6 +673,10 @@ function updatePlayer(dt) {
   if (pad.connected && aimBy === 'pad' && (pad.aim !== null || len > 0)) {
     // Right stick aims; otherwise aim where you're walking. Keep the virtual mouse in sync for pinecones.
     player.ang = pad.aim !== null ? pad.aim : Math.atan2(my, mx);
+    mouse.x = player.x - cam.x + Math.cos(player.ang) * 260;
+    mouse.y = player.y - cam.y + Math.sin(player.ang) * 260;
+  } else if (aimBy === 'keys') {
+    player.ang = player.kbAim !== undefined ? player.kbAim : player.ang;
     mouse.x = player.x - cam.x + Math.cos(player.ang) * 260;
     mouse.y = player.y - cam.y + Math.sin(player.ang) * 260;
   } else {
@@ -1312,6 +1322,7 @@ function callPolice(w) {
 }
 
 function updatePolice(dt) {
+  if (G.sirenCap > 0) G.sirenCap -= dt;   /*siren15*/
   if (!G.police) return;
   if (G.policeT > 0) { G.policeT -= dt; if (G.policeT <= 0) spawnCop(); return; }
   // Record a scent trail for the K-9
@@ -1329,8 +1340,7 @@ function updatePolice(dt) {
     let nd = 1e9;
     for (const c of watchers) if (c.type === 'cop') nd = Math.min(nd, dist(c.x, c.y, player.x, player.y));
     const vol = clamp(1 - nd / 1400, 0, 1) * 0.05;
-    if (vol > 0.003) sfx.siren(vol);
-    if (nd < 700) G.sirenCap = 1.2;
+    if (vol > 0.003) { sfx.siren(vol); G.sirenCap = 1.2; }   // the caption shows whenever the siren can be heard
   }
 }
 

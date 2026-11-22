@@ -246,6 +246,13 @@ function nearestFree(cx, cy) {
       if (cellFree(cx + dx, cy + dy)) return [cx + dx, cy + dy];
   return null;
 }
+// Can a walker get from (sx,sy) to within r of (tx,ty)?
+function reachable(sx, sy, tx, ty, r) {
+  const p = findPath(sx, sy, tx, ty, 60000);
+  if (!p || !p.length) return false;
+  const e = p[p.length - 1];
+  return dist(e.x, e.y, tx, ty) <= r;
+}
 function findPath(sx, sy, tx, ty, maxNodes = 5000) {
   if (!navGrid) return null;
   if (walkable(sx, sy, tx, ty)) return [{ x: tx, y: ty }];

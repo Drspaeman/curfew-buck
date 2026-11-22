@@ -4,6 +4,8 @@
 // ============================================================
 // Rendering
 // ============================================================
+// a whole rectangle (plus margin m) touches the screen   /*cull15*/
+function rectInView(x, y, w, h, m) { return x + w > cam.x - m && x < cam.x + VW + m && y + h > cam.y - m && y < cam.y + VH + m; }
 function inView(x, y, m) { return x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m; }
 
 function render(now) {
@@ -59,7 +61,7 @@ function render(now) {
   if (G) drawLighting(now);
   if (G && G.nvgOn) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(60,255,110,0.12)'; ctx.fillRect(0, 0, cv.width, cv.height); }
   if (G && G.flash > 0 && settings.flashes) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(230,235,255,${clamp(G.flash * 1.6, 0, 0.55)})`; ctx.fillRect(0, 0, cv.width, cv.height); }
-  if (G && G.sirenCap > 0 && state === 'play') { G.sirenCap -= 1 / 60; ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(60,10,10,0.85)'; roundRect(ctx, 14, VH - 92, 190, 24, 8); ctx.fill(); ctx.fillStyle = '#ffd0d0'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🚨 Siren: a cruiser is close', 24, VH - 75); }
+  if (G && G.sirenCap > 0 && state === 'play') { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(60,10,10,0.85)'; roundRect(ctx, 14, VH - 92, 190, 24, 8); ctx.fill(); ctx.fillStyle = '#ffd0d0'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('🚨 Siren: a cruiser is nearby', 24, VH - 75); }
   if (G && G.flash > 0 && !settings.flashes && state === 'play') { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = 'rgba(20,24,40,0.85)'; const ly = G.sirenCap > 0 ? VH - 122 : VH - 92; roundRect(ctx, VW / 2 - 130, ly, 260, 24, 8); ctx.fill(); ctx.fillStyle = '#e6ebff'; ctx.font = 'bold 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚡ Lightning: you\'re easier to see', VW / 2, ly + 17); }
   ctx.setTransform(DPR, 0, 0, DPR, (-cam.x + sx) * DPR, (-cam.y + sy) * DPR);
   if (G) drawAmbient(now);
@@ -79,7 +81,7 @@ let lastState = null, fadeT = 0;
 
 function drawPonds(now) {
   for (const p of world.ponds) {
-    if (!inView(p.x + p.w / 2, p.y + p.h / 2, 200)) continue;
+    if (!rectInView(p.x, p.y, p.w, p.h, 60)) continue;
     ctx.fillStyle = '#3d4a2a'; roundRect(ctx, p.x - 10, p.y - 10, p.w + 20, p.h + 20, Math.min(40, (p.h + 20) / 2)); ctx.fill();
     ctx.fillStyle = p.koi ? '#2a6f86' : '#2b5550'; roundRect(ctx, p.x, p.y, p.w, p.h, Math.min(34, p.h / 2)); ctx.fill();
     // lily pads / koi
@@ -125,7 +127,7 @@ function drawObjectiveMarker(now) {
 
 function drawPools(now) {
   for (const p of world.pools) {
-    if (!inView(p.x + 60, p.y + 32, 120)) continue;
+    if (!rectInView(p.x, p.y, p.w, p.h, 60)) continue;
     ctx.fillStyle = '#d8d2c4'; roundRect(ctx, p.x - 6, p.y - 6, p.w + 12, p.h + 12, 14); ctx.fill();
     ctx.fillStyle = '#2f8fb8'; roundRect(ctx, p.x, p.y, p.w, p.h, 10); ctx.fill();
     ctx.strokeStyle = 'rgba(200,240,255,0.35)'; ctx.lineWidth = 1.5;
@@ -359,8 +361,9 @@ function drawToasts() {
 
 function drawGround() {
   // lawns with mowing stripes
-  for (const b of world.blocks) {
-    if (!inView(b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h))) continue;
+  for (let bi = 0; bi < world.blocks.length; bi++) {
+    const b = world.blocks[bi];
+    if (world.blocks.indexOf(b) !== bi || !rectInView(b.x, b.y, b.w, b.h, 0)) continue;
     ctx.fillStyle = '#365c2e';
     ctx.fillRect(b.x, b.y, b.w, b.h);
     ctx.fillStyle = '#3b6532';
@@ -391,7 +394,8 @@ function drawGround() {
   // gravel logging road out to Sketchy Steve's van
   const v = world.van;
   ctx.fillStyle = '#5b4f3f';
-  ctx.fillRect(W - M - 10, v.y - 40, M - 10, v.h + 80);
+  if (v.x > W - M - 200) ctx.fillRect(W - M - 10, v.y - 40, M - 10, v.h + 80);   // out to the east edge from its usual spot
+  else ctx.fillRect(v.x - 70, v.y - 40, v.w + 100, v.h + 80);
   // dirt path from the shed's door
   const s = world.shed;
   ctx.fillStyle = '#4e5a35';
@@ -468,8 +472,8 @@ function drawVan() {
   const v = world.van;
   if (G && G.police) {
     // sawhorse roadblock across the logging road
-    for (let i = 0; i < 3; i++) { const bx = W - M - 6, by = v.y - 30 + i * 46; ctx.fillStyle = '#eee'; ctx.fillRect(bx, by, 10, 34); ctx.fillStyle = '#e33'; ctx.fillRect(bx, by + 6, 10, 6); ctx.fillRect(bx, by + 20, 10, 6); }
-    ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('POLICE ROADBLOCK', W - M, v.y - 40);
+    for (let i = 0; i < 3; i++) { const bx = v.x - 61, by = v.y - 30 + i * 46; ctx.fillStyle = '#eee'; ctx.fillRect(bx, by, 10, 34); ctx.fillStyle = '#e33'; ctx.fillRect(bx, by + 6, 10, 6); ctx.fillRect(bx, by + 20, 10, 6); }
+    ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('POLICE ROADBLOCK', v.x - 56, v.y - 40);
   }
   if (!inView(v.x + v.w / 2, v.y, 200)) return;
   ctx.save(); ctx.translate(v.x, v.y);
@@ -492,7 +496,7 @@ function drawFences() {
 
 function drawHouses() {
   for (const h of world.houses) {
-    if (!inView(h.x + h.w / 2, h.y + h.h / 2, 260)) continue;
+    if (!rectInView(h.x, h.y, h.w, h.h, 120)) continue;
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(h.x + 8, h.y + 8, h.w, h.h);
     // driveway toward the front road
@@ -527,7 +531,7 @@ function drawHouses() {
     ctx.fillText(String(100 + world.houses.indexOf(h) * 4), mbx + 13, mby + 1);
     // windows peeking from front edge
     for (let i = 0; i < 3; i++) {
-      ctx.fillStyle = h.lit[i] ? (h.tv && i === 1 ? (Math.sin(performance.now() / 90 + h.x) > 0.3 ? '#9ec5ff' : '#6f8fd0') : '#ffd77a') : '#28323d';
+      ctx.fillStyle = h.lit[i] ? (h.tv && i === 1 ? (settings.flashes && Math.sin(performance.now() / 90 + h.x) > 0.3 ? '#9ec5ff' : '#6f8fd0') : '#ffd77a') : '#28323d';
       const wx = h.x + 30 + i * 70;
       if (h.top) ctx.fillRect(wx, h.y - 9, 26, 5); else ctx.fillRect(wx, h.y + h.h + 4, 26, 5);
     }
@@ -815,9 +819,9 @@ function drawLighting(now) {
   lctx.globalCompositeOperation = 'destination-out';
   lctx.setTransform(DPR, 0, 0, DPR, (-cam.x + camOff.x) * DPR, (-cam.y + camOff.y) * DPR);
   for (const l of world.lights) if (inView(l.x, l.y, 200)) glow(lctx, l.x, l.y, 165, 0.85);
-  for (const f of world.floods) if (f.on > 0 && inView(f.x, f.y, 260)) glow(lctx, f.x, f.y + (f.house.top ? 60 : -60), 240, Math.min(1, f.on) * 0.95);
+  for (const f of world.floods) { const fy = f.y + (f.house.top ? 60 : -60); if (f.on > 0 && inView(f.x, fy, 260)) glow(lctx, f.x, fy, 240, Math.min(1, f.on) * 0.95); }
   for (const h of world.houses) {
-    if (!inView(h.x + h.w / 2, h.y + h.h / 2, 300)) continue;
+    if (!rectInView(h.x, h.y, h.w, h.h, 80)) continue;
     for (let i = 0; i < 3; i++) if (h.lit[i]) glow(lctx, h.x + 43 + i * 70, h.top ? h.y - 10 : h.y + h.h + 10, 55, 0.55);
   }
   if (player) glow(lctx, player.x, player.y, 120, 0.55);
@@ -1292,13 +1296,13 @@ function drawMinimap(big) {
   panel(x0 - 6, y0 - 6, mw + 12, mh + 12);
   ctx.save(); ctx.translate(x0, y0);
   ctx.fillStyle = '#1b2f1d'; ctx.fillRect(0, 0, mw, mh);
-  for (const b of world.blocks) { ctx.fillStyle = '#365c2e'; ctx.fillRect(b.x * s, b.y * s, b.w * s, b.h * s); }
+  ctx.fillStyle = '#365c2e'; world.blocks.forEach((b, bi) => { if (world.blocks.indexOf(b) === bi) ctx.fillRect(b.x * s, b.y * s, b.w * s, b.h * s); });
   ctx.fillStyle = '#555';
   for (const r of world.roads) ctx.fillRect(r.x * s, r.y * s, r.w * s, r.h * s);
   if (world.bulbs) for (const b of world.bulbs) { ctx.beginPath(); ctx.arc(b.x * s, b.y * s, b.r * s, 0, TAU); ctx.fill(); }
   for (const h of world.houses) { ctx.fillStyle = h.ex ? '#ff9ad5' : '#a89c8a'; ctx.fillRect(h.x * s, h.y * s, h.w * s, h.h * s); }
   const t = world.truck; ctx.fillStyle = '#ff5a3a'; ctx.fillRect(t.x * s - 2, t.y * s - 2, t.w * s + 4, t.h * s + 4);
-  const v = world.van; ctx.fillStyle = '#b5e86a'; ctx.fillRect(v.x * s - 2, v.y * s - 2, v.w * s + 4, v.h * s + 4);
+  const v = world.van; ctx.strokeStyle = '#b5e86a'; ctx.lineWidth = 2; ctx.strokeRect(v.x * s - 1, v.y * s - 1, v.w * s + 2, v.h * s + 2);   // an outline, so the van and the shed differ by shape too
   for (const p of world.ponds) { ctx.fillStyle = '#2f6f86'; ctx.fillRect(p.x * s, p.y * s, p.w * s, p.h * s); }
   const op = objectivePlace();
   if (op) { ctx.strokeStyle = '#7cf'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(op.x * s, op.y * s, 5 + Math.sin(performance.now() / 200), 0, TAU); ctx.stroke(); }
@@ -1535,7 +1539,7 @@ function drawScreenBody(now) {
     // every control, with your own key bindings
     const k = d => keyLabel(boundKey(d));
     const all = touchMode ? 'Left stick: move (push lightly to sneak) · Hold the right side: draw, let go: shoot · Buttons: use, pinecone, grunt, map, leave'
-      : `${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')}: move · ${k('ShiftLeft')}: sneak · ${k('KeyX')}: sprint · hold click (or ${k('Space')}): draw, let go: shoot · ${k('KeyE')}: drag deer / fish / pack cooler / talk to Steve · ${k('KeyF')} or right-click: pinecone · ${k('KeyG')}: grunt call · ${k('KeyV')}: beer · ${k('KeyB')}: corn · ${k('KeyN')}: goggles · ${k('KeyJ')}: jerky for dogs · T: decline call · ${k('Tab')}: map · ${k('KeyR')}: look ahead · H: photo mode · ${k('KeyQ')}: end night at the shed · ${k('KeyP')}: pause`;
+      : `${k('KeyW')}${k('KeyA')}${k('KeyS')}${k('KeyD')}: move · arrows: move and aim (no mouse needed) · ${k('ShiftLeft')}: sneak · ${k('KeyX')}: sprint · hold click (or ${k('Space')}): draw, let go: shoot · ${k('KeyE')}: drag deer / fish / pack cooler / talk to Steve · ${k('KeyF')} or right-click: pinecone · ${k('KeyG')}: grunt call · ${k('KeyV')}: beer · ${k('KeyB')}: corn · ${k('KeyN')}: goggles · ${k('KeyJ')}: jerky for dogs · T: decline call · ${k('Tab')}: map · ${k('KeyR')}: look ahead · H: photo mode · ${k('KeyQ')}: end night at the shed · ${k('KeyP')}: pause`;
     ctx.fillStyle = '#9aa'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.fillText('CONTROLS', cx, py + 14);
     ctx.fillStyle = '#888'; ctx.font = '13px system-ui, sans-serif';
     wrapText(all, cx, py + 34, Math.min(640, VW - 30), 18);
@@ -1729,7 +1733,7 @@ function buttonGrid(items, y, w, h, gap = 10) {
 }
 
 function button(x, y, w, h, label, fn, enabled = true, highlight = false) {
-  const focused = enabled && pad.connected && padFocus === uiButtons.length && padFocusState === state;
+  const focused = enabled && (pad.connected || kbFocus) && padFocus === uiButtons.length && padFocusState === state;
   const hover = focused || (mouse.x >= x && mouse.x <= x + w && mouse.y + drawScroll >= y && mouse.y + drawScroll <= y + h);
   ctx.fillStyle = !enabled ? 'rgba(60,60,60,0.6)' : highlight ? (hover ? '#ffdf8a' : '#ffd166') : hover ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
   roundRect(ctx, x, y, w, h, 8); ctx.fill();
